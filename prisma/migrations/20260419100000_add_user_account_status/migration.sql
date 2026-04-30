@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE `User` ADD COLUMN `accountStatus` VARCHAR(191) NOT NULL DEFAULT 'ACTIVE';

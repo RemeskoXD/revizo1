@@ -1,0 +1,331 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  password      String?
+  phone         String?
+  role          String    @default("CUSTOMER")
+  /// Když je nastaveno, uživatel se nemůže přihlásit a aktivní relace je ukončena.
+  bannedAt      DateTime?
+  isDeleted     Boolean   @default(false)
+  priority      Int       @default(0)
+  emailNotifications Boolean @default(true)
+  accountStatus String @default("ACTIVE")
+  ico           String? @db.VarChar(20)
+  address       String? @db.VarChar(500)
+  licenseDocument String? @db.LongText
+  licenseMimeType String? @db.VarChar(120)
+  expectedTechnicians Int?
+  pendingCompanyInviteCode String? @db.VarChar(80)
+  
+  companyId     String?
+  company       User?     @relation("CompanyTechnicians", fields: [companyId], references: [id])
+  technicians   User[]    @relation("CompanyTechnicians")
+  
+  inviteCode    String?   @unique
+  commissionRate Float?   @default(100)
+
+  stripeCustomerId     String?   @unique
+  lastStripePaymentAt  DateTime?
+  licenseValidUntil    DateTime?
+  /// Po registraci (zákazník) nebo po schválení adminem (technik/firma): dokončit první roční úhradu v aplikaci.
+  requiresSubscriptionCheckout Boolean @default(false)
+  /// Platnost oprávnění vykonávat revize (technik / firma); nastavuje administrátor při schválení nebo později.
+  revisionAuthValidUntil DateTime?
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  orders        Order[]   @relation("CustomerOrders")
+  assignedOrders Order[]  @relation("TechnicianOrders")
+  companyOrders Order[]   @relation("CompanyOrders")
+
+  roleRequests  RoleRequest[]
+  sentJoinRequests     CompanyJoinRequest[] @relation("TechnicianRequests")
+  receivedJoinRequests CompanyJoinRequest[] @relation("CompanyRequests")
+  sentTransfers DocumentTransfer[] @relation("Sender")
+  receivedTransfers DocumentTransfer[] @relation("Receiver")
+  properties    Property[] @relation("PropertyOwner")
+  claimedProperties Property[] @relation("PropertyClaimer")
+  activityLogs    ActivityLog[]
+  messages        Message[]      @relation("UserMessages")
+  defectTasks     DefectTask[]
+  notifications   Notification[]
+  customerReviews Review[]       @relation("CustomerReviews")
+  technicianReviews Review[]     @relation("TechnicianReviews")
+  accountDeletionRequests AccountDeletionRequest[]
+  pushDevices       PushDevice[]
+}
+
+/// FCM / push token z mobilní aplikace – uloženo ve stejné DB jako Revizone (DATABASE_URL).
+model PushDevice {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique @db.VarChar(512)
+  platform  String   @default("android")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model AccountDeletionRequest {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status          String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  note            String?   @db.Text
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  processedAt     DateTime?
+  processedById   String?
+
+  @@index([userId])
+  @@index([status])
+}
+
+model RoleRequest {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  requestedRole String   // TECHNICIAN, COMPANY_ADMIN, REALTY
+  status        String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model CompanyJoinRequest {
+  id           String   @id @default(cuid())
+  technicianId String
+  technician   User     @relation("TechnicianRequests", fields: [technicianId], references: [id], onDelete: Cascade)
+  companyId    String
+  company      User     @relation("CompanyRequests", fields: [companyId], references: [id], onDelete: Cascade)
+  status       String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([technicianId, companyId])
+}
+
+model DocumentTransfer {
+  id          String   @id @default(cuid())
+  senderId    String
+  sender      User     @relation("Sender", fields: [senderId], references: [id])
+  receiverId  String
+  receiver    User     @relation("Receiver", fields: [receiverId], references: [id])
+  documentId  String   // Reference to the document/order being transferred
+  status      String   @default("PENDING") // PENDING, ACCEPTED, REJECTED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Order {
+  id            String    @id @default(cuid())
+  readableId    String    @unique
+  isDeleted     Boolean   @default(false)
+  customerId    String
+  customer      User      @relation("CustomerOrders", fields: [customerId], references: [id])
+  technicianId  String?
+  technician    User?     @relation("TechnicianOrders", fields: [technicianId], references: [id])
+  companyId     String?
+  company       User?     @relation("CompanyOrders", fields: [companyId], references: [id])
+  propertyId    String?
+  property      Property? @relation(fields: [propertyId], references: [id])
+  revisionCategoryId String?
+  revisionCategory   RevisionCategory? @relation(fields: [revisionCategoryId], references: [id])
+  serviceType   String
+  propertyType  String
+  address       String
+  notes         String?
+  status        String    @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, CANCELLED
+  assignedAt    DateTime? // When it was assigned to tech/company (for the 1-day rule)
+  isPublic      Boolean   @default(false) // If true, available to all (after 1 day expires)
+  reportFile    String?   @db.LongText // Base64 encoded PDF
+  price         Float?
+  /// Zákazník zvolil urgentní termín (+ příplatek dle ceníku, typicky URGENT_SURCHARGE).
+  isUrgent      Boolean   @default(false)
+  preferredDate DateTime? // Customer's preferred date (orientation)
+  scheduledDate DateTime? // Technician's confirmed date
+  scheduledNote String?   @db.Text // Technician's note about scheduling
+  confirmedAddress String? // Technician can update the address
+  revisionResult String?  // PASS, PASS_WITH_NOTES, FAIL
+  revisionNotes  String?  @db.Text
+  nextRevisionDate DateTime?
+  completedAt    DateTime?
+  cancelToken    String?  @unique
+  lastExpiryEmailDays Int? // Last sent reminder: 30, 14, 7, 2, 1, 0 (expired), -1 (post-expired)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  checklists    ChecklistItem[]
+  messages      Message[]
+  defectTasks   DefectTask[]
+  review        Review?
+  photos        OrderPhoto[]
+}
+
+model RevisionCategory {
+  id             String   @id @default(cuid())
+  name           String   @unique
+  group          String
+  intervalMonths Int
+  legalBasis     String?
+  description    String?
+  orders         Order[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Property {
+  id             String   @id @default(cuid())
+  name           String   // e.g., "Dům u jezera"
+  address        String?
+  description    String?
+  ownerId        String
+  owner          User     @relation("PropertyOwner", fields: [ownerId], references: [id])
+  
+  orders         Order[]  // Revisions associated with this property
+  
+  // Transfer logic
+  transferToken  String?  @unique
+  transferStatus String?  // e.g., "PENDING", "CLAIMED"
+  claimedById    String?
+  claimedBy      User?    @relation("PropertyClaimer", fields: [claimedById], references: [id])
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model ActivityLog {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action      String   // e.g., "CREATED_ORDER", "ASSIGNED_TECHNICIAN", "UPDATED_ROLE"
+  details     String?  // JSON string or text description
+  targetId    String?  // ID of the affected resource (orderId, userId, etc.)
+  createdAt   DateTime @default(now())
+}
+
+model ChecklistItem {
+  id          String   @id @default(cuid())
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  text        String
+  isCompleted Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Message {
+  id          String   @id @default(cuid())
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  senderId    String
+  sender      User     @relation("UserMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  content     String   @db.Text
+  createdAt   DateTime @default(now())
+}
+
+model DefectTask {
+  id          String   @id @default(cuid())
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  description String?  @db.Text
+  status      String   @default("OPEN") // OPEN, IN_PROGRESS, RESOLVED
+  priority    String   @default("MEDIUM") // LOW, MEDIUM, HIGH
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ShareLink {
+  id          String   @id @default(cuid())
+  token       String   @unique
+  userId      String
+  label       String?
+  orderIds    String   @db.Text // JSON array of order IDs
+  expiresAt   DateTime?
+  isActive    Boolean  @default(true)
+  viewCount   Int      @default(0)
+  createdAt   DateTime @default(now())
+}
+
+model SystemConfig {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String @db.Text
+  label String?
+  updatedAt DateTime @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   // ORDER_ASSIGNED, ORDER_COMPLETED, REVISION_EXPIRING, MESSAGE, TECHNICIAN_SCHEDULED, DEFECT_CREATED
+  title     String
+  message   String   @db.Text
+  link      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+}
+
+model Review {
+  id           String   @id @default(cuid())
+  orderId      String   @unique
+  order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  customerId   String
+  customer     User     @relation("CustomerReviews", fields: [customerId], references: [id])
+  technicianId String
+  technician   User     @relation("TechnicianReviews", fields: [technicianId], references: [id])
+  rating       Int      // 1-5
+  comment      String?  @db.Text
+  createdAt    DateTime @default(now())
+}
+
+model OrderPhoto {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  imageData String   @db.LongText
+  caption   String?
+  uploadedBy String
+  createdAt DateTime @default(now())
+}
+
+/// Idempotence Stripe webhooků (event.id = evt_…).
+model StripeWebhookEvent {
+  id        String   @id @db.VarChar(255)
+  createdAt DateTime @default(now())
+}
+
+model EmailLog {
+  id        String   @id @default(cuid())
+  to        String
+  subject   String
+  type      String   @default("GENERAL")
+  status    String   @default("SENT")
+  messageId String?
+  error     String?  @db.Text
+  orderId   String?
+  userId    String?
+  createdAt DateTime @default(now())
+
+  @@index([to])
+  @@index([type])
+  @@index([createdAt])
+}

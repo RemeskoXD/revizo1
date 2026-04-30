@@ -1,0 +1,33 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+:root {
+  /* Revizone Brand Colors */
+  --color-bg-dark: #111111;
+  --color-bg-card: #1A1A1A;
+  --color-accent: #FBBF24; /* Amber/Yellow */
+  --color-accent-hover: #D97706;
+  --color-text-primary: #F3F4F6;
+  --color-text-secondary: #9CA3AF;
+  --color-border: #374151;
+}
+
+body {
+  background-color: var(--color-bg-dark);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/* Horizontální scroll datových tabulek na telefonech / tabletech */
+.table-scroll {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+@theme {
+  --color-brand-dark: var(--color-bg-dark);
+  --color-brand-card: var(--color-bg-card);
+  --color-brand-yellow: var(--color-accent);
+  --color-brand-yellow-hover: var(--color-accent-hover);
+}

@@ -1,0 +1,10 @@
+# Nesmí být v build kontextu: Nixpacks/Coolify připojuje cache na /app/tsconfig.tsbuildinfo
+# a Docker vyžaduje na této cestě adresář, ne soubor z hostitele.
+*.tsbuildinfo
+
+node_modules
+.next
+.git
+.env
+.env.*
+!.env.example
