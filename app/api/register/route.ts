@@ -124,7 +124,7 @@ export async function POST(req: Request) {
 
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    if (role === "CUSTOMER") {
+    if (role === "CUSTOMER" || role === "SVJ" || role === "REALTY") {
       const nameTrim = name != null ? String(name).trim().slice(0, 120) : "";
       if (nameTrim.length < 2) {
         return NextResponse.json({ message: "Zadejte celé jméno" }, { status: 400 });
@@ -142,7 +142,7 @@ export async function POST(req: Request) {
           name: nameTrim,
           email: emailNorm,
           password: hashedPassword,
-          role: "CUSTOMER",
+          role: role,
           accountStatus: "ACTIVE",
           phone: phone || null,
           address: address || null,
@@ -154,9 +154,9 @@ export async function POST(req: Request) {
 
       let postRegisterRedirect: string | null = null;
       if (isFakePaymentGatewayEnabled()) {
-        postRegisterRedirect = "/dashboard/settings?tab=billing";
+        postRegisterRedirect = role === "SVJ" ? "/svj/settings?tab=billing" : role === "REALTY" ? "/realty/settings?tab=billing" : "/dashboard/settings?tab=billing";
       } else if (isStripePaymentsConfigured()) {
-        postRegisterRedirect = "/dashboard";
+        postRegisterRedirect = role === "SVJ" ? "/svj" : role === "REALTY" ? "/realty" : "/dashboard";
       }
 
       return NextResponse.json(

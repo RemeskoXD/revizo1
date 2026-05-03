@@ -40,6 +40,7 @@ export function orderConfirmationEmail(order: {
   preferredDate: string | null;
   isUrgent?: boolean;
   cancelToken: string;
+  paymentUrl?: string | null;
 }) {
   const priceText = order.price ? `${order.price.toLocaleString('cs-CZ')} Kč` : 'Dle ceníku';
   const dateText = order.preferredDate
@@ -84,12 +85,13 @@ export function orderConfirmationEmail(order: {
 
     <div style="text-align:center;margin:24px 0">
       ${button('Zobrazit objednávku', `${baseUrl}/dashboard/orders/${order.readableId}`)}
+      ${order.paymentUrl ? `<br>${button('Zaplatit online nyní', order.paymentUrl, '#22c55e', '#fff')}` : ''}
     </div>
 
-    <div style="background:rgba(250,204,21,0.05);border:1px solid rgba(250,204,21,0.15);border-radius:10px;padding:16px 20px;margin:24px 0">
+    ${!order.paymentUrl ? `<div style="background:rgba(250,204,21,0.05);border:1px solid rgba(250,204,21,0.15);border-radius:10px;padding:16px 20px;margin:24px 0">
       <p style="color:#facc15;font-size:13px;font-weight:600;margin:0 0 4px">Platba bude zpřístupněna online</p>
       <p style="color:#999;font-size:12px;margin:0">Odkaz na platbu obdržíte e-mailem, jakmile bude aktivní online platební brána.</p>
-    </div>
+    </div>` : ''}
 
     <p style="color:#666;font-size:13px;margin:24px 0 0;text-align:center">
       Chcete objednávku zrušit nebo upravit?<br>
@@ -287,10 +289,47 @@ export function registrationApprovedEmail(params: {
   };
 }
 
+export function paymentSuccessEmail(data: {
+  userName: string | null;
+  serviceType: string;
+  price: number;
+  readableId: string;
+}) {
+  const html = layout(`
+    <h2 style="color:#fff;font-size:20px;margin:0 0 8px">Platba byla přijata</h2>
+    <p style="color:#999;font-size:14px;margin:0 0 24px">Dobrý den${data.userName ? `, ${data.userName}` : ''},</p>
+    
+    <div style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.2);border-radius:12px;padding:20px;margin-bottom:24px;text-align:center">
+      <p style="font-size:32px;margin:0">✅</p>
+      <p style="color:#22c55e;font-size:18px;font-weight:700;margin:8px 0 4px">Platba za revizi proběhla úspěšně</p>
+      <p style="color:#999;font-size:13px;margin:0">Částka ${data.price.toLocaleString('cs-CZ')} Kč byla uhrazena.</p>
+    </div>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#111;border-radius:12px;border:1px solid rgba(255,255,255,0.05);margin-bottom:24px">
+      <tr><td style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.05)">
+        <span style="color:#999;font-size:12px">Číslo objednávky</span><br>
+        <span style="color:#facc15;font-size:16px;font-weight:700;font-family:monospace">#${data.readableId}</span>
+      </td></tr>
+      <tr><td style="padding:16px 20px">
+        <span style="color:#999;font-size:12px">Položka</span><br>
+        <span style="color:#fff;font-size:15px;font-weight:600">${data.serviceType}</span>
+      </td></tr>
+    </table>
+
+    <div style="text-align:center;margin:24px 0">
+      ${button('Zobrazit objednávku', `${baseUrl}/dashboard/orders/${data.readableId}`)}
+    </div>
+  `);
+
+  return {
+    subject: `✅ Potvrzení platby za objednávku #${data.readableId}`,
+    html,
+  };
+}
+
 export function registrationRejectedEmail(params: { name: string | null }) {
   const html = layout(`
     <h2 style="color:#fff;font-size:20px;margin:0 0 8px">Registrace nebyla schválena</h2>
-    <p style="color:#999;font-size:14px;margin:0 0 16px">Dobrý den${params.name ? `, ${params.name}` : ''},</p>
     <p style="color:#ccc;font-size:14px;line-height:1.6;margin:0 0 24px">
       Vaše registrace v systému Revizone bohužel <strong style="color:#f87171">nebyla schválena</strong>.
       Pro více informací nás můžete kontaktovat na podporu.

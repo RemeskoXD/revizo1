@@ -8,87 +8,84 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String?   @unique
-  emailVerified DateTime?
-  password      String?
-  phone         String?
-  role          String    @default("CUSTOMER")
+  id                           String                   @id @default(cuid())
+  name                         String?
+  email                        String?                  @unique
+  password                     String?
+  phone                        String?
+  role                         String                   @default("CUSTOMER")
+  createdAt                    DateTime                 @default(now())
+  updatedAt                    DateTime                 @updatedAt
+  companyId                    String?
+  emailVerified                DateTime?
+  priority                     Int                      @default(0)
+  commissionRate               Float?                   @default(100)
+  inviteCode                   String?                  @unique
+  isDeleted                    Boolean                  @default(false)
+  stripeCustomerId             String?                  @unique
+  accountStatus                String                   @default("ACTIVE")
+  address                      String?                  @db.VarChar(500)
   /// Když je nastaveno, uživatel se nemůže přihlásit a aktivní relace je ukončena.
-  bannedAt      DateTime?
-  isDeleted     Boolean   @default(false)
-  priority      Int       @default(0)
-  emailNotifications Boolean @default(true)
-  accountStatus String @default("ACTIVE")
-  ico           String? @db.VarChar(20)
-  address       String? @db.VarChar(500)
-  licenseDocument String? @db.LongText
-  licenseMimeType String? @db.VarChar(120)
-  expectedTechnicians Int?
-  pendingCompanyInviteCode String? @db.VarChar(80)
-  
-  companyId     String?
-  company       User?     @relation("CompanyTechnicians", fields: [companyId], references: [id])
-  technicians   User[]    @relation("CompanyTechnicians")
-  
-  inviteCode    String?   @unique
-  commissionRate Float?   @default(100)
-
-  stripeCustomerId     String?   @unique
-  lastStripePaymentAt  DateTime?
-  licenseValidUntil    DateTime?
+  bannedAt                     DateTime?
+  emailNotifications           Boolean                  @default(true)
+  expectedTechnicians          Int?
+  ico                          String?                  @db.VarChar(20)
+  lastStripePaymentAt          DateTime?
+  licenseDocument              String?                  @db.LongText
+  licenseMimeType              String?                  @db.VarChar(120)
+  licenseValidUntil            DateTime?
+  pendingCompanyInviteCode     String?                  @db.VarChar(80)
   /// Po registraci (zákazník) nebo po schválení adminem (technik/firma): dokončit první roční úhradu v aplikaci.
-  requiresSubscriptionCheckout Boolean @default(false)
+  requiresSubscriptionCheckout Boolean                  @default(false)
   /// Platnost oprávnění vykonávat revize (technik / firma); nastavuje administrátor při schválení nebo později.
-  revisionAuthValidUntil DateTime?
+  revisionAuthValidUntil       DateTime?
+  accountDeletionRequests      AccountDeletionRequest[]
+  activityLogs                 ActivityLog[]
+  receivedJoinRequests         CompanyJoinRequest[]     @relation("CompanyRequests")
+  sentJoinRequests             CompanyJoinRequest[]     @relation("TechnicianRequests")
+  defectTasks                  DefectTask[]
+  receivedTransfers            DocumentTransfer[]       @relation("Receiver")
+  sentTransfers                DocumentTransfer[]       @relation("Sender")
+  messages                     Message[]                @relation("UserMessages")
+  notifications                Notification[]
+  companyOrders                Order[]                  @relation("CompanyOrders")
+  orders                       Order[]                  @relation("CustomerOrders")
+  assignedOrders               Order[]                  @relation("TechnicianOrders")
+  claimedProperties            Property[]               @relation("PropertyClaimer")
+  properties                   Property[]               @relation("PropertyOwner")
+  pushDevices                  PushDevice[]
+  customerReviews              Review[]                 @relation("CustomerReviews")
+  technicianReviews            Review[]                 @relation("TechnicianReviews")
+  roleRequests                 RoleRequest[]
+  company                      User?                    @relation("CompanyTechnicians", fields: [companyId], references: [id])
+  technicians                  User[]                   @relation("CompanyTechnicians")
 
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  orders        Order[]   @relation("CustomerOrders")
-  assignedOrders Order[]  @relation("TechnicianOrders")
-  companyOrders Order[]   @relation("CompanyOrders")
-
-  roleRequests  RoleRequest[]
-  sentJoinRequests     CompanyJoinRequest[] @relation("TechnicianRequests")
-  receivedJoinRequests CompanyJoinRequest[] @relation("CompanyRequests")
-  sentTransfers DocumentTransfer[] @relation("Sender")
-  receivedTransfers DocumentTransfer[] @relation("Receiver")
-  properties    Property[] @relation("PropertyOwner")
-  claimedProperties Property[] @relation("PropertyClaimer")
-  activityLogs    ActivityLog[]
-  messages        Message[]      @relation("UserMessages")
-  defectTasks     DefectTask[]
-  notifications   Notification[]
-  customerReviews Review[]       @relation("CustomerReviews")
-  technicianReviews Review[]     @relation("TechnicianReviews")
-  accountDeletionRequests AccountDeletionRequest[]
-  pushDevices       PushDevice[]
+  @@index([companyId], map: "User_companyId_fkey")
 }
 
 /// FCM / push token z mobilní aplikace – uloženo ve stejné DB jako Revizone (DATABASE_URL).
 model PushDevice {
   id        String   @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   token     String   @unique @db.VarChar(512)
   platform  String   @default("android")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
 
 model AccountDeletionRequest {
-  id              String    @id @default(cuid())
-  userId          String
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  status          String    @default("PENDING") // PENDING, APPROVED, REJECTED
-  note            String?   @db.Text
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  processedAt     DateTime?
-  processedById   String?
+  id            String    @id @default(cuid())
+  userId        String
+  status        String    @default("PENDING")
+  note          String?   @db.Text
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  processedAt   DateTime?
+  processedById String?
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([status])
@@ -97,81 +94,93 @@ model AccountDeletionRequest {
 model RoleRequest {
   id            String   @id @default(cuid())
   userId        String
-  user          User     @relation(fields: [userId], references: [id])
-  requestedRole String   // TECHNICIAN, COMPANY_ADMIN, REALTY
-  status        String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  requestedRole String
+  status        String   @default("PENDING")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id])
+
+  @@index([userId], map: "RoleRequest_userId_fkey")
 }
 
 model CompanyJoinRequest {
   id           String   @id @default(cuid())
   technicianId String
-  technician   User     @relation("TechnicianRequests", fields: [technicianId], references: [id], onDelete: Cascade)
   companyId    String
-  company      User     @relation("CompanyRequests", fields: [companyId], references: [id], onDelete: Cascade)
-  status       String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  status       String   @default("PENDING")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  company      User     @relation("CompanyRequests", fields: [companyId], references: [id], onDelete: Cascade)
+  technician   User     @relation("TechnicianRequests", fields: [technicianId], references: [id], onDelete: Cascade)
 
   @@unique([technicianId, companyId])
+  @@index([companyId], map: "CompanyJoinRequest_companyId_fkey")
 }
 
 model DocumentTransfer {
-  id          String   @id @default(cuid())
-  senderId    String
-  sender      User     @relation("Sender", fields: [senderId], references: [id])
-  receiverId  String
-  receiver    User     @relation("Receiver", fields: [receiverId], references: [id])
-  documentId  String   // Reference to the document/order being transferred
-  status      String   @default("PENDING") // PENDING, ACCEPTED, REJECTED
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(cuid())
+  senderId   String
+  receiverId String
+  documentId String
+  status     String   @default("PENDING")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  receiver   User     @relation("Receiver", fields: [receiverId], references: [id])
+  sender     User     @relation("Sender", fields: [senderId], references: [id])
+
+  @@index([receiverId], map: "DocumentTransfer_receiverId_fkey")
+  @@index([senderId], map: "DocumentTransfer_senderId_fkey")
 }
 
 model Order {
-  id            String    @id @default(cuid())
-  readableId    String    @unique
-  isDeleted     Boolean   @default(false)
-  customerId    String
-  customer      User      @relation("CustomerOrders", fields: [customerId], references: [id])
-  technicianId  String?
-  technician    User?     @relation("TechnicianOrders", fields: [technicianId], references: [id])
-  companyId     String?
-  company       User?     @relation("CompanyOrders", fields: [companyId], references: [id])
-  propertyId    String?
-  property      Property? @relation(fields: [propertyId], references: [id])
-  revisionCategoryId String?
-  revisionCategory   RevisionCategory? @relation(fields: [revisionCategoryId], references: [id])
-  serviceType   String
-  propertyType  String
-  address       String
-  notes         String?
-  status        String    @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, CANCELLED
-  assignedAt    DateTime? // When it was assigned to tech/company (for the 1-day rule)
-  isPublic      Boolean   @default(false) // If true, available to all (after 1 day expires)
-  reportFile    String?   @db.LongText // Base64 encoded PDF
-  price         Float?
+  id                  String            @id @default(cuid())
+  readableId          String            @unique
+  serviceType         String
+  propertyType        String
+  address             String
+  notes               String?
+  status              String            @default("PENDING")
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  customerId          String
+  technicianId        String?
+  assignedAt          DateTime?
+  companyId           String?
+  isPublic            Boolean           @default(false)
+  reportFile          String?           @db.LongText
+  price               Float?
+  preferredDate       DateTime?
+  propertyId          String?
+  isDeleted           Boolean           @default(false)
+  revisionCategoryId  String?
+  scheduledDate       DateTime?
+  scheduledNote       String?           @db.Text
+  confirmedAddress    String?
+  revisionResult      String?
+  revisionNotes       String?           @db.Text
+  nextRevisionDate    DateTime?
+  completedAt         DateTime?
+  cancelToken         String?           @unique
   /// Zákazník zvolil urgentní termín (+ příplatek dle ceníku, typicky URGENT_SURCHARGE).
-  isUrgent      Boolean   @default(false)
-  preferredDate DateTime? // Customer's preferred date (orientation)
-  scheduledDate DateTime? // Technician's confirmed date
-  scheduledNote String?   @db.Text // Technician's note about scheduling
-  confirmedAddress String? // Technician can update the address
-  revisionResult String?  // PASS, PASS_WITH_NOTES, FAIL
-  revisionNotes  String?  @db.Text
-  nextRevisionDate DateTime?
-  completedAt    DateTime?
-  cancelToken    String?  @unique
-  lastExpiryEmailDays Int? // Last sent reminder: 30, 14, 7, 2, 1, 0 (expired), -1 (post-expired)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  isUrgent            Boolean           @default(false)
+  lastExpiryEmailDays Int?
+  isPaid              Boolean           @default(false)
+  checklists          ChecklistItem[]
+  defectTasks         DefectTask[]
+  messages            Message[]
+  company             User?             @relation("CompanyOrders", fields: [companyId], references: [id])
+  customer            User              @relation("CustomerOrders", fields: [customerId], references: [id])
+  property            Property?         @relation(fields: [propertyId], references: [id])
+  revisionCategory    RevisionCategory? @relation(fields: [revisionCategoryId], references: [id])
+  technician          User?             @relation("TechnicianOrders", fields: [technicianId], references: [id])
+  photos              OrderPhoto[]
+  review              Review?
 
-  checklists    ChecklistItem[]
-  messages      Message[]
-  defectTasks   DefectTask[]
-  review        Review?
-  photos        OrderPhoto[]
+  @@index([companyId], map: "Order_companyId_fkey")
+  @@index([customerId], map: "Order_customerId_fkey")
+  @@index([propertyId], map: "Order_propertyId_fkey")
+  @@index([revisionCategoryId], map: "Order_revisionCategoryId_fkey")
+  @@index([technicianId], map: "Order_technicianId_fkey")
 }
 
 model RevisionCategory {
@@ -181,105 +190,114 @@ model RevisionCategory {
   intervalMonths Int
   legalBasis     String?
   description    String?
-  orders         Order[]
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+  orders         Order[]
 }
 
 model Property {
   id             String   @id @default(cuid())
-  name           String   // e.g., "Dům u jezera"
+  name           String
   address        String?
   description    String?
   ownerId        String
-  owner          User     @relation("PropertyOwner", fields: [ownerId], references: [id])
-  
-  orders         Order[]  // Revisions associated with this property
-  
-  // Transfer logic
   transferToken  String?  @unique
-  transferStatus String?  // e.g., "PENDING", "CLAIMED"
+  transferStatus String?
   claimedById    String?
-  claimedBy      User?    @relation("PropertyClaimer", fields: [claimedById], references: [id])
-
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+  orders         Order[]
+  claimedBy      User?    @relation("PropertyClaimer", fields: [claimedById], references: [id])
+  owner          User     @relation("PropertyOwner", fields: [ownerId], references: [id])
+
+  @@index([claimedById], map: "Property_claimedById_fkey")
+  @@index([ownerId], map: "Property_ownerId_fkey")
 }
 
 model ActivityLog {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  action      String   // e.g., "CREATED_ORDER", "ASSIGNED_TECHNICIAN", "UPDATED_ROLE"
-  details     String?  // JSON string or text description
-  targetId    String?  // ID of the affected resource (orderId, userId, etc.)
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  details   String?
+  targetId  String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "ActivityLog_userId_fkey")
 }
 
 model ChecklistItem {
   id          String   @id @default(cuid())
   orderId     String
-  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   text        String
   isCompleted Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId], map: "ChecklistItem_orderId_fkey")
 }
 
 model Message {
-  id          String   @id @default(cuid())
-  orderId     String
-  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  senderId    String
-  sender      User     @relation("UserMessages", fields: [senderId], references: [id], onDelete: Cascade)
-  content     String   @db.Text
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  orderId   String
+  senderId  String
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  sender    User     @relation("UserMessages", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId], map: "Message_orderId_fkey")
+  @@index([senderId], map: "Message_senderId_fkey")
 }
 
 model DefectTask {
   id          String   @id @default(cuid())
   orderId     String
-  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   title       String
   description String?  @db.Text
-  status      String   @default("OPEN") // OPEN, IN_PROGRESS, RESOLVED
-  priority    String   @default("MEDIUM") // LOW, MEDIUM, HIGH
+  status      String   @default("OPEN")
+  priority    String   @default("MEDIUM")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([orderId], map: "DefectTask_orderId_fkey")
+  @@index([userId], map: "DefectTask_userId_fkey")
 }
 
 model ShareLink {
-  id          String   @id @default(cuid())
-  token       String   @unique
-  userId      String
-  label       String?
-  orderIds    String   @db.Text // JSON array of order IDs
-  expiresAt   DateTime?
-  isActive    Boolean  @default(true)
-  viewCount   Int      @default(0)
-  createdAt   DateTime @default(now())
+  id        String    @id @default(cuid())
+  token     String    @unique
+  userId    String
+  label     String?
+  orderIds  String    @db.Text
+  expiresAt DateTime?
+  isActive  Boolean   @default(true)
+  viewCount Int       @default(0)
+  createdAt DateTime  @default(now())
 }
 
 model SystemConfig {
-  id    String @id @default(cuid())
-  key   String @unique
-  value String @db.Text
-  label String?
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String   @db.Text
+  label     String?
   updatedAt DateTime @updatedAt
 }
 
 model Notification {
   id        String   @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type      String   // ORDER_ASSIGNED, ORDER_COMPLETED, REVISION_EXPIRING, MESSAGE, TECHNICIAN_SCHEDULED, DEFECT_CREATED
+  type      String
   title     String
   message   String   @db.Text
   link      String?
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, isRead])
 }
@@ -287,24 +305,29 @@ model Notification {
 model Review {
   id           String   @id @default(cuid())
   orderId      String   @unique
-  order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   customerId   String
-  customer     User     @relation("CustomerReviews", fields: [customerId], references: [id])
   technicianId String
-  technician   User     @relation("TechnicianReviews", fields: [technicianId], references: [id])
-  rating       Int      // 1-5
+  rating       Int
   comment      String?  @db.Text
   createdAt    DateTime @default(now())
+  customer     User     @relation("CustomerReviews", fields: [customerId], references: [id])
+  order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  technician   User     @relation("TechnicianReviews", fields: [technicianId], references: [id])
+
+  @@index([customerId], map: "Review_customerId_fkey")
+  @@index([technicianId], map: "Review_technicianId_fkey")
 }
 
 model OrderPhoto {
-  id        String   @id @default(cuid())
-  orderId   String
-  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  imageData String   @db.LongText
-  caption   String?
+  id         String   @id @default(cuid())
+  orderId    String
+  imageData  String   @db.LongText
+  caption    String?
   uploadedBy String
-  createdAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId], map: "OrderPhoto_orderId_fkey")
 }
 
 /// Idempotence Stripe webhooků (event.id = evt_…).

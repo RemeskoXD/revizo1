@@ -1,22 +1,27 @@
 /** Roční předplatné po 1 měsíci zdarma (marketing + výpočty fake brány). */
 
-export type SubscriptionPlanKey = 'CUSTOMER' | 'TECHNICIAN' | 'COMPANY_ADMIN';
+export type SubscriptionPlanKey = 'CUSTOMER' | 'TECHNICIAN' | 'COMPANY_ADMIN' | 'SVJ' | 'REALTY';
 
 export const SUBSCRIPTION_PLANS: Record<
   SubscriptionPlanKey,
-  { label: string; yearlyPriceCzk: number }
+  { label: string; yearlyPriceCzk: number; stripePriceId: string }
 > = {
-  CUSTOMER: { label: 'Zákazník', yearlyPriceCzk: 199 },
-  TECHNICIAN: { label: 'Technik', yearlyPriceCzk: 899 },
-  COMPANY_ADMIN: { label: 'Firma', yearlyPriceCzk: 1199 },
+  CUSTOMER: { label: 'Zákazník', yearlyPriceCzk: 199, stripePriceId: 'price_1TRxwALtyGxFBhS8q8DqepQ9' },
+  TECHNICIAN: { label: 'Technik', yearlyPriceCzk: 899, stripePriceId: 'price_1TRyMhLtyGxFBhS8Eo71vv3V' },
+  COMPANY_ADMIN: { label: 'Firma / Revizní společnost', yearlyPriceCzk: 1199, stripePriceId: 'price_1TRyN2LtyGxFBhS8Io9Mnq3k' },
+  SVJ: { label: 'Správce SVJ / Bytové domy', yearlyPriceCzk: 799, stripePriceId: 'price_1TRyNaLtyGxFBhS85AGMIiJl' },
+  REALTY: { label: 'Realitní makléř / Kancelář', yearlyPriceCzk: 699, stripePriceId: 'price_1TRyNzLtyGxFBhS8gKCP5MBJ' },
 };
 
 export function getSubscriptionPlanForRole(role: string): {
   label: string;
   yearlyPriceCzk: number;
+  stripePriceId: string;
 } {
   if (role === 'TECHNICIAN') return SUBSCRIPTION_PLANS.TECHNICIAN;
   if (role === 'COMPANY_ADMIN') return SUBSCRIPTION_PLANS.COMPANY_ADMIN;
+  if (role === 'SVJ') return SUBSCRIPTION_PLANS.SVJ;
+  if (role === 'REALTY') return SUBSCRIPTION_PLANS.REALTY;
   return SUBSCRIPTION_PLANS.CUSTOMER;
 }
 

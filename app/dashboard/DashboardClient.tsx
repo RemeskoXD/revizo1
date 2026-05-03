@@ -1,16 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   AlertTriangle, CheckCircle2, Clock, ArrowRight, ShieldCheck, 
   PlusCircle, Bell, FileText, Share2, XCircle, ChevronRight,
   CalendarClock, Eye
 } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import { AnimatedItem } from '@/components/AnimatedItem';
 import { cn } from '@/lib/utils';
+import toast from 'react-hot-toast';
 
 interface WatchdogItem {
   id: string;
@@ -30,7 +31,19 @@ export default function DashboardClient({
   user, recentOrders, activeOrdersCount, completedOrdersCount, watchdogItems, defectTasks 
 }: any) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isSharing, setIsSharing] = useState(false);
+
+  useEffect(() => {
+    const paymentStatus = searchParams.get('order_payment');
+    if (paymentStatus === 'success') {
+      toast.success('Objednávka byla úspěšně zaplacena!');
+      router.replace('/dashboard');
+    } else if (paymentStatus === 'cancel') {
+      toast.error('Platba objednávky byla zrušena.');
+      router.replace('/dashboard');
+    }
+  }, [searchParams, router]);
 
   const expiredCount = watchdogItems.filter((w: WatchdogItem) => w.status === 'expired').length;
   const warningCount = watchdogItems.filter((w: WatchdogItem) => w.status === 'warning').length;

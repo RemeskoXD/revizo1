@@ -16,6 +16,7 @@ body {
   background-color: var(--color-bg-dark);
   color: var(--color-text-primary);
   font-family: var(--font-sans), system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Horizontální scroll datových tabulek na telefonech / tabletech */

@@ -12,6 +12,8 @@ import {
   Building2,
   Check,
   User,
+  Home,
+  Percent,
 } from "lucide-react";
 import { signIn } from "next-auth/react";
 import { SUBSCRIPTION_PLANS, SubscriptionPlanKey } from "@/lib/subscription-pricing";
@@ -28,12 +30,14 @@ type Package = {
 };
 
 function getPackagesWithPrices(plans: typeof SUBSCRIPTION_PLANS): Package[] {
+  // @ts-ignore
+  const safePlans = plans || SUBSCRIPTION_PLANS;
   return [
     {
       id: "customer",
       role: "CUSTOMER",
-      title: plans.CUSTOMER.label || "Zákazník",
-      yearlyPriceCzk: plans.CUSTOMER.yearlyPriceCzk,
+      title: safePlans.CUSTOMER?.label || "Zákazník",
+      yearlyPriceCzk: safePlans.CUSTOMER?.yearlyPriceCzk || 199,
       icon: <User className="w-7 h-7" />,
       description: "Pro majitele rodinných domů",
       benefits: [
@@ -48,8 +52,8 @@ function getPackagesWithPrices(plans: typeof SUBSCRIPTION_PLANS): Package[] {
     {
       id: "technician",
       role: "TECHNICIAN",
-      title: plans.TECHNICIAN.label || "Technik",
-      yearlyPriceCzk: plans.TECHNICIAN.yearlyPriceCzk,
+      title: safePlans.TECHNICIAN?.label || "Technik",
+      yearlyPriceCzk: safePlans.TECHNICIAN?.yearlyPriceCzk || 899,
       icon: <Wrench className="w-7 h-7" />,
       description: "Pro certifikované revizní techniky",
       benefits: [
@@ -64,9 +68,9 @@ function getPackagesWithPrices(plans: typeof SUBSCRIPTION_PLANS): Package[] {
     {
       id: "company",
       role: "COMPANY_ADMIN",
-      title: plans.COMPANY_ADMIN.label || "Firma",
+      title: safePlans.COMPANY_ADMIN?.label || "Firma",
       // If we made COMPANY_ADMIN dynamic, map it accordingly
-      yearlyPriceCzk: plans.COMPANY_ADMIN.yearlyPriceCzk,
+      yearlyPriceCzk: safePlans.COMPANY_ADMIN?.yearlyPriceCzk || 1199,
       icon: <Building2 className="w-7 h-7" />,
       description: "Pro firmy s více techniky",
       benefits: [
@@ -77,6 +81,36 @@ function getPackagesWithPrices(plans: typeof SUBSCRIPTION_PLANS): Package[] {
         "Zvací kód pro techniky po schválení",
       ],
       color: "from-blue-500 to-cyan-400",
+    },
+    {
+      id: "svj",
+      role: "SVJ",
+      title: safePlans.SVJ?.label || "Správce SVJ / Bytové domy",
+      yearlyPriceCzk: safePlans.SVJ?.yearlyPriceCzk || 799,
+      icon: <Home className="w-7 h-7" />,
+      description: "Pro správce bytových domů a SVJ",
+      benefits: [
+        "Správa revizí pro více nemovitostí",
+        "Pozvánky pro nájemníky a vlastníky",
+        "Společné revizní repozitáře",
+        "Upozornění na propadlé revize",
+      ],
+      color: "from-emerald-500 to-green-400",
+    },
+    {
+      id: "realty",
+      role: "REALTY",
+      title: safePlans.REALTY?.label || "Realitní makléř",
+      yearlyPriceCzk: safePlans.REALTY?.yearlyPriceCzk || 699,
+      icon: <Percent className="w-7 h-7" />,
+      description: "Pro realitní makléře a kanceláře",
+      benefits: [
+        "Správa revizí prodávaných nemovitostí",
+        "Automatické připomínky",
+        "Sdílení zpráv s klienty",
+        "Komplexní portfolia",
+      ],
+      color: "from-pink-500 to-rose-400",
     },
   ];
 }
@@ -343,14 +377,6 @@ function RegisterForm() {
                   Přihlásit se
                 </Link>
               </div>
-              <div>
-                <Link
-                  href={`/registertest?callbackUrl=${encodeURIComponent(callbackUrl)}`}
-                  className="text-gray-400 hover:text-brand-yellow transition-colors leading-relaxed"
-                >
-                  Další typy účtů (SVJ, realitní makléř, …)
-                </Link>
-              </div>
               <div className="text-xs text-gray-600">
                 <Link href="/obchodnipodminky" className="hover:text-gray-400">
                   Obchodní podmínky a ochrana osobních údajů
@@ -385,9 +411,9 @@ function RegisterForm() {
             </h1>
             <p className="text-gray-400 text-center text-sm mb-8">
               {donePending
-                ? "Po schválení administrátorem vám přijde e-mail. Po přihlášení dokončíte roční předplatné (testovací platba)."
-                : role === "CUSTOMER"
-                  ? "Vyplňte údaje – účet vznikne ihned, poté přejdete k předplatnému."
+                ? "Po schválení administrátorem vám přijde e-mail. Po přihlášení dokončíte roční předplatné."
+                : (role === "CUSTOMER" || role === "SVJ" || role === "REALTY")
+                  ? "Vyplňte údaje – účet vznikne ihned (máte 1 měsíc zdarma)."
                   : "Vyplňte údaje a nahrajte oprávnění. Účet se aktivuje po schválení."}
             </p>
 
@@ -490,7 +516,7 @@ function RegisterForm() {
                     </>
                   )}
 
-                  {(role === "CUSTOMER" || role === "TECHNICIAN" || role === "COMPANY_ADMIN") && (
+                  {(role === "CUSTOMER" || role === "TECHNICIAN" || role === "COMPANY_ADMIN" || role === "SVJ" || role === "REALTY") && (
                     <>
                       <div>
                         <label className="block text-sm font-medium text-gray-300 mb-1">Telefon</label>

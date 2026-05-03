@@ -28,7 +28,8 @@ export default async function PlatbaTestPage({
   const q = await searchParams;
   const returnPath = resolveStripeSettingsReturnPath(q.rp);
   const mode = q.m === 'portal' ? 'portal' : 'checkout';
-  const purpose = q.purpose === 'onboarding' ? 'onboarding' : 'settings';
+  const purpose = q.purpose === 'onboarding' ? 'onboarding' : q.purpose === 'order' ? 'order' : 'settings';
+  const orderId = q.purpose === 'order' ? (q as any).orderId || '' : undefined;
 
   const row = await findUserForPlatbaTestOnboarding(session.user.id);
 

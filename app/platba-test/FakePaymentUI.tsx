@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { CreditCard, Loader2, X } from 'lucide-react';
 
 type Mode = 'checkout' | 'portal';
-type Purpose = 'onboarding' | 'settings';
+type Purpose = 'onboarding' | 'settings' | 'order';
 
 export default function FakePaymentUI({
   returnPath,
@@ -23,11 +23,37 @@ export default function FakePaymentUI({
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
-  const successUrl = `${returnPath}?stripe=success&tab=billing`;
-  const cancelUrl = `${returnPath}?stripe=cancel&tab=billing`;
+  // For orders we just use order_payment
+  const successUrl = purpose === 'order' ? `${returnPath}?order_payment=success` : `${returnPath}?stripe=success&tab=billing`;
+  const cancelUrl = purpose === 'order' ? `${returnPath}?order_payment=cancel` : `${returnPath}?stripe=cancel&tab=billing`;
   const portalDoneUrl = `${returnPath}?tab=billing`;
 
   const onSuccess = async () => {
+    if (purpose === 'order') {
+      setBusy(true);
+      try {
+        const urlParams = new URL(window.location.href);
+        const orderId = urlParams.searchParams.get('orderId');
+        if (orderId) {
+          const res = await fetch('/api/billing/complete-fake-order', {
+            method: 'POST',
+            body: JSON.stringify({ orderId }),
+            headers: { 'Content-Type': 'application/json' }
+          });
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            alert(data.message || 'Nepodařilo se dokončit platbu objednávky.');
+            return;
+          }
+        }
+        router.replace(successUrl);
+        router.refresh();
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+
     if (purpose !== 'onboarding') {
       router.replace(successUrl);
       return;
@@ -68,7 +94,9 @@ export default function FakePaymentUI({
             ? 'Simulace Stripe Customer Portal. Žádná skutečná platba ani změna u Stripe.'
             : purpose === 'onboarding'
               ? 'Simulace úhrady ročního předplatného po zkušebním měsíci. Žádné peníze se nestrhávají.'
-              : 'Simulace dokončení platby. Žádné peníze se nestrhávají – v produkci vypněte FAKE_PAYMENT_GATEWAY.'}
+              : purpose === 'order'
+                ? 'Simulace úhrady jednorázové platby za revizi. Žádné peníze se nestrhávají.'
+                : 'Simulace dokončení platby (testovací režim). Žádné peníze se nestrhávají.'}
         </p>
 
         {showPlan && mode === 'checkout' && (
@@ -91,7 +119,7 @@ export default function FakePaymentUI({
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-yellow py-3.5 text-center text-sm font-semibold text-black shadow-lg shadow-brand-yellow/15 transition-colors hover:bg-brand-yellow-hover disabled:opacity-60"
               >
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                {purpose === 'onboarding' ? 'Pokračovat (zaplatit roční předplatné)' : 'Pokračovat (úspěšná platba)'}
+                {purpose === 'onboarding' ? 'Pokračovat (zaplatit roční předplatné)' : purpose === 'order' ? 'Zaplatit revizi (Fake platební brána)' : 'Pokračovat (úspěšná platba)'}
               </button>
               <button
                 type="button"

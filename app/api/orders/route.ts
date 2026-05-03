@@ -8,6 +8,8 @@ import crypto from "crypto";
 import { readJsonBody, PayloadTooLargeError } from "@/lib/json-body";
 import { rateLimit } from "@/lib/rate-limit";
 import { getPricingDatabase } from "@/lib/pricing-db";
+import { getStripe } from "@/lib/stripe-client";
+import { getAppBaseUrl, isFakePaymentGatewayEnabled } from "@/lib/stripe-config";
 
 export async function GET(req: Request) {
   try {
@@ -213,6 +215,43 @@ export async function POST(req: Request) {
     });
 
     if (!isVlastni) {
+      let paymentUrl: string | undefined;
+
+      if (price > 0) {
+        const base = getAppBaseUrl();
+        if (isFakePaymentGatewayEnabled()) {
+          paymentUrl = `${base}/platba-test?rp=${encodeURIComponent('/dashboard')}&m=checkout&purpose=order&orderId=${order.readableId}`;
+        } else {
+          try {
+            const stripe = getStripe();
+            const checkoutSession = await stripe.checkout.sessions.create({
+              mode: 'payment',
+              payment_method_types: ['card'],
+              line_items: [{
+                price_data: {
+                  currency: 'czk',
+                  product_data: {
+                    name: `Revize: ${serviceType}`,
+                    description: `Adresa: ${address} (ID: ${readableId})`,
+                  },
+                  unit_amount: Math.round(price * 100),
+                },
+                quantity: 1,
+              }],
+              success_url: `${base}/dashboard?order_payment=success`,
+              cancel_url: `${base}/dashboard?order_payment=cancel`,
+              client_reference_id: order.id,
+              metadata: { orderId: order.id, userId: session.user.id },
+            });
+            if (checkoutSession.url) {
+              paymentUrl = checkoutSession.url;
+            }
+          } catch (err) {
+            console.error("Stripe error for order:", err);
+          }
+        }
+      }
+
       const customer = await prisma.user.findUnique({
         where: { id: session.user.id },
         select: { email: true, emailNotifications: true },
@@ -226,8 +265,13 @@ export async function POST(req: Request) {
           preferredDate: order.preferredDate?.toISOString() || null,
           isUrgent: order.isUrgent,
           cancelToken,
+          paymentUrl,
         });
         sendMail({ to: customer.email, ...emailData }).catch(console.error);
+      }
+
+      if (paymentUrl) {
+        return NextResponse.json({ ...order, url: paymentUrl }, { status: 201 });
       }
     }
 

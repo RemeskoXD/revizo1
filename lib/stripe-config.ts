@@ -10,15 +10,15 @@ export function getAppBaseUrl(): string {
   return 'http://localhost:3000';
 }
 
-/** Měsíce platnosti licence po každé úspěšné faktuře předplatného (default 1 = měsíční ceník). */
+/** Měsíce platnosti licence po každé úspěšné faktuře předplatného (default 12 = roční ceník). */
 export function getStripeLicensePeriodMonths(): number {
-  const n = parseInt(process.env.STRIPE_LICENSE_PERIOD_MONTHS || '1', 10);
-  if (!Number.isFinite(n) || n < 1 || n > 120) return 1;
+  const n = parseInt(process.env.STRIPE_LICENSE_PERIOD_MONTHS || '12', 10);
+  if (!Number.isFinite(n) || n < 1 || n > 120) return 12;
   return n;
 }
 
 export function isStripePaymentsConfigured(): boolean {
-  return Boolean(process.env.STRIPE_SECRET_KEY?.trim() && process.env.STRIPE_PRICE_ID?.trim());
+  return Boolean(process.env.STRIPE_SECRET_KEY?.trim());
 }
 
 /**

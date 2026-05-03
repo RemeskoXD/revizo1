@@ -344,13 +344,12 @@ export default function SettingsClient({
                       Spravovat své předplatné
                     </h4>
                     <p className="text-xs text-gray-500 mb-4">
-                      Faktury, platební metodu a předplatné (změna, zrušení) spravuje přímo{' '}
-                      <strong className="text-gray-400">Stripe</strong> na jejich obecné stránce pro zákazníky (Billing
-                      Portal) – stejná, jakou používají tisíce e‑shopů.
+                      Faktury, platební metodu a předplatné můžete bezpečně spravovat 
+                      v našem zákaznickém portálu zabezpečené platební brány. <strong className="text-gray-300">Předplatné můžete kdykoliv zrušit.</strong>
                     </p>
                     {!stripeConfigured ? (
                       <p className="text-xs text-amber-200/85">
-                        Online platby nejsou na tomto prostředí aktivní. Po nasazení Stripe zde bude odkaz do portálu.
+                        Online platby aktuálně nelze upravit. V případě potřeby nás kontaktujte.
                       </p>
                     ) : user.stripeCustomerId || stripeFakeMode ? (
                       <button
@@ -364,13 +363,12 @@ export default function SettingsClient({
                         ) : (
                           <CreditCard className="h-4 w-4" />
                         )}
-                        {stripeFakeMode ? 'Otevřít testovací portál' : 'Otevřít správu předplatného ve Stripe'}
+                        {stripeFakeMode ? 'Otevřít testovací portál' : 'Otevřít správu předplatného a faktury'}
                       </button>
                     ) : (
                       <div className="space-y-3">
                         <p className="text-xs text-gray-500">
-                          Po dokončení první platby přes Revizone se zde objeví tlačítko do Stripe portálu. Mezitím můžete
-                          předplatné založit v sekci Platby / licence.
+                          Po dokončení první platby předplatného se zde objeví tlačítko do platebního portálu, kde si můžete spravovat faktury.
                         </p>
                         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                           <button
@@ -452,24 +450,16 @@ export default function SettingsClient({
                     <h2 className="text-lg font-semibold text-white">Platby a licence Revizone</h2>
                     <p className="mt-1 text-sm text-gray-400">
                       {stripeFakeMode
-                        ? 'Testovací režim: místo Stripe se zobrazí falešná brána s tlačítkem Pokračovat. Licence v DB se nemění, dokud neproběhne skutečná platba / webhook.'
-                        : 'Předplatné přes Stripe. Po úspěšné platbě se platnost licence doplní automaticky (webhook).'}
+                        ? 'Testovací režim plateb aktivní.'
+                        : 'Předplatné zajišťuje bezpečná online platební brána. Po úhradě se platnost licence prodlouží automaticky.'}
                     </p>
                   </div>
 
-                  {stripeFakeMode && (
-                    <div className="rounded-lg border border-amber-500/35 bg-amber-500/10 p-4 text-sm text-amber-100">
-                      Zapnuto <code className="rounded bg-black/30 px-1.5 py-0.5 text-xs">FAKE_PAYMENT_GATEWAY</code> – jen
-                      pro vývoj nebo demo. Na produkci vypněte.
-                    </div>
-                  )}
+                  {/* DEV mode warning removed to not leak implementation details */}
 
                   {!stripeConfigured ? (
                     <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 text-sm text-amber-100">
-                      Online platby nejsou na tomto prostředí nastavené. Po nasazení doplňte proměnné{' '}
-                      <code className="rounded bg-black/30 px-1.5 py-0.5 text-xs">STRIPE_SECRET_KEY</code> a{' '}
-                      <code className="rounded bg-black/30 px-1.5 py-0.5 text-xs">STRIPE_PRICE_ID</code>
-                      (a webhook <code className="rounded bg-black/30 px-1.5 py-0.5 text-xs">STRIPE_WEBHOOK_SECRET</code>).
+                      Online platby právě nejsou dostupné. Pokud potřebujete upravit své předplatné, obraťte se prosím na podporu Revizone.
                     </div>
                   ) : (
                     <>
@@ -508,14 +498,14 @@ export default function SettingsClient({
                           className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/15 px-5 py-2.5 text-sm font-medium text-white hover:bg-white/5 disabled:opacity-40"
                           title={
                             !user.stripeCustomerId && !stripeFakeMode
-                              ? 'Nejdřív dokončete první platbu přes Stripe.'
+                              ? 'Nejdřív dokončete první platbu, poté se Vám zpřístupní portál zákazníka.'
                               : undefined
                           }
                         >
                           {stripeLoading === 'portal' ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
                           ) : null}
-                          {stripeFakeMode ? 'Testovací portál (falešný)' : 'Faktury a platební metoda (Stripe)'}
+                          {stripeFakeMode ? 'Testovací portál (falešný)' : 'Faktury a platební metoda'}
                         </button>
                       </div>
                     </>

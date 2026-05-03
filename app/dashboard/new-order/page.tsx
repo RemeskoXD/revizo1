@@ -142,8 +142,13 @@ export default function NewOrderPage() {
           revisionCategoryId: selectedCategoryId || null,
         }),
       });
-      if (res.ok) setIsSuccess(true);
-      else alert('Došlo k chybě při odesílání objednávky.');
+      if (res.ok) {
+        const data = await res.json();
+        setIsSuccess(true);
+        if (data.url) {
+          window.location.href = data.url;
+        }
+      } else alert('Došlo k chybě při odesílání objednávky.');
     } catch {
       alert('Došlo k chybě při odesílání objednávky.');
     } finally {

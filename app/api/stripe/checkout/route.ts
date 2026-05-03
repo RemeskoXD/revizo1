@@ -9,6 +9,7 @@ import {
   resolveStripeSettingsReturnPath,
 } from '@/lib/stripe-config';
 import { rateLimit } from '@/lib/rate-limit';
+import { getSubscriptionPlanForRole } from '@/lib/subscription-pricing';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
 
     if (!isStripePaymentsConfigured()) {
       return NextResponse.json(
-        { message: 'Platby Stripe nejsou nakonfigurovány (STRIPE_SECRET_KEY, STRIPE_PRICE_ID).' },
+        { message: 'Platby Stripe nejsou nakonfigurovány (STRIPE_SECRET_KEY).' },
         { status: 503 }
       );
     }
@@ -54,7 +55,16 @@ export async function POST(request: Request) {
       );
     }
 
-    const priceId = process.env.STRIPE_PRICE_ID!.trim();
+    const plan = getSubscriptionPlanForRole(session.user.role);
+    const priceId = plan.stripePriceId;
+    
+    if(!priceId) {
+       return NextResponse.json(
+        { message: 'Produkt pro tuto roli nemá Stripe Price ID nastaveno.' },
+        { status: 500 }
+      );
+    }
+
     const userId = session.user.id;
     const email = session.user.email?.trim() || undefined;
 

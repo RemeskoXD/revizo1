@@ -40,10 +40,15 @@ export default function NewOrderPage() {
       });
 
       if (res.ok) {
+        const data = await res.json();
         setSuccess(true);
-        setTimeout(() => {
-          router.push("/dashboard");
-        }, 2000);
+        if (data.url) {
+          window.location.href = data.url;
+        } else {
+          setTimeout(() => {
+            router.push("/dashboard");
+          }, 2000);
+        }
       } else {
         const data = await res.json();
         setError(data.message || "Došlo k chybě při vytváření objednávky");
