@@ -347,11 +347,7 @@ export default function SettingsClient({
                       Faktury, platební metodu a předplatné můžete bezpečně spravovat 
                       v našem zákaznickém portálu zabezpečené platební brány. <strong className="text-gray-300">Předplatné můžete kdykoliv zrušit.</strong>
                     </p>
-                    {!stripeConfigured ? (
-                      <p className="text-xs text-amber-200/85">
-                        Online platby aktuálně nelze upravit. V případě potřeby nás kontaktujte.
-                      </p>
-                    ) : user.stripeCustomerId || stripeFakeMode ? (
+                    {user.stripeCustomerId || stripeFakeMode ? (
                       <button
                         type="button"
                         onClick={openPortal}
@@ -457,11 +453,6 @@ export default function SettingsClient({
 
                   {/* DEV mode warning removed to not leak implementation details */}
 
-                  {!stripeConfigured ? (
-                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 text-sm text-amber-100">
-                      Online platby právě nejsou dostupné. Pokud potřebujete upravit své předplatné, obraťte se prosím na podporu Revizone.
-                    </div>
-                  ) : (
                     <>
                       <div className="rounded-lg border border-white/10 bg-[#111] p-4 space-y-2">
                         <p className="text-sm text-gray-400">Stav licence (aplikační)</p>
@@ -509,7 +500,6 @@ export default function SettingsClient({
                         </button>
                       </div>
                     </>
-                  )}
                 </motion.div>
               )}
           </AnimatePresence>

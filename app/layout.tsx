@@ -26,8 +26,8 @@ export const viewport: Viewport = {
 
 export default function RootLayout({children}: {children: React.ReactNode}) {
   return (
-    <html lang="cs">
-      <body suppressHydrationWarning>
+    <html lang="cs" className="overflow-x-hidden w-full relative">
+      <body className="overflow-x-hidden w-full relative" suppressHydrationWarning>
         <Providers>
           <GlobalBanner />
           {children}

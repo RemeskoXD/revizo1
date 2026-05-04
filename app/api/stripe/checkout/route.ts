@@ -78,6 +78,7 @@ export async function POST(request: Request) {
       metadata: { userId },
       subscription_data: {
         metadata: { userId },
+        trial_period_days: 30,
       },
       ...(email ? { customer_email: email } : {}),
       allow_promotion_codes: true,
@@ -89,8 +90,8 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ url: checkoutSession.url });
-  } catch (e) {
-    console.error('Stripe checkout:', e);
-    return NextResponse.json({ message: 'Chyba při vytváření platby' }, { status: 500 });
+  } catch (e: any) {
+    console.error('Stripe checkout error:', e);
+    return NextResponse.json({ message: e.message || 'Chyba při vytváření platby' }, { status: 500 });
   }
 }

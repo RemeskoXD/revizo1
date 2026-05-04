@@ -71,8 +71,8 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ url: portal.url });
-  } catch (e) {
-    console.error('Stripe portal:', e);
-    return NextResponse.json({ message: 'Chyba portálu' }, { status: 500 });
+  } catch (e: any) {
+    console.error('Stripe portal error:', e);
+    return NextResponse.json({ message: e.message || 'Chyba portálu' }, { status: 500 });
   }
 }

@@ -10,6 +10,23 @@
   --color-text-primary: #F3F4F6;
   --color-text-secondary: #9CA3AF;
   --color-border: #374151;
+  color-scheme: dark;
+}
+
+/* Custom Scrollbar for Windows/Linux so it doesn't leave an ugly gap */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-bg-dark); 
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border); 
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-secondary); 
 }
 
 body {
