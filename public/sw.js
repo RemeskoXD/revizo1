@@ -1,4 +1,4 @@
-const CACHE_NAME = 'revizone-v1';
+const CACHE_NAME = 'revizone-v2';
 const PRECACHE_URLS = ['/', '/login'];
 
 self.addEventListener('install', (event) => {

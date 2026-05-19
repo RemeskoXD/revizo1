@@ -22,7 +22,9 @@ export const PUBLIC_ROUTE_PREFIXES = [
   '/api/auth',
   '/api/banner',
   '/api/revisions',
+  '/api/pricing',
   '/api/health',
+  '/api/test-db-load',
   /** Stripe webhook – ověření podpisu STRIPE_WEBHOOK_SECRET */
   '/api/webhooks/stripe',
 ] as const;
