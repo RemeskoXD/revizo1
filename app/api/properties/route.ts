@@ -4,12 +4,14 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { readJsonBody, PayloadTooLargeError } from '@/lib/json-body';
 import { rateLimit } from '@/lib/rate-limit';
+import { getObjectLimitStatus } from '@/lib/object-limits';
+import { getLicenseStatus } from '@/lib/access-control';
 
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session || !['REALTY', 'SVJ'].includes(session.user.role)) {
+    if (!session || !['REALTY', 'SVJ', 'COMPANY_ADMIN'].includes(session.user.role)) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
@@ -34,6 +36,60 @@ export async function POST(req: Request) {
 
     if (!name) {
       return NextResponse.json({ message: 'Name is required' }, { status: 400 });
+    }
+
+    const owner = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: {
+        role: true,
+        objectLimitBase: true,
+        objectLimitExtraPaid: true,
+        objectPackagePaid: true,
+        objectLimitOverride: true,
+        licenseValidUntil: true,
+        requiresSubscriptionCheckout: true,
+      },
+    });
+
+    if (!owner) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+
+    // License check
+    const licenseStatus = getLicenseStatus({
+      role: owner.role,
+      licenseValidUntil: owner.licenseValidUntil,
+      requiresSubscriptionCheckout: owner.requiresSubscriptionCheckout,
+    });
+    if (!licenseStatus.active) {
+      return NextResponse.json(
+        {
+          message: licenseStatus.message,
+          code: 'LICENSE_REQUIRED',
+          state: licenseStatus.state,
+          checkoutPath: '/dashboard/settings?tab=billing',
+        },
+        { status: 402 },
+      );
+    }
+
+    const currentCount = await prisma.property.count({
+      where: { ownerId: session.user.id },
+    });
+
+    const status = getObjectLimitStatus(owner, currentCount);
+
+    if (!status.canAddMore) {
+      return NextResponse.json(
+        {
+          message: status.message,
+          code: 'OBJECT_LIMIT_REACHED',
+          limit: status.limit,
+          used: status.used,
+          upgradeHint: status.upgradeHint,
+        },
+        { status: 402 },
+      );
     }
 
     const property = await prisma.property.create({

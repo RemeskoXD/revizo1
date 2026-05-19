@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { getObjectLimitStatus } from '@/lib/object-limits';
+import { REALTY_TRANSFER_FEE_CZK } from '@/lib/subscription-pricing';
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -23,6 +25,36 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     if (property.transferStatus !== 'CLAIMED' || !property.claimedById) {
       return NextResponse.json({ message: 'Property is not claimed yet' }, { status: 400 });
+    }
+
+    const newOwner = await prisma.user.findUnique({
+      where: { id: property.claimedById },
+      select: {
+        role: true,
+        objectLimitBase: true,
+        objectLimitExtraPaid: true,
+        objectPackagePaid: true,
+        objectLimitOverride: true,
+      },
+    });
+
+    if (newOwner) {
+      const newOwnerCount = await prisma.property.count({
+        where: { ownerId: property.claimedById },
+      });
+      const status = getObjectLimitStatus(newOwner, newOwnerCount);
+      if (!status.canAddMore) {
+        return NextResponse.json(
+          {
+            message: `Nový vlastník má vyčerpaný limit objektů (${status.used}/${status.limit}). ${status.message}`,
+            code: 'OBJECT_LIMIT_REACHED_RECEIVER',
+            limit: status.limit,
+            used: status.used,
+            upgradeHint: status.upgradeHint,
+          },
+          { status: 402 },
+        );
+      }
     }
 
     // Transfer ownership
@@ -55,6 +87,26 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         targetId: property.id
       }
     });
+
+    // Vytvořit RealtorTransferFee (200 Kč) – idempotentně.
+    // Viz docs/business-decisions.md sekce 2.4.
+    if (property.claimedById) {
+      try {
+        await prisma.realtorTransferFee.create({
+          data: {
+            realtorId: session.user.id,
+            customerId: property.claimedById,
+            propertyId: property.id,
+            amountCzk: REALTY_TRANSFER_FEE_CZK,
+            status: 'PENDING',
+          },
+        });
+      } catch (e: any) {
+        if (e?.code !== 'P2002') {
+          console.error('Failed to create transfer fee:', e);
+        }
+      }
+    }
 
     return NextResponse.json(updated);
   } catch (error) {

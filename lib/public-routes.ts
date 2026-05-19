@@ -13,6 +13,8 @@ export const PUBLIC_ROUTE_PREFIXES = [
   '/test',
   /** Obchodní podmínky a GDPR – musí být dostupné bez účtu */
   '/obchodnipodminky',
+  /** Veřejný ceník */
+  '/cenik',
   /** Smazání účtu (požadavek Google Play) – veřejný text + přihlášení až ve formuláři */
   '/smazatucet',
   '/api/public',

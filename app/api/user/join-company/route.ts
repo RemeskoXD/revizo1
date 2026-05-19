@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { readJsonBody, PayloadTooLargeError } from '@/lib/json-body';
 import { rateLimit } from '@/lib/rate-limit';
+import { syncCompanyTechBillingForUser } from '@/lib/company-tech-sync';
 
 export async function POST(req: Request) {
   try {
@@ -39,10 +40,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: 'Firma s tímto kódem nebyla nalezena' }, { status: 404 });
     }
 
+    const previousCompanyId = (
+      await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { companyId: true },
+      })
+    )?.companyId ?? null;
+
     const updatedUser = await prisma.user.update({
       where: { id: session.user.id },
       data: { companyId: company.id },
     });
+
+    syncCompanyTechBillingForUser(session.user.id, previousCompanyId, company.id).catch((e) =>
+      console.error('Tech billing sync failed:', e),
+    );
 
     return NextResponse.json(updatedUser, { status: 200 });
   } catch (error) {

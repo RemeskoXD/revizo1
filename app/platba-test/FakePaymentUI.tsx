@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { CreditCard, Loader2, X } from 'lucide-react';
 
 type Mode = 'checkout' | 'portal';
-type Purpose = 'onboarding' | 'settings' | 'order';
+type Purpose = 'onboarding' | 'settings' | 'order' | 'addon';
+type AddonKind = 'CUSTOMER_EXTRA_OBJECT' | 'PACKAGE_10_OBJECTS';
 
 export default function FakePaymentUI({
   returnPath,
@@ -13,19 +14,33 @@ export default function FakePaymentUI({
   purpose = 'settings',
   planLabel,
   yearlyPriceCzk,
+  addon,
+  addonQuantity = 1,
 }: {
   returnPath: string;
   mode: Mode;
   purpose?: Purpose;
   planLabel?: string;
   yearlyPriceCzk?: number;
+  addon?: AddonKind;
+  addonQuantity?: number;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
-  // For orders we just use order_payment
-  const successUrl = purpose === 'order' ? `${returnPath}?order_payment=success` : `${returnPath}?stripe=success&tab=billing`;
-  const cancelUrl = purpose === 'order' ? `${returnPath}?order_payment=cancel` : `${returnPath}?stripe=cancel&tab=billing`;
+  // For orders we just use order_payment; addon shares stripe=success ale s dalším parametrem.
+  const successUrl =
+    purpose === 'order'
+      ? `${returnPath}?order_payment=success`
+      : purpose === 'addon' && addon
+        ? `${returnPath}?stripe=success&tab=billing&addon=${addon}`
+        : `${returnPath}?stripe=success&tab=billing`;
+  const cancelUrl =
+    purpose === 'order'
+      ? `${returnPath}?order_payment=cancel`
+      : purpose === 'addon' && addon
+        ? `${returnPath}?stripe=cancel&tab=billing&addon=${addon}`
+        : `${returnPath}?stripe=cancel&tab=billing`;
   const portalDoneUrl = `${returnPath}?tab=billing`;
 
   const onSuccess = async () => {
@@ -54,6 +69,31 @@ export default function FakePaymentUI({
       return;
     }
 
+    if (purpose === 'addon') {
+      if (!addon) {
+        router.replace(returnPath);
+        return;
+      }
+      setBusy(true);
+      try {
+        const res = await fetch('/api/billing/complete-fake-addon', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kind: addon, quantity: addonQuantity }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          alert((data as { message?: string }).message || 'Nepodařilo se dokončit platbu doplňku.');
+          return;
+        }
+        router.replace(successUrl);
+        router.refresh();
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+
     if (purpose !== 'onboarding') {
       router.replace(successUrl);
       return;
@@ -73,7 +113,10 @@ export default function FakePaymentUI({
     }
   };
 
-  const showPlan = purpose === 'onboarding' && planLabel != null && yearlyPriceCzk != null;
+  const showPlan =
+    (purpose === 'onboarding' || purpose === 'addon') &&
+    planLabel != null &&
+    yearlyPriceCzk != null;
 
   return (
     <div className="min-h-dvh bg-[#111] flex flex-col items-center justify-center p-6 text-gray-200">
@@ -96,16 +139,25 @@ export default function FakePaymentUI({
               ? 'Simulace úhrady ročního předplatného po zkušebním měsíci. Žádné peníze se nestrhávají.'
               : purpose === 'order'
                 ? 'Simulace úhrady jednorázové platby za revizi. Žádné peníze se nestrhávají.'
-                : 'Simulace dokončení platby (testovací režim). Žádné peníze se nestrhávají.'}
+                : purpose === 'addon'
+                  ? 'Simulace úhrady doplňku (rozšíření počtu objektů). Žádné peníze se nestrhávají.'
+                  : 'Simulace dokončení platby (testovací režim). Žádné peníze se nestrhávají.'}
         </p>
 
         {showPlan && mode === 'checkout' && (
           <div className="mt-6 rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-center text-sm">
-            <p className="text-gray-400">Balíček</p>
+            <p className="text-gray-400">{purpose === 'addon' ? 'Doplněk' : 'Balíček'}</p>
             <p className="text-lg font-semibold text-white">
-              {planLabel} — {yearlyPriceCzk.toLocaleString('cs-CZ')} Kč / rok
+              {planLabel} — {yearlyPriceCzk!.toLocaleString('cs-CZ')} Kč / rok
             </p>
-            <p className="mt-1 text-xs text-gray-500">1. měsíc od registrace je zdarma, poté roční platba.</p>
+            {purpose === 'addon' && addon === 'CUSTOMER_EXTRA_OBJECT' && (
+              <p className="mt-1 text-xs text-gray-500">
+                Cílový počet zaplacených dalších objektů: {addonQuantity}
+              </p>
+            )}
+            {purpose === 'onboarding' && (
+              <p className="mt-1 text-xs text-gray-500">1. měsíc od registrace je zdarma, poté roční platba.</p>
+            )}
           </div>
         )}
 
@@ -119,7 +171,13 @@ export default function FakePaymentUI({
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-yellow py-3.5 text-center text-sm font-semibold text-black shadow-lg shadow-brand-yellow/15 transition-colors hover:bg-brand-yellow-hover disabled:opacity-60"
               >
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                {purpose === 'onboarding' ? 'Pokračovat (zaplatit roční předplatné)' : purpose === 'order' ? 'Zaplatit revizi (Fake platební brána)' : 'Pokračovat (úspěšná platba)'}
+                {purpose === 'onboarding'
+                  ? 'Pokračovat (zaplatit roční předplatné)'
+                  : purpose === 'order'
+                    ? 'Zaplatit revizi (Fake platební brána)'
+                    : purpose === 'addon'
+                      ? 'Pokračovat (zaplatit doplněk)'
+                      : 'Pokračovat (úspěšná platba)'}
               </button>
               <button
                 type="button"

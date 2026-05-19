@@ -5,12 +5,13 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { readJsonBody, PayloadTooLargeError } from '@/lib/json-body';
 import { rateLimit } from '@/lib/rate-limit';
+import { getLicenseStatus } from '@/lib/access-control';
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session || !['REALTY', 'SVJ'].includes(session.user.role)) {
+    if (!session || !['REALTY', 'SVJ', 'COMPANY_ADMIN'].includes(session.user.role)) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
@@ -22,6 +23,30 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         { message: 'Příliš mnoho objednávek. Zkuste to později.' },
         { status: 429, headers: { 'Retry-After': String(rl.retryAfterSec) } }
       );
+    }
+
+    // License check
+    const me = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, licenseValidUntil: true, requiresSubscriptionCheckout: true },
+    });
+    if (me) {
+      const licenseStatus = getLicenseStatus({
+        role: me.role,
+        licenseValidUntil: me.licenseValidUntil,
+        requiresSubscriptionCheckout: me.requiresSubscriptionCheckout,
+      });
+      if (!licenseStatus.active) {
+        return NextResponse.json(
+          {
+            message: licenseStatus.message,
+            code: 'LICENSE_REQUIRED',
+            state: licenseStatus.state,
+            checkoutPath: '/dashboard/settings?tab=billing',
+          },
+          { status: 402 },
+        );
+      }
     }
 
     const property = await prisma.property.findUnique({

@@ -161,7 +161,7 @@ export default function PendingRegistrationsClient({ initialRows }: { initialRow
                       ) : (
                         <Building2 className="w-4 h-4 text-blue-400 shrink-0" />
                       )}
-                      {row.role === 'TECHNICIAN' ? 'Technik' : 'Firma'}
+                      {row.role === 'TECHNICIAN' ? 'Revizní technik' : 'Pracujeme v týmu'}
                     </div>
                     <p className="text-white mt-1">{row.name}</p>
                     <p className="text-xs text-gray-500">{row.email}</p>

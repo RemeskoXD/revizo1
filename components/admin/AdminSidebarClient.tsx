@@ -11,7 +11,8 @@ import {
   X,
   Mail,
   UserX,
-  DollarSign
+  DollarSign,
+  Gift
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSession } from 'next-auth/react';
@@ -29,6 +30,7 @@ const navigation = [
   { name: 'Smazání účtů', href: '/admin/account-deletions', icon: UserX, roles: ['ADMIN', 'SUPPORT'] },
   { name: 'Revize – Data', href: '/admin/revisions', icon: ShieldCheck, roles: ['ADMIN', 'SUPPORT', 'CONTRACTOR'] },
   { name: 'E-maily', href: '/admin/emails', icon: Mail, roles: ['ADMIN', 'SUPPORT'] },
+  { name: 'Referral odměny', href: '/admin/referrals', icon: Gift, roles: ['ADMIN', 'SUPPORT'] },
   { name: 'Historie', href: '/admin/history', icon: Activity, roles: ['ADMIN', 'SUPPORT'] },
 ];
 

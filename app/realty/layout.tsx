@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { Building2, Home, Send } from 'lucide-react';
+import { Building2, Home, Send, Gift } from 'lucide-react';
 import { PageTransition } from '@/components/PageTransition';
 import { MobileSidebarToggle } from '@/components/MobileSidebarToggle';
 import { RevizoneSidebarBrand } from '@/components/layout/RevizoneSidebarBrand';
@@ -30,6 +30,9 @@ export default async function RealtyLayout({ children }: { children: ReactNode }
           </Link>
           <Link href="/realty/transfers" className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-400 transition-colors hover:bg-white/5 hover:text-white">
             <Send className="h-4 w-4" /> Převody
+          </Link>
+          <Link href="/realty/referrals" className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-400 transition-colors hover:bg-white/5 hover:text-white">
+            <Gift className="h-4 w-4" /> Doporučení
           </Link>
         </nav>
 

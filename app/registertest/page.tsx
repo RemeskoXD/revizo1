@@ -46,7 +46,7 @@ const packages: Package[] = [
   {
     id: "technician",
     role: "TECHNICIAN",
-    title: "Technik",
+    title: "Revizní technik",
     icon: <Wrench className="w-7 h-7" />,
     description: "Pro certifikované revizní techniky",
     benefits: [
@@ -61,9 +61,9 @@ const packages: Package[] = [
   {
     id: "company",
     role: "COMPANY_ADMIN",
-    title: "Firma",
+    title: "Pracujeme v týmu",
     icon: <Building2 className="w-7 h-7" />,
-    description: "Pro firmy s více techniky",
+    description: "Manažer revizních techniků (FO i PO)",
     benefits: [
       "Správa týmu techniků",
       "Přehled všech zakázek firmy",

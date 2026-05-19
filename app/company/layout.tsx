@@ -3,11 +3,12 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { Briefcase, Users, FileText, DollarSign, Radio } from 'lucide-react';
+import { Briefcase, Users, FileText, DollarSign, Radio, FolderOpen } from 'lucide-react';
 import { PageTransition } from '@/components/PageTransition';
 import { MobileSidebarToggle } from '@/components/MobileSidebarToggle';
 import { RevizoneSidebarBrand } from '@/components/layout/RevizoneSidebarBrand';
 import { SidebarFooterBlock } from '@/components/layout/SidebarFooterBlock';
+import { LicenseBanner } from '@/components/LicenseBanner';
 
 export default async function CompanyLayout({ children }: { children: ReactNode }) {
   const session = await getServerSession(authOptions);
@@ -37,12 +38,16 @@ export default async function CompanyLayout({ children }: { children: ReactNode 
           <Link href="/company/radar" className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
             <Radio className="w-4 h-4" /> Radar poptávek
           </Link>
+          <Link href="/company/documents" className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
+            <FolderOpen className="w-4 h-4" /> Dokumenty
+          </Link>
         </nav>
 
         <SidebarFooterBlock settingsHref="/company/settings" />
       </MobileSidebarToggle>
 
       <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden pt-14 pr-14 pb-[env(safe-area-inset-bottom)] lg:pr-0 lg:pt-0">
+        <LicenseBanner returnPath="/company" />
         <div className="flex-1 overflow-y-auto px-3 py-4 sm:px-4 sm:py-6 md:p-8">
           <div className="max-w-7xl mx-auto">
             <PageTransition>

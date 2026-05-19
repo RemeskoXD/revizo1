@@ -32,8 +32,8 @@ export const REVISION_RESULT = {
 
 export const ROLE_LABELS: Record<string, string> = {
   CUSTOMER: 'Zákazník',
-  TECHNICIAN: 'Technik',
-  COMPANY_ADMIN: 'Firma',
+  TECHNICIAN: 'Revizní technik',
+  COMPANY_ADMIN: 'Pracujeme v týmu',
   REALTY: 'Produkt Manager (Realitní makléř)',
   SVJ: 'Správce SVJ',
   ADMIN: 'Admin',

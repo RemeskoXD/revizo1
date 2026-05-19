@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { getLicenseStatus } from '@/lib/access-control';
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -30,6 +31,34 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
     if (!isCustomer && !isTech && !isCompany && !isAdmin && !isPropertyOwner) {
       return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+    }
+
+    // License check: zákazník bez aktivní licence dostane jen 402 + odkaz na checkout.
+    // Admini / technici / firma stahují vždy (potřebují pro provoz).
+    if (!isAdmin && !isTech && !isCompany) {
+      const me = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { role: true, licenseValidUntil: true, requiresSubscriptionCheckout: true },
+      });
+      if (me) {
+        const ls = getLicenseStatus({
+          role: me.role,
+          licenseValidUntil: me.licenseValidUntil,
+          requiresSubscriptionCheckout: me.requiresSubscriptionCheckout,
+        });
+        if (!ls.active) {
+          return NextResponse.json(
+            {
+              message: ls.message,
+              code: 'LICENSE_REQUIRED',
+              state: ls.state,
+              checkoutPath: '/dashboard/settings?tab=billing',
+              previewOnly: true,
+            },
+            { status: 402 },
+          );
+        }
+      }
     }
 
     if (!order.reportFile) {

@@ -10,6 +10,7 @@ import { rateLimit } from "@/lib/rate-limit";
 import { getPricingDatabase } from "@/lib/pricing-db";
 import { getStripe } from "@/lib/stripe-client";
 import { getAppBaseUrl, isFakePaymentGatewayEnabled } from "@/lib/stripe-config";
+import { getLicenseStatus } from "@/lib/access-control";
 
 export async function GET(req: Request) {
   try {
@@ -100,6 +101,31 @@ export async function POST(req: Request) {
         { message: "Příliš mnoho nových objednávek za hodinu. Zkuste to později." },
         { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
       );
+    }
+
+    // License check – první revize spouští platební bránu, pokud licence neaktivní.
+    // Viz docs/business-decisions.md sekce 2.2 + 2.3.
+    const meForLicense = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, licenseValidUntil: true, requiresSubscriptionCheckout: true },
+    });
+    if (meForLicense) {
+      const licenseStatus = getLicenseStatus({
+        role: meForLicense.role,
+        licenseValidUntil: meForLicense.licenseValidUntil,
+        requiresSubscriptionCheckout: meForLicense.requiresSubscriptionCheckout,
+      });
+      if (!licenseStatus.active) {
+        return NextResponse.json(
+          {
+            message: licenseStatus.message,
+            code: "LICENSE_REQUIRED",
+            state: licenseStatus.state,
+            checkoutPath: "/dashboard/settings?tab=billing",
+          },
+          { status: 402 },
+        );
+      }
     }
 
     const body = await readJsonBody<{

@@ -39,6 +39,33 @@ model User {
   requiresSubscriptionCheckout Boolean                  @default(false)
   /// Platnost oprávnění vykonávat revize (technik / firma); nastavuje administrátor při schválení nebo později.
   revisionAuthValidUntil       DateTime?
+  /// Počet objektů v základu (CUSTOMER 1, SVJ 3, COMPANY_ADMIN 3). Zdroj pravdy: docs/pricing-rules.md.
+  /// Default 0 = doplníme z role helperem `getObjectLimit()`. Lze přepsat v administraci.
+  objectLimitBase              Int                      @default(0)
+  /// CUSTOMER: počet zaplacených dalších objektů á 100 Kč/rok (přičítá se k objectLimitBase).
+  objectLimitExtraPaid         Int                      @default(0)
+  /// SVJ / COMPANY_ADMIN: TRUE = aktivní balíček do 10 objektů za 600 Kč/rok.
+  objectPackagePaid            Boolean                  @default(false)
+  /// Individuální nabídka (SVJ/COMPANY_ADMIN nad 10 objektů). Pokud != null, má přednost před vším výše.
+  objectLimitOverride          Int?
+  /// COMPANY_ADMIN: TRUE = aktivní měsíční Stripe subscription pro billing techniků (200 Kč × billable seats).
+  companyTechBillingActive     Boolean                  @default(false)
+  /// Stripe Subscription ID pro billing techniků (umožní rychle najít subscription při sync).
+  companyTechSubscriptionId    String?                  @db.VarChar(120)
+  /// REALTY/PRODUCT_MANAGER: ID makléře, který přivedl tohoto uživatele (typicky CUSTOMER) přes ?ref=<inviteCode>.
+  referredByRealtorId          String?                  @db.VarChar(60)
+  referredByRealtor            User?                    @relation("RealtorReferrals", fields: [referredByRealtorId], references: [id], onDelete: SetNull)
+  referrals                    User[]                   @relation("RealtorReferrals")
+  /// Reference na odměny získané jako makléř.
+  realtorRewards               ReferralReward[]         @relation("RealtorRewards")
+  /// Reference na odměny vyplacené za uživatele (jako referenced customer).
+  customerRewards              ReferralReward[]         @relation("CustomerRewards")
+  /// Hlídané firemní dokumenty (svářečské průkazy, …)
+  companyDocuments             CompanyDocument[]        @relation("CompanyDocumentsOwner")
+  /// Poplatky makléře za převody nemovitostí (200 Kč)
+  realtorTransferFees          RealtorTransferFee[]     @relation("RealtorTransferFees")
+  /// Poplatky vázané na přijaté nemovitosti (jako customer)
+  transferFeesAsCustomer       RealtorTransferFee[]     @relation("TransferFeeCustomers")
   accountDeletionRequests      AccountDeletionRequest[]
   activityLogs                 ActivityLog[]
   receivedJoinRequests         CompanyJoinRequest[]     @relation("CompanyRequests")
@@ -61,6 +88,79 @@ model User {
   technicians                  User[]                   @relation("CompanyTechnicians")
 
   @@index([companyId], map: "User_companyId_fkey")
+  @@index([referredByRealtorId])
+}
+
+/// Hlídané dokumenty firmy (svářečské průkazy, zdravotní prohlídky, certifikace, …).
+/// Viz docs/business-decisions.md sekce 3.1.
+model CompanyDocument {
+  id          String   @id @default(cuid())
+  ownerId     String
+  title       String   @db.VarChar(255)
+  category    String?  @db.VarChar(80)
+  fileBase64  String?  @db.LongText
+  fileMimeType String? @db.VarChar(120)
+  fileName    String?  @db.VarChar(255)
+  validUntil  DateTime?
+  /// Volitelná poznámka / popis
+  notes       String?  @db.Text
+  /// Volitelná osoba, ke které se dokument vztahuje (technik, zaměstnanec, …)
+  subjectName String?  @db.VarChar(160)
+  /// Volitelný odkaz na uživatele (např. konkrétního technika v týmu)
+  subjectUserId String? @db.VarChar(60)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  owner       User     @relation("CompanyDocumentsOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId, validUntil])
+  @@index([subjectUserId])
+}
+
+/// Odměna makléři za úspěšně zaregistrovaného zákazníka (referral program).
+/// Viz docs/pricing-rules.md sekce 4b: 20 Kč zpět makléři po první úhradě CUSTOMER.
+model ReferralReward {
+  id          String   @id @default(cuid())
+  realtorId   String
+  customerId  String
+  amountCzk   Int      @default(20)
+  status      String   @default("PENDING")
+  /// Zdroj odměny: REF_LINK = registrace přes ?ref=; PROPERTY_TRANSFER = převod nemovitosti přes invite kód;
+  /// MANUAL = vytvořeno administrátorem.
+  source      String   @default("REF_LINK") @db.VarChar(40)
+  createdAt   DateTime @default(now())
+  paidAt      DateTime?
+  notes       String?  @db.Text
+  realtor     User     @relation("RealtorRewards", fields: [realtorId], references: [id], onDelete: Cascade)
+  customer    User     @relation("CustomerRewards", fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([realtorId, customerId, source])
+  @@index([realtorId, status])
+  @@index([customerId])
+  @@index([status])
+  @@index([source])
+}
+
+/// Poplatek makléři za převod nemovitosti přes invite kód (200 Kč).
+/// Viz docs/business-decisions.md sekce 2.4. Status: PENDING → PAID → CANCELLED.
+model RealtorTransferFee {
+  id              String   @id @default(cuid())
+  realtorId       String
+  customerId      String
+  propertyId      String
+  amountCzk       Int      @default(200)
+  status          String   @default("PENDING")
+  /// Stripe Invoice / PaymentIntent ID (po úhradě)
+  stripeInvoiceId String?  @db.VarChar(120)
+  createdAt       DateTime @default(now())
+  paidAt          DateTime?
+  notes           String?  @db.Text
+  realtor         User     @relation("RealtorTransferFees", fields: [realtorId], references: [id], onDelete: Cascade)
+  customer        User     @relation("TransferFeeCustomers", fields: [customerId], references: [id], onDelete: Cascade)
+  property        Property @relation("PropertyTransferFees", fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([propertyId])
+  @@index([realtorId, status])
+  @@index([customerId])
 }
 
 /// FCM / push token z mobilní aplikace – uloženo ve stejné DB jako Revizone (DATABASE_URL).
@@ -192,6 +292,9 @@ model RevisionCategory {
   description    String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+  /// Cílové role (CSV: "CUSTOMER,SVJ,COMPANY_ADMIN"). NULL nebo prázdné = pro všechny.
+  /// Viz docs/business-decisions.md sekce 1.2.
+  targetRoles    String?  @db.VarChar(255)
   orders         Order[]
 }
 
@@ -209,6 +312,7 @@ model Property {
   orders         Order[]
   claimedBy      User?    @relation("PropertyClaimer", fields: [claimedById], references: [id])
   owner          User     @relation("PropertyOwner", fields: [ownerId], references: [id])
+  transferFee    RealtorTransferFee? @relation("PropertyTransferFees")
 
   @@index([claimedById], map: "Property_claimedById_fkey")
   @@index([ownerId], map: "Property_ownerId_fkey")

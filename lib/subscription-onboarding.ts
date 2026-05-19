@@ -6,6 +6,7 @@ import {
   findUserForCompleteFakeOnboarding,
   updateUserWithSubscriptionColumnFallback,
 } from '@/lib/prisma-subscription-column';
+import { tryCreateReferralReward } from '@/lib/referral';
 
 /**
  * Dokončení „první roční platby“ po onboardingové bráně (fake Stripe).
@@ -28,6 +29,9 @@ export async function completeFakeSubscriptionOnboarding(userId: string) {
       licenseValidUntil: newUntil,
     },
   });
+
+  // Referral – po fake platbě CUSTOMER vytvoří odměnu makléři (idempotentní).
+  tryCreateReferralReward(userId).catch((e) => console.error('Referral reward failed:', e));
 
   return { ok: true as const, alreadyDone: false as const, licenseValidUntil: newUntil };
 }

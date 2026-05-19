@@ -14,6 +14,7 @@ import {
   CalendarClock,
   Ban,
   Calendar,
+  Building,
 } from 'lucide-react';
 import type { User } from '@prisma/client';
 import { motion } from 'motion/react';
@@ -86,6 +87,33 @@ export default function AdminUsersClient({
   const [revisionModalUserId, setRevisionModalUserId] = useState<string | null>(null);
   const [revisionModalDate, setRevisionModalDate] = useState('');
   const [revisionSaving, setRevisionSaving] = useState(false);
+
+  const [objectLimitsModal, setObjectLimitsModal] = useState<null | {
+    userId: string;
+    email: string | null;
+    role: string;
+  }>(null);
+  const [objectLimitsState, setObjectLimitsState] = useState<{
+    loading: boolean;
+    saving: boolean;
+    usedCount: number;
+    computedLimit: number | null;
+    roleBase: number | null;
+    objectLimitBase: number;
+    objectLimitExtraPaid: number;
+    objectPackagePaid: boolean;
+    objectLimitOverride: number | '';
+  }>({
+    loading: false,
+    saving: false,
+    usedCount: 0,
+    computedLimit: null,
+    roleBase: null,
+    objectLimitBase: 0,
+    objectLimitExtraPaid: 0,
+    objectPackagePaid: false,
+    objectLimitOverride: '',
+  });
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'CUSTOMER' });
@@ -223,6 +251,78 @@ export default function AdminUsersClient({
     } finally {
       setRevisionSaving(false);
     }
+  };
+
+  const openObjectLimitsModal = async (u: UserWithCompany) => {
+    setObjectLimitsModal({ userId: u.id, email: u.email, role: u.role });
+    setObjectLimitsState((s) => ({ ...s, loading: true }));
+    try {
+      const res = await fetch(`/api/admin/users/${u.id}/object-limits`, { cache: 'no-store' });
+      const data = await res.json();
+      if (res.ok) {
+        setObjectLimitsState({
+          loading: false,
+          saving: false,
+          usedCount: data.usedCount ?? 0,
+          computedLimit: data.computedLimit ?? null,
+          roleBase: data.roleBase ?? null,
+          objectLimitBase: data.objectLimitBase ?? 0,
+          objectLimitExtraPaid: data.objectLimitExtraPaid ?? 0,
+          objectPackagePaid: Boolean(data.objectPackagePaid),
+          objectLimitOverride:
+            typeof data.objectLimitOverride === 'number' && data.objectLimitOverride > 0
+              ? data.objectLimitOverride
+              : '',
+        });
+      } else {
+        alert(data.message || 'Nepodařilo se načíst limity objektů.');
+        setObjectLimitsModal(null);
+      }
+    } catch {
+      alert('Nepodařilo se načíst limity objektů.');
+      setObjectLimitsModal(null);
+    }
+  };
+
+  const saveObjectLimitsModal = async () => {
+    if (!objectLimitsModal) return;
+    setObjectLimitsState((s) => ({ ...s, saving: true }));
+    try {
+      const payload: Record<string, unknown> = {
+        objectLimitBase: objectLimitsState.objectLimitBase,
+        objectLimitExtraPaid: objectLimitsState.objectLimitExtraPaid,
+        objectPackagePaid: objectLimitsState.objectPackagePaid,
+        objectLimitOverride:
+          objectLimitsState.objectLimitOverride === '' || Number(objectLimitsState.objectLimitOverride) <= 0
+            ? null
+            : Number(objectLimitsState.objectLimitOverride),
+      };
+      const res = await fetch(`/api/admin/users/${objectLimitsModal.userId}/object-limits`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setObjectLimitsModal(null);
+      } else {
+        alert(data.message || 'Nepodařilo se uložit změny.');
+      }
+    } catch {
+      alert('Nepodařilo se uložit změny.');
+    } finally {
+      setObjectLimitsState((s) => ({ ...s, saving: false }));
+    }
+  };
+
+  const resetObjectLimitsModal = () => {
+    setObjectLimitsState((s) => ({
+      ...s,
+      objectLimitBase: 0,
+      objectLimitExtraPaid: 0,
+      objectPackagePaid: false,
+      objectLimitOverride: '',
+    }));
   };
 
   const handleToggleBan = async (userId: string, banned: boolean) => {
@@ -384,8 +484,8 @@ export default function AdminUsersClient({
                                     className="bg-[#1A1A1A] border border-white/10 rounded px-2 py-1 text-white text-xs"
                                   >
                                     <option value="CUSTOMER">Zákazník</option>
-                                    <option value="TECHNICIAN">Technik</option>
-                                    <option value="COMPANY_ADMIN">Firma</option>
+                                    <option value="TECHNICIAN">Revizní technik</option>
+                                    <option value="COMPANY_ADMIN">Pracujeme v týmu</option>
                                     <option value="PRODUCT_MANAGER">Produkt Manager (Realitní makléř)</option>
                                     <option value="REALTY">Produkt Manager (Realitní makléř)</option>
                                     <option value="SVJ">Správce SVJ</option>
@@ -515,6 +615,16 @@ export default function AdminUsersClient({
                                         {banLoadingId === user.id ? '…' : user.bannedAt ? 'Odblokovat' : 'BAN'}
                                       </button>
                                     )}
+                                    {userRole === 'ADMIN' && ['CUSTOMER', 'SVJ', 'COMPANY_ADMIN'].includes(user.role) && (
+                                      <button
+                                        type="button"
+                                        onClick={() => openObjectLimitsModal(user)}
+                                        title="Limity objektů"
+                                        className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                                      >
+                                        <Building className="w-4 h-4" />
+                                      </button>
+                                    )}
                                     {userRole === 'ADMIN' && (
                                       <>
                                         <button onClick={() => { setEditingUser(user.id); setEditPriority(user.priority); setEditRole(user.role); }} className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
@@ -579,6 +689,159 @@ export default function AdminUsersClient({
         </div>
       )}
 
+      {objectLimitsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 backdrop-blur-sm sm:p-4">
+          <div className="max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-2xl border border-white/10 bg-[#111] p-5 sm:p-6">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-semibold text-white">Limity objektů</h3>
+                <p className="mt-1 text-sm text-gray-400">
+                  {objectLimitsModal.email || objectLimitsModal.userId} ·{' '}
+                  <span className="text-gray-300">{getRoleDisplayName(objectLimitsModal.role)}</span>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setObjectLimitsModal(null)}
+                className="text-gray-400 hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {objectLimitsState.loading ? (
+              <div className="py-12 text-center text-sm text-gray-500">Načítám…</div>
+            ) : (
+              <>
+                <div className="mt-4 grid grid-cols-3 gap-3 rounded-xl border border-white/10 bg-black/30 p-3 text-center">
+                  <div>
+                    <div className="text-xs text-gray-500">Aktuálně využito</div>
+                    <div className="mt-1 text-xl font-bold text-white">{objectLimitsState.usedCount}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500">Výpočet limit</div>
+                    <div className="mt-1 text-xl font-bold text-emerald-400/90">
+                      {objectLimitsState.computedLimit ?? '∞'}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500">Default z role</div>
+                    <div className="mt-1 text-xl font-bold text-gray-300">
+                      {objectLimitsState.roleBase ?? '∞'}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-5 space-y-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400">
+                      Vlastní základ (0 = použít default z role)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={1000}
+                      value={objectLimitsState.objectLimitBase}
+                      onChange={(e) =>
+                        setObjectLimitsState((s) => ({
+                          ...s,
+                          objectLimitBase: Math.max(0, parseInt(e.target.value, 10) || 0),
+                        }))
+                      }
+                      className="mt-1 w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3 py-2 text-white"
+                    />
+                  </div>
+
+                  {objectLimitsModal.role === 'CUSTOMER' && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-400">
+                        Počet zaplacených dalších objektů (CUSTOMER) – á 100 Kč / rok
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={1000}
+                        value={objectLimitsState.objectLimitExtraPaid}
+                        onChange={(e) =>
+                          setObjectLimitsState((s) => ({
+                            ...s,
+                            objectLimitExtraPaid: Math.max(0, parseInt(e.target.value, 10) || 0),
+                          }))
+                        }
+                        className="mt-1 w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3 py-2 text-white"
+                      />
+                    </div>
+                  )}
+
+                  {(objectLimitsModal.role === 'SVJ' || objectLimitsModal.role === 'COMPANY_ADMIN') && (
+                    <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-white/10 bg-[#1A1A1A] px-3 py-2">
+                      <input
+                        type="checkbox"
+                        checked={objectLimitsState.objectPackagePaid}
+                        onChange={(e) =>
+                          setObjectLimitsState((s) => ({
+                            ...s,
+                            objectPackagePaid: e.target.checked,
+                          }))
+                        }
+                        className="h-4 w-4 accent-brand-yellow"
+                      />
+                      <span className="text-sm text-gray-300">
+                        Balíček do 10 objektů aktivní (600 Kč / rok)
+                      </span>
+                    </label>
+                  )}
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400">
+                      Individuální nabídka (override) – ponechte prázdné pro zrušení
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={10000}
+                      value={objectLimitsState.objectLimitOverride}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setObjectLimitsState((s) => ({
+                          ...s,
+                          objectLimitOverride: v === '' ? '' : Math.max(1, parseInt(v, 10) || 0),
+                        }));
+                      }}
+                      placeholder="např. 25 (nad rámec balíčku do 10)"
+                      className="mt-1 w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3 py-2 text-white placeholder-gray-600"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Pokud je vyplněno, má přednost před vším výše. Vhodné pro klienty s
+                      individuální nabídkou nad 10 objektů.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={resetObjectLimitsModal}
+                    disabled={objectLimitsState.saving}
+                    className="rounded-lg border border-white/10 px-4 py-2 text-sm text-gray-300 hover:bg-white/5 disabled:opacity-50"
+                  >
+                    Vrátit na default
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void saveObjectLimitsModal()}
+                    disabled={objectLimitsState.saving}
+                    className="rounded-lg bg-brand-yellow px-4 py-2 text-sm font-semibold text-black hover:bg-brand-yellow-hover disabled:opacity-50"
+                  >
+                    {objectLimitsState.saving ? 'Ukládám…' : 'Uložit'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {isCreateModalOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-md overflow-hidden">
@@ -635,8 +898,8 @@ export default function AdminUsersClient({
                 >
                   {[
                     ['CUSTOMER', 'Zákazník'],
-                    ['TECHNICIAN', 'Technik'],
-                    ['COMPANY_ADMIN', 'Firma'],
+                    ['TECHNICIAN', 'Revizní technik'],
+                    ['COMPANY_ADMIN', 'Pracujeme v týmu'],
                     ['PRODUCT_MANAGER', 'Produkt Manager (Realitní makléř)'],
                     ['REALTY', 'Produkt Manager (Realitní makléř)'],
                     ['SVJ', 'Správce SVJ'],

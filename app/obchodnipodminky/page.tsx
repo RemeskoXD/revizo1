@@ -285,6 +285,49 @@ export default function ObchodniPodminkyPage() {
               jejich rozhraní. Výpadky platební brány, prodlení potvrzení platby nebo změny u Stripe nejsou vyloučeny;
               provozovatel vynaloží přiměřené úsilí k obnovení přístupu po řádném uhrazení.
             </p>
+            <p>
+              <strong className="text-white">Počet objektů (nemovitostí) na účet a doplňkové poplatky.</strong> Roční
+              předplatné zahrnuje základní počet objektů, které lze v rámci účtu vést:
+            </p>
+            <ul className="list-inside list-disc space-y-1 pl-1 text-gray-300">
+              <li>
+                <strong className="text-white">Zákazník</strong>: 1 objekt v základu; každý další objekt za doplňkový roční
+                poplatek <strong className="text-white">100 Kč / rok / objekt</strong>.
+              </li>
+              <li>
+                <strong className="text-white">Správce SVJ / Bytové domy</strong>: 3 objekty v základu; rozšíření do
+                <strong className="text-white"> 10 objektů</strong> za doplňkový roční poplatek
+                <strong className="text-white"> 600 Kč / rok</strong>; nad 10 objektů
+                <strong className="text-white"> individuální nabídka</strong>.
+              </li>
+              <li>
+                <strong className="text-white">Firma / Revizní společnost</strong>: 3 objekty v základu; rozšíření do
+                <strong className="text-white"> 10 objektů</strong> za doplňkový roční poplatek
+                <strong className="text-white"> 600 Kč / rok</strong>; nad 10 objektů
+                <strong className="text-white"> individuální nabídka</strong>.
+              </li>
+            </ul>
+            <p>
+              Po vyčerpání povoleného počtu objektů nebude možné založit další objekt, dokud nebude uhrazen příslušný
+              doplňkový poplatek nebo dohodnuta individuální cena. Doplňkové poplatky jsou účtovány stejným kanálem jako
+              roční předplatné (Stripe). Aktuální výši poplatků a limitů provozovatel zveřejňuje v rozhraní Služby
+              (registrační stránka, sekce ceník) a může je v souladu s článkem 8 měnit.
+            </p>
+            <p>
+              <strong className="text-white">Měsíční fakturace techniků (firma).</strong> Pro firmy s vlastním týmem
+              techniků se kromě ročního předplatného účtuje měsíční částka <strong className="text-white">200 Kč
+              za každého aktivního technika</strong>, s tím, že <strong className="text-white">každý 10. technik je
+              zdarma</strong>. Změna počtu placených techniků se v Stripe upraví automaticky při přijetí/odpojení
+              technika; nový stav se uplatní poměrně dle pravidel Stripe (proration).
+            </p>
+            <p>
+              <strong className="text-white">Referral program pro makléře.</strong> Pokud se zákazník zaregistruje
+              přes referenční odkaz makléře (URL <code className="text-brand-yellow">?ref=&lt;kód&gt;</code>),
+              vznikne makléři po první úspěšné platbě tohoto zákazníka nárok na odměnu ve výši
+              <strong className="text-white"> 20 Kč</strong>. Odměny se evidují v účtu makléře a jsou vypláceny
+              administrátorem v účetních obdobích. <strong className="text-white">Účast v referral programu je
+              dobrovolná</strong>; makléř je oprávněn referenční odkaz kdykoli přestat používat.
+            </p>
           </Section>
 
           <Section id="obsah" title="5. Chování uživatelů a zakázané jednání">
@@ -361,6 +404,16 @@ export default function ObchodniPodminkyPage() {
               <li>
                 u předplatného: údaje o stavu úhrady a přístupu k placeným funkcím, identifikátor zákazníka u platebního
                 zprostředkovatele (např. Stripe) v rozsahu předaném do Služby.
+              </li>
+              <li>
+                <strong className="text-white">referral program (makléři):</strong> pokud se zákazník zaregistroval přes
+                referenční odkaz makléře, makléř v rámci Služby uvidí <strong className="text-white">jméno a e-mail</strong>{' '}
+                tohoto zákazníka v sekci „Doporučení“ za účelem evidence nároku na odměnu (20 Kč). Tato vazba se
+                ukládá v poli <code className="text-brand-yellow">User.referredByRealtorId</code> a v tabulce
+                <code className="text-brand-yellow"> ReferralReward</code>. Jiné údaje (telefon, adresa, obsah zakázek)
+                makléři nejsou zpřístupněny. Právním základem je oprávněný zájem provozovatele a makléře na evidenci
+                obchodního zastoupení (čl. 6 odst. 1 písm. f) GDPR); proti tomuto zpracování lze podat námitku
+                kontaktním e-mailem.
               </li>
             </ul>
             <p className="font-medium text-white">9.3 Účely a právní základy</p>

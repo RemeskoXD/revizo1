@@ -1,0 +1,318 @@
+================================================================================
+ GEMINI / AI STUDIO – KOMPLETNÍ KONTROLNÍ SEZNAM PRO ROZBĚHNUTÍ REVIZONE
+ Coolify deployment · Stav k 19. 5. 2026
+================================================================================
+
+CÍLEM TOHOTO SOUBORU:
+  Předat AI / vývojáři vše, co musí být na hostingu (Coolify), v Stripe,
+  v databázi a v aplikaci nastaveno, aby všechny nové funkce (předplatné,
+  doplňky, referrals, dokumenty, lock-out) fungovaly v produkci.
+
+INTERNÍ DOKUMENTACE V REPOZITÁŘI:
+  - docs/pricing-rules.md            – pravidla cen, limity objektů, billing
+  - docs/business-decisions.md       – rozhodnutí a odložené body
+  - docs/deployment-pricing.md       – detailní deploy průvodce (rozšiřuje
+                                       tento soubor o SQL ověření a rollback)
+
+--------------------------------------------------------------------------------
+ 0) POŽADAVKY NA INFRASTRUKTURU (Coolify)
+--------------------------------------------------------------------------------
+  ✓ Node.js runtime ≥ 20 (v Coolify "Nixpacks" / "Dockerfile")
+  ✓ MySQL 8 databáze dostupná pro aplikaci
+  ✓ Veřejně dostupný HTTPS endpoint pro Stripe webhook
+  ✓ SMTP brána (pro odchozí e-maily)
+  ✓ Volitelně: Cron-Job.org / EasyCron / Coolify "Scheduled Task" pro
+    pravidelné cron endpointy (níže v sekci 5)
+
+--------------------------------------------------------------------------------
+ 1) ENV PROMĚNNÉ V COOLIFY (Environment Variables)
+--------------------------------------------------------------------------------
+
+Doplňte v Coolify → vaše aplikace → "Environment" tyto klíče. Hodnoty si
+připravte VŽDY pro Production (live) a samostatně pro Test / staging.
+
+# --- DATABÁZE ------------------------------------------------------------
+DATABASE_URL=mysql://USER:PASSWORD@HOST:3306/revizone_db
+
+# --- NEXTAUTH (autentizace) ----------------------------------------------
+NEXTAUTH_SECRET=<vygenerujte: openssl rand -base64 48; min. 32 znaků!>
+NEXTAUTH_URL=https://app.revizone.cz       # vaše produkční doména
+# Pozor: bez NEXTAUTH_SECRET aplikace v produkci vrátí 503.
+
+# --- STRIPE (povinné pro platby) -----------------------------------------
+STRIPE_SECRET_KEY=sk_live_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_LICENSE_PERIOD_MONTHS=12
+
+# --- STRIPE PRICE IDs (po vytvoření produktů ve Stripe Dashboardu) -------
+# Roční předplatné (viz sekce 2):
+# (Pokud měníte ceny existujících plánů SVJ → 1199 a Firma → 4999, vytvořte
+#  nové Stripe ceny a doplňte do hlavní mapě v lib/subscription-pricing.ts.)
+STRIPE_PRICE_NEW_SVJ=price_...            # 1 199 Kč / rok (z původních 799)
+STRIPE_PRICE_NEW_COMPANY_ADMIN=price_...  # 4 999 Kč / rok (z původních 1199)
+
+# Doplňky – rozšíření počtu objektů (Property):
+STRIPE_PRICE_CUSTOMER_EXTRA_OBJECT=price_...   # 100 Kč / rok / objekt (recurring + quantity)
+STRIPE_PRICE_PACKAGE_10_OBJECTS=price_...      # 600 Kč / rok – balíček SVJ/firma do 10 objektů
+
+# Firemní billing techniků:
+STRIPE_PRICE_COMPANY_TECH_SEAT=price_...       # 200 Kč / měsíc / technik (recurring + quantity)
+
+# Realitní makléř – transfer fee:
+STRIPE_PRICE_REALTY_TRANSFER_FEE=price_...     # 200 Kč jednorázová platba
+
+# --- SMTP (e-maily) ------------------------------------------------------
+SMTP_HOST=mail.vase-domena.cz
+SMTP_PORT=465
+SMTP_SECURE=true                     # true = SSL 465; false = STARTTLS 587
+SMTP_USER=noreply@vase-domena.cz
+SMTP_PASS=...
+SMTP_FROM=Revizone <noreply@vase-domena.cz>
+# Volitelné:
+# SMTP_TLS_REJECT_UNAUTHORIZED=true
+
+# --- CRON SECRET ---------------------------------------------------------
+# Bezpečnostní token pro veřejné cron endpointy. Generujte náhodně, min. 32 znaků.
+CRON_SECRET=<openssl rand -hex 32>
+
+# --- NOTIFIKAČNÍ WEBHOOK (Android / FCM relay) - volitelné ---------------
+# NOTIFICATION_WEBHOOK_URL=https://vas-backend.cz/revizone/notifications
+# NOTIFICATION_WEBHOOK_SECRET=<bearer token>
+# NOTIFICATION_DEEPLINK_PREFIX=https://app.revizone.cz
+
+# --- VOLITELNÉ: TESTOVACÍ PLATEBNÍ REŽIM ---------------------------------
+# Použít POUZE na staging / vývojovém prostředí. V produkci NIKDY!
+# FAKE_PAYMENT_GATEWAY=1
+
+--------------------------------------------------------------------------------
+ 2) STRIPE – VYTVOŘENÍ PRODUKTŮ A CEN
+--------------------------------------------------------------------------------
+
+Ve Stripe Dashboardu → "Products" → "Add product". Pro každý produkt
+vyplňte:
+
+  ┌───────────────────────────────────────┬─────────┬───────────┬───────────────────┐
+  │ Produkt                                │ Cena    │ Perioda   │ Env proměnná      │
+  ├───────────────────────────────────────┼─────────┼───────────┼───────────────────┤
+  │ Zákazník – předplatné                 │ 199 Kč  │ Yearly    │ (CUSTOMER, existující) │
+  │ Revizní technik – předplatné           │ 899 Kč  │ Yearly    │ (TECHNICIAN, existující) │
+  │ SVJ / Velké firmy – předplatné         │ 1 199 Kč │ Yearly    │ STRIPE_PRICE_NEW_SVJ │
+  │ Pracujeme v týmu (firma) – předplatné  │ 4 999 Kč │ Yearly    │ STRIPE_PRICE_NEW_COMPANY_ADMIN │
+  │ Další objekt (zákazník)                │ 100 Kč  │ Yearly +  │ STRIPE_PRICE_CUSTOMER_EXTRA_OBJECT │
+  │                                        │         │ Quantity  │                   │
+  │ Balíček do 10 objektů                  │ 600 Kč  │ Yearly    │ STRIPE_PRICE_PACKAGE_10_OBJECTS │
+  │ Billing technika                       │ 200 Kč  │ Monthly + │ STRIPE_PRICE_COMPANY_TECH_SEAT │
+  │                                        │         │ Quantity  │                   │
+  │ Realitní transfer fee                  │ 200 Kč  │ One-time  │ STRIPE_PRICE_REALTY_TRANSFER_FEE │
+  └───────────────────────────────────────┴─────────┴───────────┴───────────────────┘
+
+Po vytvoření zkopírujte Price ID (formát "price_…") a zapište je do
+Coolify env proměnných (sekce 1).
+
+--------------------------------------------------------------------------------
+ 3) STRIPE WEBHOOK
+--------------------------------------------------------------------------------
+
+Stripe Dashboard → "Developers" → "Webhooks" → "Add endpoint":
+
+  URL:    https://app.revizone.cz/api/webhooks/stripe
+  Method: POST
+  Vybrané eventy (POVINNĚ všechny):
+     ✓ checkout.session.completed
+     ✓ invoice.paid
+     ✓ customer.subscription.updated
+     ✓ customer.subscription.deleted
+
+Po vytvoření zkopírujte "Signing secret" → vložte do
+STRIPE_WEBHOOK_SECRET v Coolify env.
+
+Test webhooku po nasazení:
+  Stripe Dashboard → Webhook → "Send test webhook" → vyberte
+  `checkout.session.completed` → Send. V Coolify logs zkontrolujte,
+  že přišla 200 OK odpověď.
+
+--------------------------------------------------------------------------------
+ 4) DATABÁZOVÉ MIGRACE
+--------------------------------------------------------------------------------
+
+Aplikace obsahuje Prisma migrace. Coolify by je měl spustit automaticky
+přes `postinstall` (`prisma generate`) + `prisma migrate deploy`. Pokud ne,
+spusťte ručně přes Coolify "Terminal" v běžícím kontejneru:
+
+    npx prisma migrate deploy
+
+Konkrétní migrace, které se použijí:
+  - 20260418120000_add_user_banned_at
+  - 20260418130000_add_order_is_urgent
+  - 20260418140000_add_revision_auth_valid_until
+  - 20260418150000_add_stripe_webhook_events
+  - 20260418160000_user_requires_subscription_checkout
+  - 20260419100000_add_user_account_status
+  - 20260518000000_add_user_object_limits        ← NOVÉ (objekty + referrals)
+  - 20260519000000_revision_category_target_roles ← NOVÉ (filtry revizí)
+  - 20260519010000_company_documents              ← NOVÉ (firemní dokumenty)
+  - 20260519020000_realtor_transfer_fee           ← NOVÉ (makléř 200 Kč)
+
+Ověření po migraci (volitelné, v MySQL klientu):
+    SHOW COLUMNS FROM `User` LIKE 'object%';        -- 4 řádky
+    SHOW COLUMNS FROM `User` LIKE 'companyTech%';   -- 2 řádky
+    SHOW COLUMNS FROM `User` LIKE 'referredBy%';    -- 1 řádek
+    SHOW TABLES LIKE 'ReferralReward';              -- 1 řádek
+    SHOW TABLES LIKE 'RealtorTransferFee';          -- 1 řádek
+    SHOW TABLES LIKE 'CompanyDocument';             -- 1 řádek
+    SHOW COLUMNS FROM `RevisionCategory` LIKE 'targetRoles'; -- 1 řádek
+
+--------------------------------------------------------------------------------
+ 5) CRON ÚLOHY (každý den)
+--------------------------------------------------------------------------------
+
+Aplikace má 3 cron endpointy. Všechny vyžadují `?secret=<CRON_SECRET>`.
+
+V Coolify lze použít "Scheduled Tasks" nebo externí službu
+(cron-job.org / EasyCron). Doporučená frekvence:
+
+  ┌──────────────────────────────────────────────────────────┬──────────────────┐
+  │ URL                                                       │ Frekvence         │
+  ├──────────────────────────────────────────────────────────┼──────────────────┤
+  │ /api/cron/expiry-reminders?secret=...                     │ Denně 07:00       │
+  │   (e-maily o blížící se expiraci revizí: 30/14/7/2/1 dní) │                  │
+  │                                                           │                  │
+  │ /api/cron/document-expiry?secret=...                      │ Denně 07:05       │
+  │   (e-maily o blížící se expiraci firemních dokumentů)     │                  │
+  │                                                           │                  │
+  │ /api/cron/transfer-rebate?secret=...                      │ Denně 07:10       │
+  │   (po 30 dnech aktivity přivedeného zákazníka vytvoří     │                  │
+  │    20 Kč rebate makléři)                                  │                  │
+  └──────────────────────────────────────────────────────────┴──────────────────┘
+
+Příklad curl příkazu (zaměňte secret a doménu):
+
+    curl -fSs "https://app.revizone.cz/api/cron/document-expiry?secret=XXXX"
+
+Příklad Coolify Scheduled Task v UI:
+  Command:  curl -fSs "https://app.revizone.cz/api/cron/document-expiry?secret=$CRON_SECRET"
+  Schedule: 5 7 * * *
+
+--------------------------------------------------------------------------------
+ 6) MIGRACE STRIPE CEN PRO STÁVAJÍCÍ ZÁKAZNÍKY
+--------------------------------------------------------------------------------
+
+Pokud máte v Stripe stávající aktivní subscriptions na staré ceny
+(SVJ 799 Kč, Firma 1199 Kč) a chcete je převést na nové ceny
+(1199 Kč / 4999 Kč), spusťte migrační skript:
+
+    # Nejdřív DRY RUN (jen výpis, nic neměníte):
+    node scripts/migrate-stripe-prices.mjs
+
+    # Pak skutečná migrace:
+    node scripts/migrate-stripe-prices.mjs --apply
+
+    # Migrace jen jednoho plánu:
+    node scripts/migrate-stripe-prices.mjs --apply --plan SVJ
+
+Skript používá `proration_behavior: 'none'`, takže zákazníci nedostanou
+okamžitě fakturu za rozdíl – nová cena se uplatní až při dalším obnovení.
+
+Alternativa: nechte stávajícím zákazníkům starou cenu doživotně
+(grandfather strategy) a tento skript nespouštějte.
+
+--------------------------------------------------------------------------------
+ 7) PRVNÍ TESTY PO NASAZENÍ
+--------------------------------------------------------------------------------
+
+Po nasazení aplikace na produkci nebo staging projděte tyto kroky:
+
+  □ Otevřete https://app.revizone.cz/cenik – musí se zobrazit ceník
+    s aktuálními cenami z databáze (pricing-db.ts).
+
+  □ V `/admin/pricing` → sekce "Limity objektů a rozšíření" – obě
+    karty (Zákazník extra, Balíček do 10) musí mít zelený stav
+    "nakonfigurováno". Pokud červené "není nastaveno (env)", chybí
+    Price ID v env proměnných.
+
+  □ Registrace zkušebního CUSTOMERa → /dashboard musí načíst
+    bannery / karty bez chyby. License banner se neukáže (1 měsíc trial).
+
+  □ V administraci `/admin/users` najděte testovacího uživatele,
+    klikněte na ikonku "budovy" (Limity objektů) → modal se otevře
+    a načte aktuální stav.
+
+  □ Stripe – ve fake režimu na stagingu (FAKE_PAYMENT_GATEWAY=1):
+    1) CUSTOMER se 2 objekty → 3. objekt → musí přesměrovat na
+       fake bránu s purpose=addon&addon=CUSTOMER_EXTRA_OBJECT
+    2) SVJ → aktivovat balíček do 10 objektů → po fake potvrzení
+       musí být v DB `objectPackagePaid = true`
+    3) Firma → aktivovat billing techniků → po fake potvrzení musí
+       být `companyTechBillingActive = true`
+
+  □ Realitní makléř:
+    1) Vytvořit nemovitost, generovat transfer link
+    2) Jiný uživatel claimne nemovitost
+    3) Makléř klikne "Potvrdit převod" → vytvoří se `RealtorTransferFee`
+       (200 Kč, PENDING)
+    4) Makléř klikne "Uhradit" v /realty/referrals → Stripe checkout
+    5) Po platbě → status PAID, `stripeInvoiceId` vyplněno
+
+  □ Hlídání dokumentů (firma):
+    1) /company/documents → "Přidat dokument" → vyplnit, uložit s PDF
+    2) Tabulka ukáže badge stavu (VALID / EXPIRES_SOON / EXPIRED)
+    3) Cron `/api/cron/document-expiry` → e-mail se odešle, pokud
+       je dokument do 30/14/7/1 dne expirovaný
+
+  □ Lock-out test:
+    1) V DB nastavte testovacímu CUSTOMERovi
+       `licenseValidUntil = "2024-01-01"`
+    2) Dashboard musí ukázat červený banner "Uhraďte předplatné"
+    3) Tlačítko "Objednat revizi" musí vrátit 402
+
+--------------------------------------------------------------------------------
+ 8) UPDATE DEPLOY WORKFLOW
+--------------------------------------------------------------------------------
+
+Při dalším push do main branche v Coolify:
+
+  1) `npm install` (postinstall spustí `prisma generate`)
+  2) `npm run build` (zahrnuje prisma generate + Next.js build)
+  3) Coolify nasadí novou verzi
+  4) Po nasazení manuálně:
+     - `npx prisma migrate deploy` (pokud nové migrace)
+     - Otestovat webhook (Stripe Dashboard → Send test webhook)
+
+Pokud něco selže:
+  - Logy: Coolify → Application → "Logs"
+  - 503 odpovědi v produkci = pravděpodobně chybí NEXTAUTH_SECRET
+  - 402 odpovědi na POST /api/orders = licence expirovaná (správné chování)
+  - 500 v webhook = zkontrolujte STRIPE_WEBHOOK_SECRET
+
+--------------------------------------------------------------------------------
+ 9) NEDOKONČENÉ / ODLOŽENÉ BODY (kontext pro AI)
+--------------------------------------------------------------------------------
+
+Pro úplnost kontextu – tyto věci NEJSOU součástí aktuálního nasazení:
+
+  - Manažer "Pracujeme v týmu" stále platí roční paušál 4999 Kč.
+    (Plán: zrušit a nahradit procenty z dokončených zakázek + tech billing.
+     Vyžaduje business diskusi.)
+
+  - Multi-login pro SVJ a "Velké firmy" (sdílený přístup více uživatelů
+    k jednomu profilu). Velký refactor schématu, vyžaduje vlastní iteraci.
+
+  - AI extrakce data platnosti z PDF (svářečské průkazy apod.).
+    Manuální zadání už funguje. AI doplnění závisí na výběru provideru
+    (OpenAI, Google Vision, lokální OCR).
+
+Viz docs/business-decisions.md sekce 5 – tabulka "Stav implementace".
+
+--------------------------------------------------------------------------------
+ 10) KONTAKT
+--------------------------------------------------------------------------------
+
+  Vydavatel: Ludvík Remešek
+  Provoz:    ASPERSUN, s.r.o.
+  E-mail:    info@revizone.cz
+
+  Pravidelný sync týmu: každé pondělí 15:30
+
+================================================================================
+ KONEC SOUBORU
+================================================================================

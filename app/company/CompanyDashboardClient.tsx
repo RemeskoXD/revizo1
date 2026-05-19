@@ -7,6 +7,9 @@ import {
 import Link from 'next/link';
 import { motion } from 'motion/react';
 import { AnimatedItem } from '@/components/AnimatedItem';
+import { ObjectLimitCard } from '@/components/dashboard/ObjectLimitCard';
+import { CompanyTechBillingCard } from '@/components/dashboard/CompanyTechBillingCard';
+import { CompanyOnboardingWizard } from '@/components/dashboard/CompanyOnboardingWizard';
 import { cn } from '@/lib/utils';
 
 const statusLabel = (s: string) => ({
@@ -57,6 +60,21 @@ export default function CompanyDashboardClient({
           )}
         </div>
       )}
+
+      {/* Onboarding průvodce – skryje se, když je vše hotové */}
+      <AnimatedItem delay={0.05}>
+        <CompanyOnboardingWizard />
+      </AnimatedItem>
+
+      {/* Limit objektů + Billing techniků (Firma) */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <AnimatedItem delay={0.07}>
+          <ObjectLimitCard returnPath="/company" />
+        </AnimatedItem>
+        <AnimatedItem delay={0.09}>
+          <CompanyTechBillingCard returnPath="/company" />
+        </AnimatedItem>
+      </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-5">
@@ -142,7 +160,8 @@ export default function CompanyDashboardClient({
           </div>
         </AnimatedItem>
 
-        {/* Recent Orders */}
+        {/* Recent Orders – zobrazí se jen, když firma má aspoň jednu zakázku */}
+        {recentOrders.length > 0 && (
         <AnimatedItem delay={0.4} className="lg:col-span-2">
           <div className="bg-[#1A1A1A] border border-white/5 rounded-xl p-5 h-full">
             <div className="flex items-center justify-between mb-4">
@@ -156,7 +175,7 @@ export default function CompanyDashboardClient({
                     <th className="pb-2 font-medium">ID</th>
                     <th className="pb-2 font-medium">Typ</th>
                     <th className="pb-2 font-medium">Zákazník</th>
-                    <th className="pb-2 font-medium">Technik</th>
+                    <th className="pb-2 font-medium">Revizní technik</th>
                     <th className="pb-2 font-medium">Cena</th>
                     <th className="pb-2 font-medium">Stav</th>
                   </tr>
@@ -185,6 +204,7 @@ export default function CompanyDashboardClient({
             </div>
           </div>
         </AnimatedItem>
+        )}
       </div>
 
       {/* Public Orders Radar Preview */}

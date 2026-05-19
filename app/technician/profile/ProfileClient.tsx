@@ -105,7 +105,7 @@ export default function ProfileClient({ user }: { user: any }) {
             <h2 className="text-xl font-bold text-white">{user.name || 'Neznámý uživatel'}</h2>
             <div className="flex items-center gap-2 mt-1">
               <ShieldCheck className="w-4 h-4 text-brand-yellow" />
-              <span className="text-sm text-brand-yellow font-medium">Technik</span>
+              <span className="text-sm text-brand-yellow font-medium">Revizní technik</span>
             </div>
           </div>
         </div>

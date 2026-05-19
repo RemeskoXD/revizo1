@@ -8,6 +8,7 @@ import { PageTransition } from '@/components/PageTransition';
 import { MobileSidebarToggle } from '@/components/MobileSidebarToggle';
 import { RevizoneSidebarBrand } from '@/components/layout/RevizoneSidebarBrand';
 import { SidebarFooterBlock } from '@/components/layout/SidebarFooterBlock';
+import { LicenseBanner } from '@/components/LicenseBanner';
 
 export default async function SVJLayout({ children }: { children: ReactNode }) {
   const session = await getServerSession(authOptions);
@@ -44,6 +45,7 @@ export default async function SVJLayout({ children }: { children: ReactNode }) {
       </MobileSidebarToggle>
 
       <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden pt-14 pr-14 pb-[env(safe-area-inset-bottom)] lg:pr-0 lg:pt-0">
+        <LicenseBanner returnPath="/svj" />
         <div className="flex-1 overflow-y-auto px-3 py-4 sm:px-4 sm:py-6 md:p-8">
           <div className="mx-auto max-w-7xl">
             <PageTransition>{children}</PageTransition>

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { syncCompanyTechBillingForCompany } from '@/lib/company-tech-sync';
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string, action: string }> }) {
   try {
@@ -43,6 +44,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         },
         data: { status: 'REJECTED' }
       });
+
+      // Sync billing techniků – zvýší quantity ve Stripe subscription
+      syncCompanyTechBillingForCompany(session.user.id).catch((e) =>
+        console.error('Tech billing sync failed:', e),
+      );
 
     } else if (action === 'reject') {
       await prisma.companyJoinRequest.update({

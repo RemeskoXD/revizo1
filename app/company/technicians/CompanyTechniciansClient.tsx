@@ -169,7 +169,7 @@ export default function CompanyTechniciansClient({ technicians, joinRequests, co
                       {tech.name || 'Neznámý'}
                     </Link>
                   </h3>
-                  <p className="text-xs text-brand-yellow font-medium">Technik</p>
+                  <p className="text-xs text-brand-yellow font-medium">Revizní technik</p>
                 </div>
               </div>
               <button

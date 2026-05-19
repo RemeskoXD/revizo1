@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'motion/react';
 import { AnimatedItem } from '@/components/AnimatedItem';
+import { ObjectLimitCard } from '@/components/dashboard/ObjectLimitCard';
 import { cn } from '@/lib/utils';
 
 const HEALTH_CONFIG = {
@@ -92,6 +93,11 @@ export default function SVJDashboardClient({
           </div>
         </AnimatedItem>
       )}
+
+      {/* Limit objektů (SVJ) */}
+      <AnimatedItem delay={0.07}>
+        <ObjectLimitCard returnPath="/svj" />
+      </AnimatedItem>
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">

@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import { AnimatedItem } from '@/components/AnimatedItem';
+import { ObjectLimitCard } from '@/components/dashboard/ObjectLimitCard';
 import { cn } from '@/lib/utils';
 import toast from 'react-hot-toast';
 
@@ -129,6 +130,11 @@ export default function DashboardClient({
           </div>
         </AnimatedItem>
       )}
+
+      {/* Limit objektů (CUSTOMER) */}
+      <AnimatedItem delay={0.07}>
+        <ObjectLimitCard returnPath="/dashboard" />
+      </AnimatedItem>
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -286,24 +292,17 @@ export default function DashboardClient({
       )}
 
       {/* Recent Orders */}
-      <AnimatedItem delay={0.5}>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between px-1">
-            <h2 className="text-lg font-bold text-white">Nedávné objednávky</h2>
-            <Link href="/dashboard/orders" className="text-sm text-brand-yellow hover:underline flex items-center gap-1">
-              Zobrazit vše <ArrowRight className="w-3 h-3" />
-            </Link>
-          </div>
-          <div className="bg-[#1A1A1A] border border-white/5 rounded-xl overflow-hidden">
-            {recentOrders.length === 0 ? (
-              <div className="p-12 text-center">
-                <FileText className="w-8 h-8 text-gray-600 mx-auto mb-3" />
-                <p className="text-gray-500">Zatím nemáte žádné objednávky.</p>
-                <Link href="/dashboard/new-order" className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-brand-yellow text-black font-semibold rounded-lg text-sm hover:bg-brand-yellow-hover transition-colors">
-                  <PlusCircle className="w-4 h-4" /> Objednat první revizi
-                </Link>
-              </div>
-            ) : (
+      {/* Sekce „Nedávné objednávky" se zobrazí jen, když uživatel už nějaké má. */}
+      {recentOrders.length > 0 && (
+        <AnimatedItem delay={0.5}>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between px-1">
+              <h2 className="text-lg font-bold text-white">Nedávné objednávky</h2>
+              <Link href="/dashboard/orders" className="text-sm text-brand-yellow hover:underline flex items-center gap-1">
+                Zobrazit vše <ArrowRight className="w-3 h-3" />
+              </Link>
+            </div>
+            <div className="bg-[#1A1A1A] border border-white/5 rounded-xl overflow-hidden">
               <div className="divide-y divide-white/5">
                 {recentOrders.map((order: any) => (
                   <Link key={order.id} href={`/dashboard/orders/${order.readableId}`} className="flex items-center gap-4 p-4 hover:bg-white/[0.02] transition-colors">
@@ -332,10 +331,10 @@ export default function DashboardClient({
                   </Link>
                 ))}
               </div>
-            )}
+            </div>
           </div>
-        </div>
-      </AnimatedItem>
+        </AnimatedItem>
+      )}
 
       {/* Empty state - no revisions yet */}
       {watchdogItems.length === 0 && recentOrders.length === 0 && (

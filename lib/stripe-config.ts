@@ -39,11 +39,15 @@ export function isStripeWebhookConfigured(): boolean {
   return Boolean(process.env.STRIPE_WEBHOOK_SECRET?.trim());
 }
 
-/** Povolené cesty pro návrat z Stripe Checkout / Customer Portal (stejné jako stránky s SettingsClient). */
+/** Povolené cesty pro návrat z Stripe Checkout / Customer Portal (settings + root dashboardy). */
 const STRIPE_SETTINGS_RETURN_PATHS = new Set([
+  '/dashboard',
   '/dashboard/settings',
+  '/company',
   '/company/settings',
+  '/realty',
   '/realty/settings',
+  '/svj',
   '/svj/settings',
 ]);
 

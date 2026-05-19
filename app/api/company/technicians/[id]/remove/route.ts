@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { syncCompanyTechBillingForCompany } from '@/lib/company-tech-sync';
 
 export async function PATCH(
   request: Request,
@@ -48,6 +49,11 @@ export async function PATCH(
         technicianId: null
       }
     });
+
+    // Sync billing techniků – sníží quantity ve Stripe subscription
+    syncCompanyTechBillingForCompany(session.user.id).catch((e) =>
+      console.error('Tech billing sync failed:', e),
+    );
 
     return NextResponse.json({ success: true });
   } catch (error) {

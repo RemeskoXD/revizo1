@@ -159,7 +159,7 @@ export default function AdminDashboardClient({
                   <th className="pb-2 font-medium">ID</th>
                   <th className="pb-2 font-medium">Typ</th>
                   <th className="pb-2 font-medium">Zákazník</th>
-                  <th className="pb-2 font-medium">Technik</th>
+                  <th className="pb-2 font-medium">Revizní technik</th>
                   <th className="pb-2 font-medium">Stav</th>
                   <th className="pb-2 font-medium text-right">Datum</th>
                 </tr>

@@ -88,7 +88,7 @@ export default function SettlementClient({ monthlyData, technicians }: any) {
                     <table className="w-full min-w-[520px] text-left text-sm">
                       <thead className="text-gray-500 border-b border-white/5 text-xs">
                         <tr>
-                          <th className="pb-3 font-medium">Technik</th>
+                          <th className="pb-3 font-medium">Revizní technik</th>
                           <th className="pb-3 font-medium text-center">Provize</th>
                           <th className="pb-3 font-medium text-center">Revizí</th>
                           <th className="pb-3 font-medium text-right">Obrat</th>

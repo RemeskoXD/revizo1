@@ -14,12 +14,16 @@ export default function AdminPricingClient() {
 
   const [subscriptions, setSubscriptions] = useState<Record<SubscriptionPlanKey, { label: string; yearlyPriceCzk: number }>>({
     CUSTOMER: { label: 'Zákazník', yearlyPriceCzk: 199 },
-    TECHNICIAN: { label: 'Technik', yearlyPriceCzk: 899 },
-    COMPANY_ADMIN: { label: 'Firma', yearlyPriceCzk: 1199 },
+    TECHNICIAN: { label: 'Revizní technik', yearlyPriceCzk: 899 },
+    COMPANY_ADMIN: { label: 'Pracujeme v týmu', yearlyPriceCzk: 4999 },
   });
 
   const [services, setServices] = useState<any[]>([]);
   const [urgentSurcharge, setUrgentSurcharge] = useState(2000);
+  const [objectAddons, setObjectAddons] = useState<{
+    customerExtraObject?: { label: string; yearlyPriceCzk: number; stripeConfigured: boolean };
+    package10Objects?: { label: string; yearlyPriceCzk: number; packageLimit: number; stripeConfigured: boolean };
+  } | null>(null);
 
   useEffect(() => {
     fetch('/api/pricing')
@@ -28,6 +32,7 @@ export default function AdminPricingClient() {
         if (data.subscriptions) setSubscriptions(data.subscriptions);
         if (data.services) setServices(data.services);
         if (data.urgentSurcharge !== undefined) setUrgentSurcharge(data.urgentSurcharge);
+        if (data.objectAddons) setObjectAddons(data.objectAddons);
       })
       .catch(err => console.error('Error fetching pricing:', err))
       .finally(() => setLoading(false));
@@ -141,6 +146,61 @@ export default function AdminPricingClient() {
                     />
               </div>
            </div>
+        </div>
+      </div>
+
+      {/* Object addons (limity počtu objektů) */}
+      <div className="space-y-4">
+        <h2 className="text-xl font-semibold text-white">Limity objektů a rozšíření</h2>
+        <div className="rounded-xl border border-white/5 bg-[#111] p-4 space-y-4">
+          <div className="flex items-start gap-3 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+            <Info className="w-5 h-5 text-amber-400 shrink-0" />
+            <p className="text-xs text-amber-200">
+              Pravidla viz <code className="px-1 py-0.5 rounded bg-black/40">docs/pricing-rules.md</code>.
+              Hodnoty jsou definované v <code className="px-1 py-0.5 rounded bg-black/40">lib/object-limits.ts</code>.
+              Stripe Price ID se nastavují přes proměnné prostředí
+              <code className="px-1 py-0.5 mx-1 rounded bg-black/40">STRIPE_PRICE_CUSTOMER_EXTRA_OBJECT</code>
+              a <code className="px-1 py-0.5 rounded bg-black/40">STRIPE_PRICE_PACKAGE_10_OBJECTS</code>.
+              Individuální limit pro konkrétní účet (nad 10 objektů) lze nastavit přes
+              <code className="px-1 py-0.5 mx-1 rounded bg-black/40">PUT /api/admin/users/[id]/object-limits</code>.
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="rounded-lg border border-white/10 bg-[#1A1A1A] p-3">
+              <div className="text-sm font-medium text-white">Zákazník – další objekt</div>
+              <div className="mt-1 text-2xl font-bold text-brand-yellow">
+                {(objectAddons?.customerExtraObject?.yearlyPriceCzk ?? 100).toLocaleString('cs-CZ')} Kč / rok
+              </div>
+              <div className="mt-1 text-xs text-gray-500">za každý objekt nad 1 v základu</div>
+              <div className="mt-2 text-xs">
+                Stripe:{' '}
+                {objectAddons?.customerExtraObject?.stripeConfigured ? (
+                  <span className="text-emerald-400">nakonfigurováno</span>
+                ) : (
+                  <span className="text-red-400">není nastaveno (env)</span>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-white/10 bg-[#1A1A1A] p-3">
+              <div className="text-sm font-medium text-white">SVJ / Firma – balíček do 10 objektů</div>
+              <div className="mt-1 text-2xl font-bold text-brand-yellow">
+                {(objectAddons?.package10Objects?.yearlyPriceCzk ?? 600).toLocaleString('cs-CZ')} Kč / rok
+              </div>
+              <div className="mt-1 text-xs text-gray-500">
+                rozšíření z 3 → {objectAddons?.package10Objects?.packageLimit ?? 10} objektů; nad 10 individuálně
+              </div>
+              <div className="mt-2 text-xs">
+                Stripe:{' '}
+                {objectAddons?.package10Objects?.stripeConfigured ? (
+                  <span className="text-emerald-400">nakonfigurováno</span>
+                ) : (
+                  <span className="text-red-400">není nastaveno (env)</span>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

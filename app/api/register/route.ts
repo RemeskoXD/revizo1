@@ -11,6 +11,7 @@ import {
   isStripePaymentsConfigured,
 } from "@/lib/stripe-config";
 import { createUserWithSubscriptionColumnFallback } from "@/lib/prisma-subscription-column";
+import { findRealtorByInviteCode } from "@/lib/referral";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_LICENSE_B64 = 5_500_000; // ~4 MB binary
@@ -55,6 +56,8 @@ export async function POST(req: Request) {
       expectedTechnicians?: number | null;
       /** registertest – stará registrace bez souboru oprávnění */
       registrationFlow?: string;
+      /** Referral kód makléře (?ref= nebo ?invite= z URL) */
+      referralCode?: string;
     }>(req, 6_600_000);
 
     const {
@@ -71,7 +74,15 @@ export async function POST(req: Request) {
       licenseDocument: rawLicense,
       expectedTechnicians,
       registrationFlow,
+      referralCode: rawReferralCode,
     } = body;
+
+    // Referral kód funguje pouze u nového CUSTOMER účtu.
+    let referredByRealtorId: string | null = null;
+    if (rawReferralCode && (rawRole || 'CUSTOMER') === 'CUSTOMER') {
+      const realtor = await findRealtorByInviteCode(String(rawReferralCode).slice(0, 64));
+      if (realtor) referredByRealtorId = realtor.id;
+    }
 
     const legacyFlow = registrationFlow === "legacy";
 
@@ -148,6 +159,7 @@ export async function POST(req: Request) {
           address: address || null,
           licenseValidUntil: trialUntil,
           requiresSubscriptionCheckout: false,
+          ...(role === 'CUSTOMER' && referredByRealtorId ? { referredByRealtorId } : {}),
         },
         select: { id: true, email: true, role: true },
       });

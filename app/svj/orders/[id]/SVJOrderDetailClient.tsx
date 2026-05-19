@@ -152,7 +152,7 @@ export default function SVJOrderDetailClient({ order }: { order: Order }) {
           {/* Technician */}
           {order.technician && (
             <div className="bg-[#1A1A1A] border border-white/5 rounded-2xl p-6">
-              <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Technik</h3>
+              <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Revizní technik</h3>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
                   <User className="w-5 h-5 text-gray-400" />

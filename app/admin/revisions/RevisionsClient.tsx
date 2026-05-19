@@ -43,7 +43,32 @@ interface RevisionCategory {
   intervalMonths: number;
   legalBasis: string | null;
   description: string | null;
+  targetRoles: string | null;
   _count: { orders: number };
+}
+
+const TARGET_ROLE_CHOICES: { value: string; label: string }[] = [
+  { value: 'CUSTOMER', label: 'Zákazník (RD)' },
+  { value: 'SVJ', label: 'SVJ / Velké firmy' },
+  { value: 'COMPANY_ADMIN', label: 'Pracujeme v týmu' },
+  { value: 'REALTY', label: 'Realitní makléř' },
+  { value: 'PRODUCT_MANAGER', label: 'Produkt Manager' },
+];
+
+function rolesToArray(csv: string | null | undefined): string[] {
+  if (!csv) return [];
+  return csv
+    .split(',')
+    .map((r) => r.trim().toUpperCase())
+    .filter((r) => r.length > 0);
+}
+
+function rolesLabel(csv: string | null | undefined): string {
+  const arr = rolesToArray(csv);
+  if (arr.length === 0) return 'Všechny';
+  return arr
+    .map((r) => TARGET_ROLE_CHOICES.find((c) => c.value === r)?.label || r)
+    .join(', ');
 }
 
 export default function RevisionsClient({ categories, isAdmin }: { categories: RevisionCategory[]; isAdmin: boolean }) {
@@ -51,6 +76,7 @@ export default function RevisionsClient({ categories, isAdmin }: { categories: R
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editInterval, setEditInterval] = useState(0);
   const [editDescription, setEditDescription] = useState('');
+  const [editTargetRoles, setEditTargetRoles] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSeeding, setIsSeeding] = useState(false);
 
@@ -64,6 +90,7 @@ export default function RevisionsClient({ categories, isAdmin }: { categories: R
     setEditingId(cat.id);
     setEditInterval(cat.intervalMonths);
     setEditDescription(cat.description || '');
+    setEditTargetRoles(rolesToArray(cat.targetRoles));
   };
 
   const cancelEdit = () => {
@@ -76,7 +103,11 @@ export default function RevisionsClient({ categories, isAdmin }: { categories: R
       const res = await fetch(`/api/admin/revisions/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ intervalMonths: editInterval, description: editDescription }),
+        body: JSON.stringify({
+          intervalMonths: editInterval,
+          description: editDescription,
+          targetRoles: editTargetRoles,
+        }),
       });
       if (res.ok) {
         setEditingId(null);
@@ -189,6 +220,7 @@ export default function RevisionsClient({ categories, isAdmin }: { categories: R
                       <tr>
                         <th className="px-6 py-3">Kategorie</th>
                         <th className="px-6 py-3">Lhůta</th>
+                        <th className="px-6 py-3">Pro role</th>
                         <th className="px-6 py-3">Právní předpis</th>
                         <th className="px-6 py-3">Objednávky</th>
                         {isAdmin && <th className="px-6 py-3 text-right">Akce</th>}
@@ -230,6 +262,34 @@ export default function RevisionsClient({ categories, isAdmin }: { categories: R
                                 <span className="text-white font-medium">{formatInterval(cat.intervalMonths)}</span>
                                 <span className="text-xs text-gray-500">({cat.intervalMonths} měs.)</span>
                               </div>
+                            )}
+                          </td>
+                          <td className="px-6 py-4">
+                            {editingId === cat.id ? (
+                              <div className="flex flex-col gap-1.5">
+                                {TARGET_ROLE_CHOICES.map((opt) => (
+                                  <label key={opt.value} className="flex items-center gap-2 text-xs text-gray-300">
+                                    <input
+                                      type="checkbox"
+                                      checked={editTargetRoles.includes(opt.value)}
+                                      onChange={(e) => {
+                                        setEditTargetRoles((prev) =>
+                                          e.target.checked
+                                            ? [...prev, opt.value]
+                                            : prev.filter((r) => r !== opt.value),
+                                        );
+                                      }}
+                                      className="h-3.5 w-3.5 accent-brand-yellow"
+                                    />
+                                    {opt.label}
+                                  </label>
+                                ))}
+                                <p className="mt-1 text-[10px] text-gray-500">
+                                  Bez zaškrtnutí = pro všechny role
+                                </p>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-gray-400">{rolesLabel(cat.targetRoles)}</span>
                             )}
                           </td>
                           <td className="px-6 py-4 text-gray-400 text-xs font-mono">

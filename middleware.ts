@@ -87,6 +87,9 @@ p{color:#ccc;font-size:.95rem}
   const token = await getToken({ req: request, secret: getNextAuthJwtSecret() });
 
   if (!token) {
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json({ message: 'Neautorizováno / Session vypršela' }, { status: 401 });
+    }
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('callbackUrl', pathname);
     return NextResponse.redirect(loginUrl);

@@ -211,7 +211,7 @@ export function orderStatusEmail(data: {
   const extraInfo = [];
   if (data.technicianName) {
     extraInfo.push(`<tr><td style="padding:12px 20px;border-bottom:1px solid rgba(255,255,255,0.05)">
-      <span style="color:#999;font-size:12px">Technik</span><br>
+      <span style="color:#999;font-size:12px">Revizní technik</span><br>
       <span style="color:#fff;font-size:15px;font-weight:600">${data.technicianName}</span>
     </td></tr>`);
   }
@@ -323,6 +323,142 @@ export function paymentSuccessEmail(data: {
 
   return {
     subject: `✅ Potvrzení platby za objednávku #${data.readableId}`,
+    html,
+  };
+}
+
+export function objectAddonActivatedEmail(data: {
+  userName: string | null;
+  kind: 'CUSTOMER_EXTRA_OBJECT' | 'PACKAGE_10_OBJECTS';
+  quantity: number;
+  pricePerYearCzk: number;
+}) {
+  const isPackage = data.kind === 'PACKAGE_10_OBJECTS';
+  const title = isPackage ? 'Balíček do 10 objektů byl aktivován' : 'Další objekt byl přidán';
+  const detail = isPackage
+    ? 'Od nynějška můžete v rámci účtu evidovat až 10 objektů.'
+    : `Limit byl navýšen o ${data.quantity} ${data.quantity === 1 ? 'objekt' : data.quantity < 5 ? 'objekty' : 'objektů'}.`;
+  const total = isPackage ? data.pricePerYearCzk : data.pricePerYearCzk * Math.max(1, data.quantity);
+
+  const html = layout(`
+    <h2 style="color:#fff;font-size:20px;margin:0 0 8px">${title}</h2>
+    <p style="color:#999;font-size:14px;margin:0 0 24px">Dobrý den${data.userName ? `, ${data.userName}` : ''},</p>
+
+    <div style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.2);border-radius:12px;padding:20px;margin-bottom:24px;text-align:center">
+      <p style="font-size:32px;margin:0">✅</p>
+      <p style="color:#22c55e;font-size:18px;font-weight:700;margin:8px 0 4px">${title}</p>
+      <p style="color:#999;font-size:13px;margin:0">Celkem: ${total.toLocaleString('cs-CZ')} Kč / rok</p>
+    </div>
+
+    <p style="color:#ccc;font-size:14px;line-height:1.6;margin:0 0 16px">${detail}</p>
+    <p style="color:#888;font-size:13px;line-height:1.6;margin:0 0 24px">
+      Doplněk se obnovuje ročně. V zákaznickém portálu Stripe můžete předplatné kdykoli zrušit – po
+      ukončení se limit vrátí na výchozí hodnotu podle vašeho profilu.
+    </p>
+
+    <div style="text-align:center;margin:24px 0">
+      ${button('Otevřít přehled', `${baseUrl}/dashboard`)}
+    </div>
+  `);
+
+  return {
+    subject: isPackage
+      ? '✅ Aktivováno: balíček do 10 objektů'
+      : `✅ Přidán další objekt (${data.quantity})`,
+    html,
+  };
+}
+
+export function objectAddonRevokedEmail(data: {
+  userName: string | null;
+  kind: 'CUSTOMER_EXTRA_OBJECT' | 'PACKAGE_10_OBJECTS';
+}) {
+  const isPackage = data.kind === 'PACKAGE_10_OBJECTS';
+  const title = isPackage
+    ? 'Balíček do 10 objektů byl zrušen'
+    : 'Předplatné dalších objektů bylo zrušeno';
+  const detail = isPackage
+    ? 'Váš limit objektů se vrátil na výchozí hodnotu profilu (3 objekty).'
+    : 'Limit objektů se vrátil na výchozí hodnotu profilu (1 objekt).';
+
+  const html = layout(`
+    <h2 style="color:#fff;font-size:20px;margin:0 0 8px">${title}</h2>
+    <p style="color:#999;font-size:14px;margin:0 0 24px">Dobrý den${data.userName ? `, ${data.userName}` : ''},</p>
+
+    <div style="background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:12px;padding:20px;margin-bottom:24px;text-align:center">
+      <p style="font-size:32px;margin:0">ℹ️</p>
+      <p style="color:#f87171;font-size:18px;font-weight:700;margin:8px 0 4px">${title}</p>
+    </div>
+
+    <p style="color:#ccc;font-size:14px;line-height:1.6;margin:0 0 16px">${detail}</p>
+    <p style="color:#888;font-size:13px;line-height:1.6;margin:0 0 24px">
+      Pokud jde o nedopatření, doplněk lze znovu aktivovat ve vašem dashboardu.
+    </p>
+
+    <div style="text-align:center;margin:24px 0">
+      ${button('Aktivovat znovu', `${baseUrl}/dashboard`)}
+    </div>
+  `);
+
+  return {
+    subject: isPackage
+      ? 'Balíček do 10 objektů byl zrušen'
+      : 'Předplatné dalších objektů bylo zrušeno',
+    html,
+  };
+}
+
+export function referralRewardCreatedEmail(data: {
+  realtorName: string | null;
+  customerName: string | null;
+  amountCzk: number;
+}) {
+  const html = layout(`
+    <h2 style="color:#fff;font-size:20px;margin:0 0 8px">Nová referral odměna ${data.amountCzk} Kč</h2>
+    <p style="color:#999;font-size:14px;margin:0 0 24px">Dobrý den${data.realtorName ? `, ${data.realtorName}` : ''},</p>
+
+    <div style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.2);border-radius:12px;padding:20px;margin-bottom:24px;text-align:center">
+      <p style="font-size:32px;margin:0">🎁</p>
+      <p style="color:#22c55e;font-size:18px;font-weight:700;margin:8px 0 4px">+${data.amountCzk} Kč</p>
+      <p style="color:#999;font-size:13px;margin:0">
+        Zákazník${data.customerName ? ` <strong style="color:#fff">${data.customerName}</strong>` : ''} se úspěšně registroval přes váš referral kód.
+      </p>
+    </div>
+
+    <p style="color:#ccc;font-size:14px;line-height:1.6;margin:0 0 16px">
+      Odměna je momentálně ve stavu <strong style="color:#f59e0b">čeká na vyplacení</strong>. Administrátor ji vyplatí v nejbližším účetním období.
+    </p>
+
+    <div style="text-align:center;margin:24px 0">
+      ${button('Zobrazit odměny', `${baseUrl}/realty/referrals`)}
+    </div>
+  `);
+  return {
+    subject: `🎁 Nová referral odměna ${data.amountCzk} Kč`,
+    html,
+  };
+}
+
+export function referralRewardPaidEmail(data: {
+  realtorName: string | null;
+  amountCzk: number;
+}) {
+  const html = layout(`
+    <h2 style="color:#fff;font-size:20px;margin:0 0 8px">Odměna ${data.amountCzk} Kč byla vyplacena</h2>
+    <p style="color:#999;font-size:14px;margin:0 0 24px">Dobrý den${data.realtorName ? `, ${data.realtorName}` : ''},</p>
+
+    <div style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.2);border-radius:12px;padding:20px;margin-bottom:24px;text-align:center">
+      <p style="font-size:32px;margin:0">✅</p>
+      <p style="color:#22c55e;font-size:18px;font-weight:700;margin:8px 0 4px">Vyplaceno ${data.amountCzk} Kč</p>
+      <p style="color:#999;font-size:13px;margin:0">Administrátor označil vaši referral odměnu jako vyplacenou.</p>
+    </div>
+
+    <div style="text-align:center;margin:24px 0">
+      ${button('Historie odměn', `${baseUrl}/realty/referrals`)}
+    </div>
+  `);
+  return {
+    subject: `✅ Vyplacena referral odměna ${data.amountCzk} Kč`,
     html,
   };
 }

@@ -3,7 +3,19 @@ import { sendMail } from '@/lib/mail';
 import { orderStatusEmail } from '@/lib/email-templates';
 import { dispatchNotificationWebhook } from '@/lib/notification-webhook';
 
-type NotificationType = 'ORDER_ASSIGNED' | 'ORDER_COMPLETED' | 'REVISION_EXPIRING' | 'MESSAGE' | 'TECHNICIAN_SCHEDULED' | 'DEFECT_CREATED' | 'ORDER_STATUS_CHANGED' | 'REVIEW_RECEIVED';
+type NotificationType =
+  | 'ORDER_ASSIGNED'
+  | 'ORDER_COMPLETED'
+  | 'REVISION_EXPIRING'
+  | 'MESSAGE'
+  | 'TECHNICIAN_SCHEDULED'
+  | 'DEFECT_CREATED'
+  | 'ORDER_STATUS_CHANGED'
+  | 'REVIEW_RECEIVED'
+  | 'ADDON_ACTIVATED'
+  | 'ADDON_REVOKED'
+  | 'REFERRAL_REWARD'
+  | 'REFERRAL_PAID';
 
 export async function createNotification(params: {
   userId: string;
@@ -117,6 +129,83 @@ export async function notifyRevisionExpired(params: {
     title: 'Platnost revize vypršela',
     message: `Platnost revize ${serviceType} (${address}) u objednávky #${orderReadableId} vypršela${expiredDaysAgo > 0 ? ` před ${expiredDaysAgo} dny` : ''}.`,
     link,
+  });
+}
+
+/** Notifikace po aktivaci doplňku (rozšíření počtu objektů). Viz docs/pricing-rules.md. */
+export async function notifyAddonActivated(params: {
+  userId: string;
+  kind: 'CUSTOMER_EXTRA_OBJECT' | 'PACKAGE_10_OBJECTS';
+  quantity?: number;
+}) {
+  const isPackage = params.kind === 'PACKAGE_10_OBJECTS';
+  const dashLink = await dashboardLinkForUser(params.userId);
+  await createNotification({
+    userId: params.userId,
+    type: 'ADDON_ACTIVATED',
+    title: isPackage ? 'Balíček do 10 objektů aktivován' : 'Další objekt přidán',
+    message: isPackage
+      ? 'Limit objektů byl rozšířen na 10. Můžete přidávat nové objekty.'
+      : `Limit byl navýšen na ${(params.quantity ?? 0) + 1} objektů (základ + zaplacené).`,
+    link: dashLink,
+  });
+}
+
+/** Notifikace po zrušení doplňku (např. cancel ve Stripe portálu). */
+export async function notifyAddonRevoked(params: {
+  userId: string;
+  kind: 'CUSTOMER_EXTRA_OBJECT' | 'PACKAGE_10_OBJECTS';
+}) {
+  const isPackage = params.kind === 'PACKAGE_10_OBJECTS';
+  const dashLink = await dashboardLinkForUser(params.userId);
+  await createNotification({
+    userId: params.userId,
+    type: 'ADDON_REVOKED',
+    title: isPackage ? 'Balíček do 10 objektů zrušen' : 'Předplatné dalších objektů zrušeno',
+    message: isPackage
+      ? 'Limit objektů se vrátil na výchozí hodnotu profilu (3).'
+      : 'Limit objektů se vrátil na výchozí hodnotu profilu (1).',
+    link: dashLink,
+  });
+}
+
+async function dashboardLinkForUser(userId: string): Promise<string> {
+  const u = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+  if (u?.role === 'SVJ') return '/svj';
+  if (u?.role === 'COMPANY_ADMIN') return '/company';
+  return '/dashboard';
+}
+
+/**
+ * Notifikace pro makléře po vytvoření nové referral odměny (PENDING).
+ */
+export async function notifyReferralRewardCreated(params: {
+  realtorId: string;
+  amountCzk: number;
+  customerName: string | null;
+}) {
+  await createNotification({
+    userId: params.realtorId,
+    type: 'REFERRAL_REWARD',
+    title: `Nová odměna ${params.amountCzk} Kč`,
+    message: `Zákazník ${params.customerName || ''} se úspěšně registroval přes váš referral kód. Odměna ${params.amountCzk} Kč čeká na vyplacení.`.trim(),
+    link: '/realty/referrals',
+  });
+}
+
+/**
+ * Notifikace pro makléře po vyplacení odměny.
+ */
+export async function notifyReferralRewardPaid(params: {
+  realtorId: string;
+  amountCzk: number;
+}) {
+  await createNotification({
+    userId: params.realtorId,
+    type: 'REFERRAL_PAID',
+    title: `Odměna ${params.amountCzk} Kč byla vyplacena`,
+    message: `Administrátor označil vaši referral odměnu jako vyplacenou.`,
+    link: '/realty/referrals',
   });
 }
 

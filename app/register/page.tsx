@@ -27,6 +27,8 @@ type Package = {
   benefits: string[];
   color: string;
   yearlyPriceCzk: number;
+  /** Krátká poznámka o limitech objektů a příplatcích (viz docs/pricing-rules.md). */
+  objectsNote?: string;
 };
 
 function getPackagesWithPrices(plans: typeof SUBSCRIPTION_PLANS): Package[] {
@@ -41,6 +43,7 @@ function getPackagesWithPrices(plans: typeof SUBSCRIPTION_PLANS): Package[] {
       icon: <User className="w-7 h-7" />,
       description: "Pro majitele rodinných domů",
       benefits: [
+        "1 objekt v základu (každý další za 100 Kč / rok)",
         "Přehled všech vašich revizí na jednom místě",
         "Automatické hlídání termínů a upozornění",
         "Snadné objednání nové revize online",
@@ -48,11 +51,12 @@ function getPackagesWithPrices(plans: typeof SUBSCRIPTION_PLANS): Package[] {
         "Sdílení dokumentace jedním klikem",
       ],
       color: "from-violet-500 to-purple-400",
+      objectsNote: "1 objekt v základu · každý další 100 Kč / rok",
     },
     {
       id: "technician",
       role: "TECHNICIAN",
-      title: safePlans.TECHNICIAN?.label || "Technik",
+      title: safePlans.TECHNICIAN?.label || "Revizní technik",
       yearlyPriceCzk: safePlans.TECHNICIAN?.yearlyPriceCzk || 899,
       icon: <Wrench className="w-7 h-7" />,
       description: "Pro certifikované revizní techniky",
@@ -68,12 +72,14 @@ function getPackagesWithPrices(plans: typeof SUBSCRIPTION_PLANS): Package[] {
     {
       id: "company",
       role: "COMPANY_ADMIN",
-      title: safePlans.COMPANY_ADMIN?.label || "Firma",
+      title: safePlans.COMPANY_ADMIN?.label || "Pracujeme v týmu",
       // If we made COMPANY_ADMIN dynamic, map it accordingly
-      yearlyPriceCzk: safePlans.COMPANY_ADMIN?.yearlyPriceCzk || 1199,
+      yearlyPriceCzk: safePlans.COMPANY_ADMIN?.yearlyPriceCzk || 4999,
       icon: <Building2 className="w-7 h-7" />,
-      description: "Pro firmy s více techniky",
+      description: "Manažer revizních techniků (FO i PO)",
       benefits: [
+        "3 objekty v základu (rozšíření do 10 za 600 Kč / rok)",
+        "Nad 10 objektů – individuální nabídka",
         "Správa týmu techniků",
         "Přehled všech zakázek firmy",
         "Přidělování objednávek",
@@ -81,21 +87,25 @@ function getPackagesWithPrices(plans: typeof SUBSCRIPTION_PLANS): Package[] {
         "Zvací kód pro techniky po schválení",
       ],
       color: "from-blue-500 to-cyan-400",
+      objectsNote: "3 objekty v základu · do 10 za 600 Kč / rok · nad 10 individuálně",
     },
     {
       id: "svj",
       role: "SVJ",
       title: safePlans.SVJ?.label || "Správce SVJ / Bytové domy",
-      yearlyPriceCzk: safePlans.SVJ?.yearlyPriceCzk || 799,
+      yearlyPriceCzk: safePlans.SVJ?.yearlyPriceCzk || 1199,
       icon: <Home className="w-7 h-7" />,
       description: "Pro správce bytových domů a SVJ",
       benefits: [
+        "3 objekty v základu (rozšíření do 10 za 600 Kč / rok)",
+        "Nad 10 objektů – individuální nabídka",
         "Správa revizí pro více nemovitostí",
         "Pozvánky pro nájemníky a vlastníky",
         "Společné revizní repozitáře",
         "Upozornění na propadlé revize",
       ],
       color: "from-emerald-500 to-green-400",
+      objectsNote: "3 objekty v základu · do 10 za 600 Kč / rok · nad 10 individuálně",
     },
     {
       id: "realty",
@@ -130,6 +140,7 @@ function RegisterForm() {
   const rawCallback = searchParams.get("callbackUrl") || "/login";
   const callbackUrl = rawCallback.startsWith("/api") ? "/dashboard" : rawCallback;
   const inviteCode = searchParams.get("invite");
+  const referralCode = searchParams.get("ref")?.trim() || null;
   
   const [packages, setPackages] = useState<Package[]>(() => getPackagesWithPrices(SUBSCRIPTION_PLANS));
 
@@ -229,6 +240,7 @@ function RegisterForm() {
           name,
           phone,
           address,
+          ...(referralCode ? { referralCode } : {}),
         };
       } else if (role === "TECHNICIAN") {
         body = {
@@ -321,10 +333,17 @@ function RegisterForm() {
             <h1 className="text-center text-2xl font-bold text-white sm:text-3xl mb-2 px-1">
               Vytvořte si účet
             </h1>
-            <p className="text-gray-400 text-center text-sm mb-8 sm:mb-10 px-1">
+            <p className="text-gray-400 text-center text-sm mb-4 px-1">
               Vyberte typ účtu – 1. měsíc zdarma, poté roční předplatné. U technika a firmy je registrace s ověřením
               oprávnění.
             </p>
+            {referralCode && (
+              <p className="mb-8 sm:mb-10 px-1 text-center text-xs">
+                <span className="inline-flex items-center gap-2 rounded-full border border-brand-yellow/30 bg-brand-yellow/10 px-3 py-1 text-brand-yellow">
+                  Registrace přes doporučení (kód: {referralCode})
+                </span>
+              </p>
+            )}
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
               {packages.map((pkg, i) => (
@@ -345,10 +364,16 @@ function RegisterForm() {
                   </h2>
                   <p className="text-gray-400 text-sm mb-5">{pkg.description}</p>
 
-                  <p className="mb-4 text-sm font-medium text-white">
+                  <p className="mb-2 text-sm font-medium text-white">
                     {pkg.yearlyPriceCzk.toLocaleString("cs-CZ")} Kč / rok
                     <span className="ml-2 text-xs font-normal text-brand-yellow">1. měsíc zdarma</span>
                   </p>
+
+                  {pkg.objectsNote && (
+                    <p className="mb-4 text-xs leading-relaxed text-gray-400">
+                      {pkg.objectsNote}
+                    </p>
+                  )}
 
                   <ul className="space-y-2.5 mb-6">
                     {pkg.benefits.map((benefit) => (

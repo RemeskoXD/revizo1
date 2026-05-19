@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { LayoutDashboard, Users, FileText, Settings, ShieldAlert, Activity, ShieldCheck, UserCheck, Mail, ClipboardCheck } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, Settings, ShieldAlert, Activity, ShieldCheck, UserCheck, Mail, ClipboardCheck, Gift } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -17,6 +17,7 @@ export async function AdminSidebar() {
     { name: 'Žádosti o role', href: '/admin/roles', icon: UserCheck, roles: ['ADMIN', 'SUPPORT'] },
     { name: 'Revize – Data', href: '/admin/revisions', icon: ShieldCheck, roles: ['ADMIN', 'SUPPORT', 'CONTRACTOR'] },
     { name: 'E-maily', href: '/admin/emails', icon: Mail, roles: ['ADMIN', 'SUPPORT'] },
+    { name: 'Referral odměny', href: '/admin/referrals', icon: Gift, roles: ['ADMIN', 'SUPPORT'] },
     { name: 'Historie', href: '/admin/history', icon: Activity, roles: ['ADMIN', 'SUPPORT'] },
     { name: 'Nastavení', href: '/admin/settings', icon: Settings, roles: ['ADMIN'] },
   ];
