@@ -32,3 +32,10 @@ if (existsSync(publicSrc)) {
   cpSync(publicSrc, publicDest, { recursive: true });
   console.log('OK: zkopírováno public → .next/standalone/public');
 }
+
+const prismaSrc = join(root, 'prisma');
+const prismaDest = join(standalone, 'prisma');
+if (existsSync(prismaSrc)) {
+  cpSync(prismaSrc, prismaDest, { recursive: true });
+  console.log('OK: zkopírováno prisma → .next/standalone/prisma');
+}

@@ -6,6 +6,14 @@ import { getNextAuthJwtSecret } from "./jwt-secret";
 import { isRevisionAuthExpired } from "./revision-auth-core";
 import { findUserForAuthSession } from "./prisma-subscription-column";
 
+const isSandboxEnv = process.env.APP_URL && (
+  process.env.APP_URL.includes("europe-west3.run.app") || 
+  process.env.APP_URL.includes("ais-")
+);
+if (isSandboxEnv) {
+  process.env.NEXTAUTH_URL = process.env.APP_URL;
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({

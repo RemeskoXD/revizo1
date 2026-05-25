@@ -1,7 +1,19 @@
 import type {NextConfig} from 'next';
 
-process.env.NEXTAUTH_URL = process.env.APP_URL || "http://localhost:3000";
-console.log("NEXTAUTH_URL overridden to:", process.env.NEXTAUTH_URL);
+const isSandbox = process.env.APP_URL && (
+  process.env.APP_URL.includes("europe-west3.run.app") || 
+  process.env.APP_URL.includes("ais-")
+);
+
+if (isSandbox) {
+  process.env.NEXTAUTH_URL = process.env.APP_URL;
+  console.log("SANDBOX ENVIRONMENT: Forced NEXTAUTH_URL to APP_URL:", process.env.NEXTAUTH_URL);
+} else if (!process.env.NEXTAUTH_URL) {
+  process.env.NEXTAUTH_URL = process.env.APP_URL || "http://localhost:3000";
+  console.log("NEXTAUTH_URL set to fallback:", process.env.NEXTAUTH_URL);
+} else {
+  console.log("NEXTAUTH_URL already set in environment:", process.env.NEXTAUTH_URL);
+}
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
