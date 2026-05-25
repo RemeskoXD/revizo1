@@ -83,18 +83,11 @@ export const authOptions: NextAuthOptions = {
         }
 
         const acc = (user as { accountStatus?: string }).accountStatus;
-        if (acc === "PENDING_APPROVAL") {
-          throw new Error(
-            "Účet čeká na schválení oprávnění administrátorem. Po schválení vám přijde e-mail."
-          );
-        }
         if (acc === "REJECTED") {
           throw new Error("Registrace nebyla schválena. Pro více informací kontaktujte podporu.");
         }
 
-        if (user.role === 'PENDING_SUPPORT' || user.role === 'PENDING_CONTRACTOR') {
-          throw new Error("Váš účet čeká na schválení administrátorem");
-        }
+        const isPending = acc === "PENDING_APPROVAL" || user.role === 'PENDING_SUPPORT' || user.role === 'PENDING_CONTRACTOR';
 
         try {
           const statusRow = await prisma.user.findUnique({
@@ -106,6 +99,7 @@ export const authOptions: NextAuthOptions = {
           }
           if (
             statusRow &&
+            !isPending &&
             isRevisionAuthExpired(statusRow.role, statusRow.revisionAuthValidUntil)
           ) {
             throw new Error(
@@ -126,6 +120,8 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: user.name,
           role: user.role,
+          accountStatus: acc,
+          pendingApproval: isPending,
         };
       }
     })
@@ -138,6 +134,8 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id;
         token.role = user.role;
+        token.accountStatus = user.accountStatus;
+        token.pendingApproval = user.pendingApproval;
       }
       return token;
     },
@@ -157,7 +155,9 @@ export const authOptions: NextAuthOptions = {
           session.user.name = row.name;
           session.user.email = row.email ?? "";
           session.user.blocked = false;
-          if (isRevisionAuthExpired(row.role, row.revisionAuthValidUntil)) {
+          session.user.accountStatus = row.accountStatus;
+          session.user.pendingApproval = row.accountStatus === "PENDING_APPROVAL" || row.role === 'PENDING_SUPPORT' || row.role === 'PENDING_CONTRACTOR';
+          if (isRevisionAuthExpired(row.role, row.revisionAuthValidUntil) && !session.user.pendingApproval) {
             session.user.revisionAuthExpired = true;
             session.user.requiresSubscriptionCheckout =
               row.requiresSubscriptionCheckout === true;
@@ -169,6 +169,8 @@ export const authOptions: NextAuthOptions = {
         } catch {
           session.user.id = token.id as string;
           session.user.role = token.role as string;
+          session.user.accountStatus = token.accountStatus;
+          session.user.pendingApproval = token.pendingApproval;
         }
       }
       return session;

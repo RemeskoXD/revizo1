@@ -59,6 +59,7 @@ export async function findUserForAuthSession(userId: string) {
         bannedAt: true,
         revisionAuthValidUntil: true,
         requiresSubscriptionCheckout: true,
+        accountStatus: true,
       },
     });
   } catch (e) {
@@ -72,10 +73,11 @@ export async function findUserForAuthSession(userId: string) {
         email: true,
         bannedAt: true,
         revisionAuthValidUntil: true,
+        accountStatus: true,
       },
     });
     if (!r) return null;
-    return { ...r, requiresSubscriptionCheckout: false as boolean | null };
+    return { ...r, requiresSubscriptionCheckout: false as boolean | null, accountStatus: r.accountStatus };
   }
 }
 

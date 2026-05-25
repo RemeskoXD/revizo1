@@ -14,7 +14,6 @@ export default async function AdminRegistrationsPage() {
   const users = await prisma.user.findMany({
     where: {
       accountStatus: 'PENDING_APPROVAL',
-      role: { in: ['TECHNICIAN', 'COMPANY_ADMIN'] },
     },
     orderBy: { createdAt: 'asc' },
     select: {

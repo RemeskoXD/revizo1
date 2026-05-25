@@ -5,6 +5,8 @@ declare module "next-auth" {
     user: {
       id: string
       role: string
+      accountStatus?: string
+      pendingApproval?: boolean
       /** True when účet je zablokován (bannedAt) – klient by měl odhlásit. */
       blocked?: boolean
       /** Technik/firma – platnost oprávnění k revizím vypršela. */
@@ -17,6 +19,8 @@ declare module "next-auth" {
   interface User {
     id: string
     role: string
+    accountStatus?: string
+    pendingApproval?: boolean
   }
 }
 
@@ -24,5 +28,7 @@ declare module "next-auth/jwt" {
   interface JWT {
     id: string
     role: string
+    accountStatus?: string
+    pendingApproval?: boolean
   }
 }

@@ -234,7 +234,7 @@ function RegisterForm() {
 
       let body: Record<string, unknown> = { ...base };
 
-      if (role === "CUSTOMER") {
+      if (role === "CUSTOMER" || role === "SVJ" || role === "REALTY") {
         body = {
           ...base,
           name,
@@ -277,11 +277,12 @@ function RegisterForm() {
       if (res.ok) {
         if (data.user?.pendingApproval) {
           setDonePending(true);
-        } else if (role === "CUSTOMER") {
+        } else if (role === "CUSTOMER" || role === "SVJ" || role === "REALTY") {
+          const defaultRedir = role === "SVJ" ? "/svj" : role === "REALTY" ? "/realty" : "/dashboard";
           const redirectTo =
             typeof data.postRegisterRedirect === "string" && data.postRegisterRedirect.startsWith("/")
               ? data.postRegisterRedirect
-              : "/dashboard";
+              : defaultRedir;
           const signed = await signIn("credentials", {
             email,
             password,
@@ -467,16 +468,18 @@ function RegisterForm() {
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  {role === "CUSTOMER" && (
+                  {(role === "CUSTOMER" || role === "SVJ" || role === "REALTY") && (
                     <>
                       <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-1">Celé jméno</label>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">
+                          {role === "CUSTOMER" ? "Celé jméno" : "Celé jméno / Název firmy či organizace"}
+                        </label>
                         <input
                           type="text"
                           value={name}
                           onChange={(e) => setName(e.target.value)}
                           className="w-full bg-[#111111] border border-white/10 rounded-xl py-3 px-4 text-white placeholder-gray-500 focus:outline-none focus:border-brand-yellow/50 transition-colors"
-                          placeholder="Jan Novák"
+                          placeholder={role === "CUSTOMER" ? "Jan Novák" : role === "REALTY" ? "Vepište název RK nebo Vaše celé jméno" : "Vepište název SVJ / organizace"}
                           required
                         />
                       </div>
@@ -635,7 +638,7 @@ function RegisterForm() {
                     >
                       {loading ? (
                         <Loader2 className="w-5 h-5 animate-spin" />
-                      ) : role === "CUSTOMER" ? (
+                      ) : (role === "CUSTOMER" || role === "SVJ" || role === "REALTY") ? (
                         "Vytvořit účet"
                       ) : (
                         "Odeslat ke schválení"

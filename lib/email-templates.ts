@@ -463,17 +463,28 @@ export function referralRewardPaidEmail(data: {
   };
 }
 
-export function registrationRejectedEmail(params: { name: string | null }) {
+export function registrationRejectedEmail(params: { name: string | null; reason?: string | null }) {
+  const reasonText = params.reason 
+    ? `<div style="background:rgba(239, 68, 68, 0.05); border:1px solid rgba(239, 68, 68, 0.25); border-radius:12px; padding:16px; margin:20px 0; font-size:13px; color:#f87171; text-align:left;">
+        <strong style="display:block;margin-bottom:6px;color:#f87171">Důvod zamítnutí zadaný administrátorem:</strong>
+        <span style="color:#ccc">${params.reason}</span>
+       </div>`
+    : '';
+
   const html = layout(`
     <h2 style="color:#fff;font-size:20px;margin:0 0 8px">Registrace nebyla schválena</h2>
+    <p style="color:#999;font-size:14px;margin:0 0 16px">Dobrý den${params.name ? `, ${params.name}` : ''},</p>
     <p style="color:#ccc;font-size:14px;line-height:1.6;margin:0 0 24px">
       Vaše registrace v systému Revizone bohužel <strong style="color:#f87171">nebyla schválena</strong>.
-      Pro více informací nás můžete kontaktovat na podporu.
+    </p>
+    ${reasonText}
+    <p style="color:#999;font-size:13px;line-height:1.6;margin:16px 0 0">
+      Pro více informací nebo nápravu nás můžete kontaktovat přes naši zákaznickou podporu.
     </p>
   `);
   return {
-    subject: 'Revizone – registrace zamítnuta',
+    subject: 'Revizone – registrace nebyla schválena',
     html,
-    text: 'Vaše registrace nebyla schválena. Pro více informací kontaktujte podporu.',
+    text: `Dobrý den, vaše registrace nebyla schválena.${params.reason ? ` Důvod: ${params.reason}.` : ''} Pro více informací kontaktujte podporu.`,
   };
 }

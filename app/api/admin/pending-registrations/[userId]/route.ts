@@ -20,7 +20,7 @@ export async function POST(
     }
 
     const { userId } = await params;
-    const body = await readJsonBody<{ action?: string; revisionAuthValidUntil?: string | null }>(req, 4096);
+    const body = await readJsonBody<{ action?: string; revisionAuthValidUntil?: string | null; reason?: string | null }>(req, 4096);
     const action = body.action === 'approve' ? 'approve' : body.action === 'reject' ? 'reject' : null;
     if (!action) {
       return NextResponse.json({ message: 'action: approve | reject' }, { status: 400 });
@@ -34,13 +34,15 @@ export async function POST(
       return NextResponse.json({ message: 'Účet nenalezen nebo není ke schválení' }, { status: 404 });
     }
 
-    if (!['TECHNICIAN', 'COMPANY_ADMIN'].includes(user.role)) {
+    if (!['TECHNICIAN', 'COMPANY_ADMIN', 'SVJ', 'REALTY', 'CUSTOMER'].includes(user.role)) {
       return NextResponse.json({ message: 'Neplatná role' }, { status: 400 });
     }
 
+    const isTechOrCompany = ['TECHNICIAN', 'COMPANY_ADMIN'].includes(user.role);
+
     if (action === 'approve') {
       const raw = body.revisionAuthValidUntil;
-      if (typeof raw !== 'string' || !String(raw).trim()) {
+      if (isTechOrCompany && (typeof raw !== 'string' || !String(raw).trim())) {
         return NextResponse.json(
           { message: 'U schválení zadejte platnost oprávnění k revizím (datum do).' },
           { status: 400 }
@@ -55,7 +57,7 @@ export async function POST(
       });
 
       if (user.email) {
-        const emailData = registrationRejectedEmail({ name: user.name });
+        const emailData = registrationRejectedEmail({ name: user.name, reason: body.reason });
         await sendMail({
           to: user.email,
           ...emailData,
@@ -85,9 +87,13 @@ export async function POST(
         ? randomBytes(5).toString('hex').slice(0, 10).toUpperCase()
         : undefined;
 
-    const untilParsed = parseRevisionAuthValidUntilDate(String(body.revisionAuthValidUntil).trim());
-    if (!untilParsed) {
-      return NextResponse.json({ message: 'Neplatné datum platnosti oprávnění.' }, { status: 400 });
+    let untilParsed: Date | null = null;
+    if (isTechOrCompany) {
+      const parsed = parseRevisionAuthValidUntilDate(String(body.revisionAuthValidUntil).trim());
+      if (!parsed) {
+        return NextResponse.json({ message: 'Neplatné datum platnosti oprávnění.' }, { status: 400 });
+      }
+      untilParsed = parsed;
     }
 
     await updateUserWithSubscriptionColumnFallback({
@@ -95,14 +101,23 @@ export async function POST(
       data: {
         accountStatus: 'ACTIVE',
         pendingCompanyInviteCode: null,
-        revisionAuthValidUntil: untilParsed,
+        ...(untilParsed ? { revisionAuthValidUntil: untilParsed } : {}),
         ...(newInviteCode ? { inviteCode: newInviteCode } : {}),
         ...(companyId ? { companyId } : {}),
       },
     });
 
-    const roleLabel = user.role === 'TECHNICIAN' ? 'technik' : 'firma (správce)';
-    const validUntilLabel = untilParsed.toLocaleDateString('cs-CZ');
+    const roleLabel = user.role === 'TECHNICIAN'
+      ? 'technik'
+      : user.role === 'COMPANY_ADMIN'
+      ? 'firma (správce)'
+      : user.role === 'SVJ'
+      ? 'SVJ / Bytový dům'
+      : user.role === 'REALTY'
+      ? 'realitní makléř'
+      : 'zákazník';
+
+    const validUntilLabel = untilParsed ? untilParsed.toLocaleDateString('cs-CZ') : 'neomezeně';
     if (user.email) {
       const emailData = registrationApprovedEmail({ name: user.name, roleLabel, validUntilLabel });
       await sendMail({
