@@ -12,7 +12,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
 
     const { id } = await params;
-    const { action } = await req.json();
+    const { action, revisionAuthValidUntil } = await req.json();
 
     if (!['APPROVE', 'REJECT'].includes(action)) {
       return NextResponse.json({ message: 'Invalid action' }, { status: 400 });
@@ -39,9 +39,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       });
 
       if (action === 'APPROVE') {
+        const updateData: any = { role: roleRequest.requestedRole };
+        if (revisionAuthValidUntil) {
+          updateData.revisionAuthValidUntil = new Date(revisionAuthValidUntil);
+        }
         await tx.user.update({
           where: { id: roleRequest.userId },
-          data: { role: roleRequest.requestedRole },
+          data: updateData,
         });
       }
 

@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { computeObjectLimit, getRoleBaseLimit } from '@/lib/object-limits';
+import { getObjectAddons } from '@/lib/pricing-db';
 
 /**
  * Admin endpoint pro čtení a nastavení limitů objektů na konkrétního uživatele.
@@ -40,8 +41,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ message: 'User not found' }, { status: 404 });
     }
 
-    const usedCount = await prisma.property.count({ where: { ownerId: id } });
-    const computed = computeObjectLimit(user);
+    const [usedCount, addons] = await Promise.all([
+      prisma.property.count({ where: { ownerId: id } }),
+      getObjectAddons(),
+    ]);
+    const computed = computeObjectLimit(user, { packageLimit: addons.package10Objects.packageLimit });
     const roleBase = getRoleBaseLimit(user.role);
 
     return NextResponse.json({

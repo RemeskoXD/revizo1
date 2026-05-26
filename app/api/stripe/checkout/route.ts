@@ -9,7 +9,7 @@ import {
   resolveStripeSettingsReturnPath,
 } from '@/lib/stripe-config';
 import { rateLimit } from '@/lib/rate-limit';
-import { getSubscriptionPlanForRole } from '@/lib/subscription-pricing';
+import { getSubscriptionPrices } from '@/lib/pricing-db';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -55,8 +55,15 @@ export async function POST(request: Request) {
       );
     }
 
-    const plan = getSubscriptionPlanForRole(session.user.role);
-    const priceId = plan.stripePriceId;
+    const subscriptionPrices = await getSubscriptionPrices();
+    const role = session.user.role;
+    let plan = subscriptionPrices.CUSTOMER;
+    if (role === 'TECHNICIAN') plan = subscriptionPrices.TECHNICIAN;
+    if (role === 'COMPANY_ADMIN') plan = subscriptionPrices.COMPANY_ADMIN;
+    if (role === 'SVJ') plan = subscriptionPrices.SVJ;
+    if (role === 'REALTY') plan = subscriptionPrices.REALTY;
+
+    const priceId = plan?.stripePriceId;
     
     if(!priceId) {
        return NextResponse.json(

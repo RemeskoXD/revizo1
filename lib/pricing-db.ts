@@ -6,6 +6,7 @@ const CACHE_SEC = 0; // if we want to add cache later
 export type SubscriptionPriceConfig = {
   label: string;
   yearlyPriceCzk: number;
+  stripePriceId?: string;
 };
 
 export type ServicePriceConfig = {
@@ -23,7 +24,16 @@ export async function getSubscriptionPrices(): Promise<Record<SubscriptionPlanKe
     try {
       const parsed = JSON.parse(config.value);
       if (parsed.CUSTOMER) {
-        return parsed as Record<SubscriptionPlanKey, SubscriptionPriceConfig>;
+        const result = { ...SUBSCRIPTION_PLANS } as Record<SubscriptionPlanKey, SubscriptionPriceConfig>;
+        for (const key of Object.keys(parsed) as SubscriptionPlanKey[]) {
+          if (result[key]) {
+            result[key] = {
+              ...result[key],
+              ...parsed[key],
+            };
+          }
+        }
+        return result;
       }
     } catch (e) {
       console.error('Error parsing pricing_subscriptions', e);

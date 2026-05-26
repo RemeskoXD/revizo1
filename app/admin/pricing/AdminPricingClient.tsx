@@ -6,16 +6,18 @@ import { Save, Loader2, Info } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { getAppBaseUrl } from '@/lib/stripe-config';
 
-type SubscriptionPlanKey = 'CUSTOMER' | 'TECHNICIAN' | 'COMPANY_ADMIN';
+type SubscriptionPlanKey = 'CUSTOMER' | 'TECHNICIAN' | 'COMPANY_ADMIN' | 'SVJ' | 'REALTY';
 
 export default function AdminPricingClient() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [subscriptions, setSubscriptions] = useState<Record<SubscriptionPlanKey, { label: string; yearlyPriceCzk: number }>>({
-    CUSTOMER: { label: 'Zákazník', yearlyPriceCzk: 199 },
-    TECHNICIAN: { label: 'Revizní technik', yearlyPriceCzk: 899 },
-    COMPANY_ADMIN: { label: 'Pracujeme v týmu', yearlyPriceCzk: 4999 },
+  const [subscriptions, setSubscriptions] = useState<Record<SubscriptionPlanKey, { label: string; yearlyPriceCzk: number; stripePriceId?: string }>>({
+    CUSTOMER: { label: 'Zákazník', yearlyPriceCzk: 199, stripePriceId: '' },
+    TECHNICIAN: { label: 'Revizní technik', yearlyPriceCzk: 899, stripePriceId: '' },
+    COMPANY_ADMIN: { label: 'Pracujeme v týmu', yearlyPriceCzk: 4999, stripePriceId: '' },
+    SVJ: { label: 'Správce SVJ / Bytové domy', yearlyPriceCzk: 1199, stripePriceId: '' },
+    REALTY: { label: 'Realitní makléř / Kancelář', yearlyPriceCzk: 0, stripePriceId: '' },
   });
 
   const [services, setServices] = useState<any[]>([]);
@@ -58,7 +60,7 @@ export default function AdminPricingClient() {
     }
   };
 
-  const handleSubChange = (key: SubscriptionPlanKey, field: 'label' | 'yearlyPriceCzk', value: string | number) => {
+  const handleSubChange = (key: SubscriptionPlanKey, field: 'label' | 'yearlyPriceCzk' | 'stripePriceId', value: string | number) => {
     setSubscriptions(prev => ({
       ...prev,
       [key]: { ...prev[key], [field]: value }
@@ -112,33 +114,45 @@ export default function AdminPricingClient() {
           <div className="rounded-xl border border-white/5 bg-[#111] p-4 space-y-4">
             <div className="flex items-start gap-3 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
               <Info className="w-5 h-5 text-blue-400 shrink-0" />
-              <p className="text-xs text-blue-200">
-                Lze upravit cenu, která se zobrazuje všude v aplikaci. 
-                Nezapomeňte aktualizovat cenu i přímo ve Stripe administraci, 
-                protože samotnou platbu zpracovává právě Stripe na základě nastaveného "Price ID".
+              <p className="text-xs text-blue-200 leading-relaxed">
+                Zde nastavíte ceny a <strong className="text-white">Stripe Price ID</strong> pro roční předplatné jednotlivých rolí v platformě. 
+                Tím propojíte tarify s vaší platební bránou.
               </p>
             </div>
             
             {(Object.keys(subscriptions) as SubscriptionPlanKey[]).map(key => (
               <div key={key} className="space-y-2 border-b border-white/5 pb-4 last:border-0 last:pb-0">
-                <label className="text-sm font-medium text-gray-400">{key}</label>
-                <div className="flex gap-2">
-                  <div className="flex-1">
-                    <span className="text-xs text-gray-500">Název / Popis</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded bg-white/5 text-white font-mono">{key}</span>
+                  <span className="text-[10px] text-gray-400">Roční tarif</span>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-12">
+                  <div className="sm:col-span-5">
+                    <span className="text-[10px] text-gray-500 font-medium">Název / Popis</span>
                     <input
                       type="text"
                       className="w-full bg-[#1A1A1A] border border-white/10 rounded-lg p-2 text-white focus:border-brand-yellow outline-none mt-1 text-sm"
-                      value={subscriptions[key].label}
+                      value={subscriptions[key]?.label || ''}
                       onChange={e => handleSubChange(key, 'label', e.target.value)}
                     />
                   </div>
-                  <div className="w-32">
-                    <span className="text-xs text-gray-500">Cena (Kč)</span>
+                  <div className="sm:col-span-3">
+                    <span className="text-[10px] text-gray-500 font-medium">Roční cena (Kč)</span>
                     <input
                       type="number"
                       className="w-full bg-[#1A1A1A] border border-white/10 rounded-lg p-2 text-white focus:border-brand-yellow outline-none mt-1 text-sm"
-                      value={subscriptions[key].yearlyPriceCzk}
+                      value={subscriptions[key]?.yearlyPriceCzk ?? 0}
                       onChange={e => handleSubChange(key, 'yearlyPriceCzk', parseInt(e.target.value) || 0)}
+                    />
+                  </div>
+                  <div className="sm:col-span-4">
+                    <span className="text-[10px] text-gray-500 font-medium">Stripe Price ID</span>
+                    <input
+                      type="text"
+                      placeholder="price_..."
+                      className="w-full bg-[#1A1A1A] border border-white/10 rounded-lg p-2 text-white focus:border-brand-yellow outline-none mt-1 text-sm font-mono"
+                      value={subscriptions[key]?.stripePriceId || ''}
+                      onChange={e => handleSubChange(key, 'stripePriceId', e.target.value)}
                     />
                   </div>
                 </div>
@@ -338,6 +352,12 @@ export default function AdminPricingClient() {
                 ))}
               </tbody>
             </table>
+          </div>
+          <div className="p-3 bg-white/5 border-t border-white/5 flex items-start gap-2.5">
+            <Info className="w-4 h-4 text-brand-yellow shrink-0 mt-0.5" />
+            <span className="text-xs text-gray-400">
+              Jednorázové platby za typy revizí jsou v objednávkovém formuláři zpracovány přes dynamické Stripe ceny generované automaticky podle zadané ceny. Není pro ně zapotřebí nastavovat žádná statická Stripe Price ID.
+            </span>
           </div>
         </div>
       </div>
