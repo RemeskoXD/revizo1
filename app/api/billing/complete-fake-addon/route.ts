@@ -7,7 +7,7 @@ import { ROLES } from '@/lib/constants';
 import { readJsonBody } from '@/lib/json-body';
 import { sendMail } from '@/lib/mail';
 import { objectAddonActivatedEmail } from '@/lib/email-templates';
-import { OBJECT_EXTRA_PRICE_CZK, OBJECT_PACKAGE_PRICE_CZK } from '@/lib/object-limits';
+import { getObjectAddons } from '@/lib/pricing-db';
 import { notifyAddonActivated } from '@/lib/notifications';
 
 /**
@@ -86,13 +86,16 @@ export async function POST(req: Request) {
   });
 
   if (stateChanged) {
+    const addons = await getObjectAddons();
     if (before?.email && before.emailNotifications) {
       const tpl = objectAddonActivatedEmail({
         userName: before.name,
         kind,
         quantity: appliedQuantity,
         pricePerYearCzk:
-          kind === 'PACKAGE_10_OBJECTS' ? OBJECT_PACKAGE_PRICE_CZK : OBJECT_EXTRA_PRICE_CZK,
+          kind === 'PACKAGE_10_OBJECTS'
+            ? addons.package10Objects.yearlyPriceCzk
+            : addons.customerExtraObject.yearlyPriceCzk,
       });
       sendMail({ to: before.email, ...tpl }).catch(console.error);
     }

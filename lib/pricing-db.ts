@@ -71,11 +71,55 @@ export async function getUrgentSurcharge(): Promise<number> {
   return 2000;
 }
 
+export type ObjectAddonConfig = {
+  customerExtraObject: {
+    label: string;
+    yearlyPriceCzk: number;
+    stripePriceId: string;
+  };
+  package10Objects: {
+    label: string;
+    yearlyPriceCzk: number;
+    packageLimit: number;
+    stripePriceId: string;
+  };
+};
+
+export const DEFAULT_OBJECT_ADDONS: ObjectAddonConfig = {
+  customerExtraObject: {
+    label: 'Další objekt (zákazník)',
+    yearlyPriceCzk: 100,
+    stripePriceId: process.env.STRIPE_PRICE_CUSTOMER_EXTRA_OBJECT || '',
+  },
+  package10Objects: {
+    label: 'Balíček do 10 objektů (SVJ / firma)',
+    yearlyPriceCzk: 600,
+    packageLimit: 10,
+    stripePriceId: process.env.STRIPE_PRICE_PACKAGE_10_OBJECTS || '',
+  },
+};
+
+export async function getObjectAddons(): Promise<ObjectAddonConfig> {
+  const config = await prisma.systemConfig.findUnique({ where: { key: 'pricing_object_addons' } });
+  if (config?.value) {
+    try {
+      const parsed = JSON.parse(config.value);
+      if (parsed.customerExtraObject && parsed.package10Objects) {
+        return parsed as ObjectAddonConfig;
+      }
+    } catch (e) {
+      console.error('Error parsing pricing_object_addons', e);
+    }
+  }
+  return DEFAULT_OBJECT_ADDONS;
+}
+
 export async function getPricingDatabase() {
-  const [subscriptions, services, urgentSurcharge] = await Promise.all([
+  const [subscriptions, services, urgentSurcharge, objectAddons] = await Promise.all([
     getSubscriptionPrices(),
     getServicePrices(),
-    getUrgentSurcharge()
+    getUrgentSurcharge(),
+    getObjectAddons(),
   ]);
-  return { subscriptions, services, urgentSurcharge };
+  return { subscriptions, services, urgentSurcharge, objectAddons };
 }

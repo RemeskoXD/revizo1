@@ -4,7 +4,6 @@ import { authOptions } from '@/lib/auth';
 import { findUserForPlatbaTestOnboarding } from '@/lib/prisma-subscription-column';
 import { isFakePaymentGatewayEnabled, resolveStripeSettingsReturnPath } from '@/lib/stripe-config';
 import { getPricingDatabase } from '@/lib/pricing-db';
-import { OBJECT_ADDONS } from '@/lib/subscription-pricing';
 import FakePaymentUI from './FakePaymentUI';
 
 export const metadata = {
@@ -44,6 +43,8 @@ export default async function PlatbaTestPage({
     redirect(returnPath);
   }
 
+  const pricingDb = await getPricingDatabase();
+
   // Doplňková platba (rozšíření počtu objektů)
   if (purpose === 'addon') {
     const addon =
@@ -58,8 +59,11 @@ export default async function PlatbaTestPage({
     const qtyN = Number(q.qty);
     const quantity = Number.isFinite(qtyN) && qtyN >= 1 ? Math.min(Math.floor(qtyN), 100) : 1;
 
-    const addonInfo = OBJECT_ADDONS[addon];
-    const totalCzk = addonInfo.yearlyPriceCzk * (addon === 'CUSTOMER_EXTRA_OBJECT' ? quantity : 1);
+    const addonSpec = addon === 'CUSTOMER_EXTRA_OBJECT' 
+      ? pricingDb.objectAddons.customerExtraObject 
+      : pricingDb.objectAddons.package10Objects;
+
+    const totalCzk = addonSpec.yearlyPriceCzk * (addon === 'CUSTOMER_EXTRA_OBJECT' ? quantity : 1);
 
     return (
       <FakePaymentUI
@@ -68,13 +72,12 @@ export default async function PlatbaTestPage({
         purpose="addon"
         addon={addon}
         addonQuantity={quantity}
-        planLabel={addonInfo.label}
+        planLabel={addonSpec.label}
         yearlyPriceCzk={totalCzk}
       />
     );
   }
 
-  const pricingDb = await getPricingDatabase();
   const role = row?.role ?? session.user.role;
   let plan = pricingDb.subscriptions.CUSTOMER;
   if (role === 'TECHNICIAN') plan = pricingDb.subscriptions.TECHNICIAN;

@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { getObjectLimitStatus } from '@/lib/object-limits';
 import { REALTY_TRANSFER_FEE_CZK } from '@/lib/subscription-pricing';
+import { getObjectAddons } from '@/lib/pricing-db';
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -39,10 +40,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     });
 
     if (newOwner) {
-      const newOwnerCount = await prisma.property.count({
-        where: { ownerId: property.claimedById },
+      const [newOwnerCount, addons] = await Promise.all([
+        prisma.property.count({
+          where: { ownerId: property.claimedById },
+        }),
+        getObjectAddons(),
+      ]);
+      const status = getObjectLimitStatus(newOwner, newOwnerCount, {
+        extraPrice: addons.customerExtraObject.yearlyPriceCzk,
+        packagePrice: addons.package10Objects.yearlyPriceCzk,
+        packageLimit: addons.package10Objects.packageLimit,
       });
-      const status = getObjectLimitStatus(newOwner, newOwnerCount);
       if (!status.canAddMore) {
         return NextResponse.json(
           {

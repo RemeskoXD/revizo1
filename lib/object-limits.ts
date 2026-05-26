@@ -48,7 +48,7 @@ export type ObjectLimitUser = {
  *   3. Pro CUSTOMER se přičte `objectLimitExtraPaid`.
  *   4. Pro SVJ/COMPANY se base zvedne na `OBJECT_PACKAGE_LIMIT` při `objectPackagePaid`.
  */
-export function computeObjectLimit(user: ObjectLimitUser): number {
+export function computeObjectLimit(user: ObjectLimitUser, options?: { packageLimit?: number }): number {
   if (!LIMITED_ROLES.has(user.role)) return Number.POSITIVE_INFINITY;
 
   if (typeof user.objectLimitOverride === 'number' && user.objectLimitOverride > 0) {
@@ -66,7 +66,9 @@ export function computeObjectLimit(user: ObjectLimitUser): number {
   }
 
   if (user.role === ROLES.SVJ || user.role === ROLES.COMPANY_ADMIN) {
-    if (user.objectPackagePaid) return Math.max(base, OBJECT_PACKAGE_LIMIT);
+    if (user.objectPackagePaid) {
+      return Math.max(base, options?.packageLimit ?? OBJECT_PACKAGE_LIMIT);
+    }
     return base;
   }
 
@@ -96,23 +98,28 @@ export type ObjectLimitStatus = {
 export function getObjectLimitStatus(
   user: ObjectLimitUser,
   currentCount: number,
+  prices?: { extraPrice?: number; packagePrice?: number; packageLimit?: number }
 ): ObjectLimitStatus {
-  const limit = computeObjectLimit(user);
+  const limit = computeObjectLimit(user, { packageLimit: prices?.packageLimit });
   const used = Math.max(0, currentCount);
   const remaining = limit === Infinity ? Infinity : Math.max(0, limit - used);
   const canAddMore = used < limit;
+
+  const currentExtraPrice = prices?.extraPrice ?? OBJECT_EXTRA_PRICE_CZK;
+  const currentPackagePrice = prices?.packagePrice ?? OBJECT_PACKAGE_PRICE_CZK;
+  const currentPackageLimit = prices?.packageLimit ?? OBJECT_PACKAGE_LIMIT;
 
   let upgradeHint: ObjectLimitStatus['upgradeHint'] = { kind: 'NONE' };
   let message = '';
 
   if (!canAddMore) {
     if (user.role === ROLES.CUSTOMER) {
-      upgradeHint = { kind: 'CUSTOMER_EXTRA', pricePerYearCzk: OBJECT_EXTRA_PRICE_CZK };
-      message = `Vyčerpali jste limit ${limit} objektů. Další objekt lze přidat za ${OBJECT_EXTRA_PRICE_CZK} Kč / rok.`;
+      upgradeHint = { kind: 'CUSTOMER_EXTRA', pricePerYearCzk: currentExtraPrice };
+      message = `Vyčerpali jste limit ${limit} objektů. Další objekt lze přidat za ${currentExtraPrice} Kč / rok.`;
     } else if (user.role === ROLES.SVJ || user.role === ROLES.COMPANY_ADMIN) {
       if (!user.objectPackagePaid && used >= getRoleBaseLimit(user.role)) {
-        upgradeHint = { kind: 'PACKAGE_10', pricePerYearCzk: OBJECT_PACKAGE_PRICE_CZK };
-        message = `Vyčerpali jste základní limit ${limit} objektů. Aktivujte balíček do ${OBJECT_PACKAGE_LIMIT} objektů za ${OBJECT_PACKAGE_PRICE_CZK} Kč / rok.`;
+        upgradeHint = { kind: 'PACKAGE_10', pricePerYearCzk: currentPackagePrice };
+        message = `Vyčerpali jste základní limit ${limit} objektů. Aktivujte balíček do ${currentPackageLimit} objektů za ${currentPackagePrice} Kč / rok.`;
       } else {
         upgradeHint = { kind: 'INDIVIDUAL' };
         message = `Vyčerpali jste limit ${limit} objektů. Pro více objektů nás kontaktujte – připravíme individuální nabídku.`;

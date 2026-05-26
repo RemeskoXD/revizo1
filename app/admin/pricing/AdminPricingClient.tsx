@@ -21,8 +21,8 @@ export default function AdminPricingClient() {
   const [services, setServices] = useState<any[]>([]);
   const [urgentSurcharge, setUrgentSurcharge] = useState(2000);
   const [objectAddons, setObjectAddons] = useState<{
-    customerExtraObject?: { label: string; yearlyPriceCzk: number; stripeConfigured: boolean };
-    package10Objects?: { label: string; yearlyPriceCzk: number; packageLimit: number; stripeConfigured: boolean };
+    customerExtraObject?: { label: string; yearlyPriceCzk: number; stripePriceId?: string; stripeConfigured: boolean };
+    package10Objects?: { label: string; yearlyPriceCzk: number; packageLimit: number; stripePriceId?: string; stripeConfigured: boolean };
   } | null>(null);
 
   useEffect(() => {
@@ -44,7 +44,7 @@ export default function AdminPricingClient() {
       const res = await fetch('/api/admin/pricing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subscriptions, services, urgentSurcharge }),
+        body: JSON.stringify({ subscriptions, services, urgentSurcharge, objectAddons }),
       });
       if (res.ok) {
         toast.success('Ceník byl úspěšně uložen.');
@@ -63,6 +63,21 @@ export default function AdminPricingClient() {
       ...prev,
       [key]: { ...prev[key], [field]: value }
     }));
+  };
+
+  const handleAddonChange = (key: 'customerExtraObject' | 'package10Objects', field: string, value: string | number) => {
+    setObjectAddons(prev => {
+      if (!prev) return null;
+      const sub = prev[key];
+      if (!sub) return prev;
+      return {
+        ...prev,
+        [key]: {
+          ...sub,
+          [field]: value
+        }
+      };
+    });
   };
 
   const handleServiceChange = (id: string, field: string, value: string | number) => {
@@ -155,48 +170,111 @@ export default function AdminPricingClient() {
         <div className="rounded-xl border border-white/5 bg-[#111] p-4 space-y-4">
           <div className="flex items-start gap-3 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
             <Info className="w-5 h-5 text-amber-400 shrink-0" />
-            <p className="text-xs text-amber-200">
-              Pravidla viz <code className="px-1 py-0.5 rounded bg-black/40">docs/pricing-rules.md</code>.
-              Hodnoty jsou definované v <code className="px-1 py-0.5 rounded bg-black/40">lib/object-limits.ts</code>.
-              Stripe Price ID se nastavují přes proměnné prostředí
-              <code className="px-1 py-0.5 mx-1 rounded bg-black/40">STRIPE_PRICE_CUSTOMER_EXTRA_OBJECT</code>
-              a <code className="px-1 py-0.5 rounded bg-black/40">STRIPE_PRICE_PACKAGE_10_OBJECTS</code>.
-              Individuální limit pro konkrétní účet (nad 10 objektů) lze nastavit přes
-              <code className="px-1 py-0.5 mx-1 rounded bg-black/40">PUT /api/admin/users/[id]/object-limits</code>.
+            <p className="text-xs text-amber-200 leading-relaxed">
+              Zde nastavíte ceny pro přikoupení doplňkových limitů pro nemovitosti (objekty). Nastavením 
+              <strong className="text-white"> Stripe Price ID</strong> propojíte doplňky přímo s vaší platební bránou. 
+              Pravidla limitů viz podrobný návod <code className="px-1 py-0.5 rounded bg-black/40">docs/pricing-rules.md</code>.
             </p>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="rounded-lg border border-white/10 bg-[#1A1A1A] p-3">
-              <div className="text-sm font-medium text-white">Zákazník – další objekt</div>
-              <div className="mt-1 text-2xl font-bold text-brand-yellow">
-                {(objectAddons?.customerExtraObject?.yearlyPriceCzk ?? 100).toLocaleString('cs-CZ')} Kč / rok
+          <div className="grid gap-6 sm:grid-cols-2">
+            {/* Customer addon card */}
+            <div className="rounded-xl border border-white/10 bg-[#1A1A1A] p-4 space-y-3">
+              <div className="text-sm font-semibold text-white border-b border-white/5 pb-2">Zákazník – další objekt</div>
+              
+              <div className="space-y-1">
+                <span className="text-xs text-gray-500 font-medium">Název doplňku</span>
+                <input
+                  type="text"
+                  className="w-full bg-[#111] border border-white/10 rounded-lg p-2 text-white text-sm focus:border-brand-yellow outline-none"
+                  value={objectAddons?.customerExtraObject?.label ?? 'Další objekt'}
+                  onChange={e => handleAddonChange('customerExtraObject', 'label', e.target.value)}
+                />
               </div>
-              <div className="mt-1 text-xs text-gray-500">za každý objekt nad 1 v základu</div>
-              <div className="mt-2 text-xs">
-                Stripe:{' '}
-                {objectAddons?.customerExtraObject?.stripeConfigured ? (
-                  <span className="text-emerald-400">nakonfigurováno</span>
+
+              <div className="space-y-1">
+                <span className="text-xs text-gray-500 font-medium">Roční cena (Kč / rok)</span>
+                <input
+                  type="number"
+                  className="w-full bg-[#111] border border-white/10 rounded-lg p-2 text-white text-sm focus:border-brand-yellow outline-none"
+                  value={objectAddons?.customerExtraObject?.yearlyPriceCzk ?? 100}
+                  onChange={e => handleAddonChange('customerExtraObject', 'yearlyPriceCzk', parseInt(e.target.value) || 0)}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <span className="text-xs text-gray-500 font-medium">Stripe Price ID (před vázáním u Zákazníků)</span>
+                <input
+                  type="text"
+                  placeholder="price_..."
+                  className="w-full bg-[#111] border border-white/10 rounded-lg p-2 text-white text-sm focus:border-brand-yellow outline-none font-mono"
+                  value={objectAddons?.customerExtraObject?.stripePriceId ?? ''}
+                  onChange={e => handleAddonChange('customerExtraObject', 'stripePriceId', e.target.value)}
+                />
+              </div>
+
+              <div className="pt-1 text-xs text-gray-400 flex items-center gap-1.5">
+                Stav Stripe: 
+                {objectAddons?.customerExtraObject?.stripePriceId ? (
+                  <span className="text-emerald-400 font-semibold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full text-[10px]">nakonfigurováno</span>
                 ) : (
-                  <span className="text-red-400">není nastaveno (env)</span>
+                  <span className="text-red-400 font-semibold bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-full text-[10px]">není nastaveno (nutná cena)</span>
                 )}
               </div>
             </div>
 
-            <div className="rounded-lg border border-white/10 bg-[#1A1A1A] p-3">
-              <div className="text-sm font-medium text-white">SVJ / Firma – balíček do 10 objektů</div>
-              <div className="mt-1 text-2xl font-bold text-brand-yellow">
-                {(objectAddons?.package10Objects?.yearlyPriceCzk ?? 600).toLocaleString('cs-CZ')} Kč / rok
+            {/* SVJ / Company addon card */}
+            <div className="rounded-xl border border-white/10 bg-[#1A1A1A] p-4 space-y-3">
+              <div className="text-sm font-semibold text-white border-b border-white/5 pb-2">SVJ / Firma – balíček</div>
+
+              <div className="space-y-1">
+                <span className="text-xs text-gray-500 font-medium">Název balíčku</span>
+                <input
+                  type="text"
+                  className="w-full bg-[#111] border border-white/10 rounded-lg p-2 text-white text-sm focus:border-brand-yellow outline-none"
+                  value={objectAddons?.package10Objects?.label ?? 'Balíček do 10 objektů'}
+                  onChange={e => handleAddonChange('package10Objects', 'label', e.target.value)}
+                />
               </div>
-              <div className="mt-1 text-xs text-gray-500">
-                rozšíření z 3 → {objectAddons?.package10Objects?.packageLimit ?? 10} objektů; nad 10 individuálně
+
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <span className="text-xs text-gray-500 font-medium">Roční cena (Kč)</span>
+                  <input
+                    type="number"
+                    className="w-full bg-[#111] border border-white/10 rounded-lg p-2 text-white text-sm focus:border-brand-yellow outline-none"
+                    value={objectAddons?.package10Objects?.yearlyPriceCzk ?? 600}
+                    onChange={e => handleAddonChange('package10Objects', 'yearlyPriceCzk', parseInt(e.target.value) || 0)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <span className="text-xs text-gray-500 font-medium">Limit objektů</span>
+                  <input
+                    type="number"
+                    className="w-full bg-[#111] border border-white/10 rounded-lg p-2 text-white text-sm focus:border-brand-yellow outline-none"
+                    value={objectAddons?.package10Objects?.packageLimit ?? 10}
+                    onChange={e => handleAddonChange('package10Objects', 'packageLimit', parseInt(e.target.value) || 0)}
+                  />
+                </div>
               </div>
-              <div className="mt-2 text-xs">
-                Stripe:{' '}
-                {objectAddons?.package10Objects?.stripeConfigured ? (
-                  <span className="text-emerald-400">nakonfigurováno</span>
+
+              <div className="space-y-1">
+                <span className="text-xs text-gray-500 font-medium">Stripe Price ID (před vázáním u SVJ/Firem)</span>
+                <input
+                  type="text"
+                  placeholder="price_..."
+                  className="w-full bg-[#111] border border-white/10 rounded-lg p-2 text-white text-sm focus:border-brand-yellow outline-none font-mono"
+                  value={objectAddons?.package10Objects?.stripePriceId ?? ''}
+                  onChange={e => handleAddonChange('package10Objects', 'stripePriceId', e.target.value)}
+                />
+              </div>
+
+              <div className="pt-1 text-xs text-gray-400 flex items-center gap-1.5">
+                Stav Stripe: 
+                {objectAddons?.package10Objects?.stripePriceId ? (
+                  <span className="text-emerald-400 font-semibold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full text-[10px]">nakonfigurováno</span>
                 ) : (
-                  <span className="text-red-400">není nastaveno (env)</span>
+                  <span className="text-red-400 font-semibold bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-full text-[10px]">není nastaveno (nutná cena)</span>
                 )}
               </div>
             </div>

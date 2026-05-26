@@ -13,11 +13,6 @@ import {
 } from 'lucide-react';
 import { getPricingDatabase } from '@/lib/pricing-db';
 import {
-  OBJECT_EXTRA_PRICE_CZK,
-  OBJECT_PACKAGE_PRICE_CZK,
-  OBJECT_PACKAGE_LIMIT,
-} from '@/lib/object-limits';
-import {
   TECH_SEAT_MONTHLY_CZK,
   TECH_FREE_PER_N,
 } from '@/lib/company-pricing';
@@ -49,6 +44,11 @@ type Plan = {
 export default async function CenikPage() {
   const pricing = await getPricingDatabase();
   const subs = pricing.subscriptions;
+  const addons = pricing.objectAddons;
+
+  const extraPrice = addons.customerExtraObject.yearlyPriceCzk;
+  const packagePrice = addons.package10Objects.yearlyPriceCzk;
+  const packageLimit = addons.package10Objects.packageLimit;
 
   const plans: Plan[] = [
     {
@@ -60,7 +60,7 @@ export default async function CenikPage() {
       color: 'from-violet-500 to-purple-400',
       base: '1 objekt v základu',
       extras: [
-        `Každý další objekt: ${formatCzk(OBJECT_EXTRA_PRICE_CZK)} / rok`,
+        `Každý další objekt: ${formatCzk(extraPrice)} / rok`,
         'Přehled všech revizí na jednom místě',
         'Automatické hlídání termínů',
         'Snadné objednání revize online',
@@ -76,12 +76,12 @@ export default async function CenikPage() {
       color: 'from-emerald-500 to-green-400',
       base: '3 objekty v základu',
       extras: [
-        `Rozšíření do ${OBJECT_PACKAGE_LIMIT} objektů: ${formatCzk(OBJECT_PACKAGE_PRICE_CZK)} / rok`,
+        `Rozšíření do ${packageLimit} objektů: ${formatCzk(packagePrice)} / rok`,
         'Společné revizní repozitáře',
         'Pozvánky pro nájemníky a vlastníky',
         'Upozornění na propadlé revize',
       ],
-      ceilingNote: `Nad ${OBJECT_PACKAGE_LIMIT} objektů – individuální nabídka`,
+      ceilingNote: `Nad ${packageLimit} objektů – individuální nabídka`,
     },
     {
       id: 'COMPANY_ADMIN',
@@ -92,12 +92,12 @@ export default async function CenikPage() {
       color: 'from-blue-500 to-cyan-400',
       base: '3 objekty v základu',
       extras: [
-        `Rozšíření do ${OBJECT_PACKAGE_LIMIT} objektů: ${formatCzk(OBJECT_PACKAGE_PRICE_CZK)} / rok`,
+        `Rozšíření do ${packageLimit} objektů: ${formatCzk(packagePrice)} / rok`,
         `Billing techniků: ${formatCzk(TECH_SEAT_MONTHLY_CZK)} / měsíc / technik (každý ${TECH_FREE_PER_N}. zdarma)`,
         'Správa týmu, přidělování objednávek',
         'Firemní statistiky',
       ],
-      ceilingNote: `Nad ${OBJECT_PACKAGE_LIMIT} objektů – individuální nabídka`,
+      ceilingNote: `Nad ${packageLimit} objektů – individuální nabídka`,
     },
     {
       id: 'TECHNICIAN',
@@ -227,14 +227,14 @@ export default async function CenikPage() {
             <ul className="mt-4 space-y-3 text-sm text-gray-300">
               <li>
                 <strong className="text-white">Další objekt (Zákazník):</strong>{' '}
-                {formatCzk(OBJECT_EXTRA_PRICE_CZK)} / rok / objekt – platí se ročně, lze kdykoli zrušit.
+                {formatCzk(extraPrice)} / rok / objekt – platí se ročně, lze kdykoli zrušit.
               </li>
               <li>
-                <strong className="text-white">Balíček do {OBJECT_PACKAGE_LIMIT} objektů (SVJ / Firma):</strong>{' '}
-                {formatCzk(OBJECT_PACKAGE_PRICE_CZK)} / rok – plochá cena za rozšíření z 3 na {OBJECT_PACKAGE_LIMIT}.
+                <strong className="text-white">Balíček do {packageLimit} objektů (SVJ / Firma):</strong>{' '}
+                {formatCzk(packagePrice)} / rok – plochá cena za rozšíření z 3 na {packageLimit}.
               </li>
               <li>
-                <strong className="text-white">Nad {OBJECT_PACKAGE_LIMIT} objektů:</strong> individuální nabídka
+                <strong className="text-white">Nad {packageLimit} objektů:</strong> individuální nabídka
                 – kontaktujte nás na{' '}
                 <a href="mailto:info@revizone.cz" className="text-brand-yellow hover:underline">
                   info@revizone.cz

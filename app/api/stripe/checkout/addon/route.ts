@@ -10,7 +10,8 @@ import {
   resolveStripeSettingsReturnPath,
 } from '@/lib/stripe-config';
 import { rateLimit } from '@/lib/rate-limit';
-import { OBJECT_ADDONS, COMPANY_TECH_SEAT_STRIPE_PRICE_ID } from '@/lib/subscription-pricing';
+import { COMPANY_TECH_SEAT_STRIPE_PRICE_ID } from '@/lib/subscription-pricing';
+import { getObjectAddons } from '@/lib/pricing-db';
 import { ROLES } from '@/lib/constants';
 import { readJsonBody, PayloadTooLargeError } from '@/lib/json-body';
 import { computeBillableTechs } from '@/lib/company-pricing';
@@ -124,13 +125,16 @@ export async function POST(request: Request) {
       );
     }
 
+    const objectAddons = await getObjectAddons();
     const priceId =
       kind === 'COMPANY_TECH_SEATS'
         ? COMPANY_TECH_SEAT_STRIPE_PRICE_ID
-        : OBJECT_ADDONS[kind as 'CUSTOMER_EXTRA_OBJECT' | 'PACKAGE_10_OBJECTS'].stripePriceId;
+        : kind === 'PACKAGE_10_OBJECTS'
+        ? objectAddons.package10Objects.stripePriceId
+        : objectAddons.customerExtraObject.stripePriceId;
     if (!priceId) {
       return NextResponse.json(
-        { message: `Pro doplněk ${kind} není nastavena Stripe Price ID (.env).` },
+        { message: `Pro doplněk ${kind} není nastaveno Stripe Price ID.` },
         { status: 500 },
       );
     }

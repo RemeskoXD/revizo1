@@ -5,10 +5,8 @@ import { prisma } from '@/lib/prisma';
 import {
   getObjectLimitStatus,
   getRoleBaseLimit,
-  OBJECT_EXTRA_PRICE_CZK,
-  OBJECT_PACKAGE_LIMIT,
-  OBJECT_PACKAGE_PRICE_CZK,
 } from '@/lib/object-limits';
+import { getObjectAddons } from '@/lib/pricing-db';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,23 +21,30 @@ export async function GET() {
     return NextResponse.json({ message: 'Neautorizováno' }, { status: 401 });
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: {
-      role: true,
-      objectLimitBase: true,
-      objectLimitExtraPaid: true,
-      objectPackagePaid: true,
-      objectLimitOverride: true,
-    },
-  });
+  const [user, addons] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: {
+        role: true,
+        objectLimitBase: true,
+        objectLimitExtraPaid: true,
+        objectPackagePaid: true,
+        objectLimitOverride: true,
+      },
+    }),
+    getObjectAddons(),
+  ]);
 
   if (!user) {
     return NextResponse.json({ message: 'Uživatel nenalezen' }, { status: 404 });
   }
 
   const count = await prisma.property.count({ where: { ownerId: session.user.id } });
-  const status = getObjectLimitStatus(user, count);
+  const status = getObjectLimitStatus(user, count, {
+    extraPrice: addons.customerExtraObject.yearlyPriceCzk,
+    packagePrice: addons.package10Objects.yearlyPriceCzk,
+    packageLimit: addons.package10Objects.packageLimit,
+  });
 
   return NextResponse.json({
     role: user.role,
@@ -56,9 +61,9 @@ export async function GET() {
     },
     rules: {
       roleBase: Number.isFinite(getRoleBaseLimit(user.role)) ? getRoleBaseLimit(user.role) : null,
-      extraPricePerYearCzk: OBJECT_EXTRA_PRICE_CZK,
-      packagePricePerYearCzk: OBJECT_PACKAGE_PRICE_CZK,
-      packageLimit: OBJECT_PACKAGE_LIMIT,
+      extraPricePerYearCzk: addons.customerExtraObject.yearlyPriceCzk,
+      packagePricePerYearCzk: addons.package10Objects.yearlyPriceCzk,
+      packageLimit: addons.package10Objects.packageLimit,
     },
   });
 }

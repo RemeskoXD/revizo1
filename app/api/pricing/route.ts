@@ -1,19 +1,14 @@
 import { NextResponse } from 'next/server';
-import { getSubscriptionPrices, getServicePrices, getUrgentSurcharge } from '@/lib/pricing-db';
-import { OBJECT_ADDONS } from '@/lib/subscription-pricing';
-import {
-  OBJECT_PACKAGE_LIMIT,
-  OBJECT_EXTRA_PRICE_CZK,
-  OBJECT_PACKAGE_PRICE_CZK,
-} from '@/lib/object-limits';
+import { getSubscriptionPrices, getServicePrices, getUrgentSurcharge, getObjectAddons } from '@/lib/pricing-db';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const [subscriptions, services, urgentSurcharge] = await Promise.all([
+  const [subscriptions, services, urgentSurcharge, objectAddons] = await Promise.all([
     getSubscriptionPrices(),
     getServicePrices(),
-    getUrgentSurcharge()
+    getUrgentSurcharge(),
+    getObjectAddons(),
   ]);
 
   return NextResponse.json({
@@ -22,15 +17,17 @@ export async function GET() {
     urgentSurcharge,
     objectAddons: {
       customerExtraObject: {
-        label: OBJECT_ADDONS.CUSTOMER_EXTRA_OBJECT.label,
-        yearlyPriceCzk: OBJECT_EXTRA_PRICE_CZK,
-        stripeConfigured: Boolean(OBJECT_ADDONS.CUSTOMER_EXTRA_OBJECT.stripePriceId),
+        label: objectAddons.customerExtraObject.label,
+        yearlyPriceCzk: objectAddons.customerExtraObject.yearlyPriceCzk,
+        stripePriceId: objectAddons.customerExtraObject.stripePriceId,
+        stripeConfigured: Boolean(objectAddons.customerExtraObject.stripePriceId),
       },
       package10Objects: {
-        label: OBJECT_ADDONS.PACKAGE_10_OBJECTS.label,
-        yearlyPriceCzk: OBJECT_PACKAGE_PRICE_CZK,
-        packageLimit: OBJECT_PACKAGE_LIMIT,
-        stripeConfigured: Boolean(OBJECT_ADDONS.PACKAGE_10_OBJECTS.stripePriceId),
+        label: objectAddons.package10Objects.label,
+        yearlyPriceCzk: objectAddons.package10Objects.yearlyPriceCzk,
+        packageLimit: objectAddons.package10Objects.packageLimit,
+        stripePriceId: objectAddons.package10Objects.stripePriceId,
+        stripeConfigured: Boolean(objectAddons.package10Objects.stripePriceId),
       },
     },
   });

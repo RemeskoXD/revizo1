@@ -9,7 +9,7 @@ import {
   objectAddonActivatedEmail,
   objectAddonRevokedEmail,
 } from '@/lib/email-templates';
-import { OBJECT_EXTRA_PRICE_CZK, OBJECT_PACKAGE_PRICE_CZK } from '@/lib/object-limits';
+import { getObjectAddons } from '@/lib/pricing-db';
 import { notifyAddonActivated, notifyAddonRevoked } from '@/lib/notifications';
 import { tryCreateReferralReward } from '@/lib/referral';
 
@@ -101,12 +101,15 @@ async function applyAddonActivation(
       before.emailNotifications &&
       (addonKind === 'CUSTOMER_EXTRA_OBJECT' || addonKind === 'PACKAGE_10_OBJECTS')
     ) {
+      const addons = await getObjectAddons();
       const tpl = objectAddonActivatedEmail({
         userName: before.name,
         kind: addonKind,
         quantity,
         pricePerYearCzk:
-          addonKind === 'PACKAGE_10_OBJECTS' ? OBJECT_PACKAGE_PRICE_CZK : OBJECT_EXTRA_PRICE_CZK,
+          addonKind === 'PACKAGE_10_OBJECTS'
+            ? addons.package10Objects.yearlyPriceCzk
+            : addons.customerExtraObject.yearlyPriceCzk,
       });
       sendMail({ to: before.email, ...tpl }).catch(console.error);
     }

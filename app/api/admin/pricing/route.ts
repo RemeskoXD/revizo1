@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { subscriptions, services, urgentSurcharge } = body;
+    const { subscriptions, services, urgentSurcharge, objectAddons } = body;
 
     if (subscriptions) {
       await prisma.systemConfig.upsert({
@@ -42,6 +42,14 @@ export async function POST(request: Request) {
         where: { key: 'pricing_urgent_surcharge' },
         update: { value: String(urgentSurcharge) },
         create: { key: 'pricing_urgent_surcharge', value: String(urgentSurcharge), label: 'Příplatek za urgentní revizi' },
+      });
+    }
+
+    if (objectAddons) {
+      await prisma.systemConfig.upsert({
+        where: { key: 'pricing_object_addons' },
+        update: { value: JSON.stringify(objectAddons) },
+        create: { key: 'pricing_object_addons', value: JSON.stringify(objectAddons), label: 'Limity objektů a rozšíření' },
       });
     }
 

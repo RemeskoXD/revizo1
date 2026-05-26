@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { readJsonBody, PayloadTooLargeError } from '@/lib/json-body';
 import { rateLimit } from '@/lib/rate-limit';
 import { getObjectLimitStatus } from '@/lib/object-limits';
+import { getObjectAddons } from '@/lib/pricing-db';
 import { getLicenseStatus } from '@/lib/access-control';
 
 export async function POST(req: Request) {
@@ -73,11 +74,18 @@ export async function POST(req: Request) {
       );
     }
 
-    const currentCount = await prisma.property.count({
-      where: { ownerId: session.user.id },
-    });
+    const [currentCount, addons] = await Promise.all([
+      prisma.property.count({
+        where: { ownerId: session.user.id },
+      }),
+      getObjectAddons(),
+    ]);
 
-    const status = getObjectLimitStatus(owner, currentCount);
+    const status = getObjectLimitStatus(owner, currentCount, {
+      extraPrice: addons.customerExtraObject.yearlyPriceCzk,
+      packagePrice: addons.package10Objects.yearlyPriceCzk,
+      packageLimit: addons.package10Objects.packageLimit,
+    });
 
     if (!status.canAddMore) {
       return NextResponse.json(

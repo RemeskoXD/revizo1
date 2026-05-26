@@ -14,7 +14,7 @@ import {
   objectAddonActivatedEmail,
   objectAddonRevokedEmail,
 } from '@/lib/email-templates';
-import { OBJECT_EXTRA_PRICE_CZK, OBJECT_PACKAGE_PRICE_CZK } from '@/lib/object-limits';
+import { getObjectAddons } from '@/lib/pricing-db';
 import { sendMail } from '@/lib/mail';
 import {
   notifyAddonActivated,
@@ -149,11 +149,12 @@ export async function POST(request: Request) {
         } else if (newQ !== (user.objectLimitExtraPaid ?? 0)) {
           notifyAddonActivated({ userId: user.id, kind, quantity: newQ }).catch(console.error);
           if (user.email && user.emailNotifications) {
+            const addons = await getObjectAddons();
             const tpl = objectAddonActivatedEmail({
               userName: user.name,
               kind,
               quantity: newQ,
-              pricePerYearCzk: OBJECT_EXTRA_PRICE_CZK,
+              pricePerYearCzk: addons.customerExtraObject.yearlyPriceCzk,
             });
             sendMail({ to: user.email, ...tpl }).catch(console.error);
           }
