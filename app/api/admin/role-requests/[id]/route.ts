@@ -12,7 +12,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
 
     const { id } = await params;
-    const { action, revisionAuthValidUntil } = await req.json();
+    const { action, revisionAuthValidUntil, authorizedCategoryIds } = await req.json();
 
     if (!['APPROVE', 'REJECT'].includes(action)) {
       return NextResponse.json({ message: 'Invalid action' }, { status: 400 });
@@ -42,6 +42,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         const updateData: any = { role: roleRequest.requestedRole };
         if (revisionAuthValidUntil) {
           updateData.revisionAuthValidUntil = new Date(revisionAuthValidUntil);
+        }
+        if (Array.isArray(authorizedCategoryIds) && authorizedCategoryIds.length > 0 && ['TECHNICIAN', 'COMPANY_ADMIN'].includes(roleRequest.requestedRole)) {
+          updateData.authorizedCategories = {
+            connect: authorizedCategoryIds.map((catId: string) => ({ id: catId }))
+          };
         }
         await tx.user.update({
           where: { id: roleRequest.userId },

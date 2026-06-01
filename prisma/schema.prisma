@@ -84,6 +84,8 @@ model User {
   customerReviews              Review[]                 @relation("CustomerReviews")
   technicianReviews            Review[]                 @relation("TechnicianReviews")
   roleRequests                 RoleRequest[]
+  /// Jaké druhy revizí může technik provádět.
+  authorizedCategories         RevisionCategory[]       @relation("AuthorizedCategories")
   company                      User?                    @relation("CompanyTechnicians", fields: [companyId], references: [id])
   technicians                  User[]                   @relation("CompanyTechnicians")
 
@@ -296,6 +298,7 @@ model RevisionCategory {
   /// Viz docs/business-decisions.md sekce 1.2.
   targetRoles    String?  @db.VarChar(255)
   orders         Order[]
+  authorizedUsers User[]  @relation("AuthorizedCategories")
 }
 
 model Property {

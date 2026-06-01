@@ -12,7 +12,8 @@ import {
   Mail,
   UserX,
   DollarSign,
-  Gift
+  Gift,
+  UserPlus
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSession } from 'next-auth/react';
@@ -26,7 +27,8 @@ const navigation = [
   { name: 'Objednávky', href: '/admin/orders', icon: FileText, roles: ['ADMIN', 'SUPPORT', 'CONTRACTOR'] },
   { name: 'Ceník produktů', href: '/admin/pricing', icon: DollarSign, roles: ['ADMIN'] },
   { name: 'Uživatelé', href: '/admin/users', icon: Users, roles: ['ADMIN', 'SUPPORT'] },
-  { name: 'Žádosti o role', href: '/admin/roles', icon: UserCheck, roles: ['ADMIN', 'SUPPORT'] },
+  { name: 'Nové registrace', href: '/admin/registrations', icon: UserPlus, roles: ['ADMIN', 'SUPPORT'] },
+  { name: 'Žádosti o změnu role', href: '/admin/roles', icon: UserCheck, roles: ['ADMIN', 'SUPPORT'] },
   { name: 'Smazání účtů', href: '/admin/account-deletions', icon: UserX, roles: ['ADMIN', 'SUPPORT'] },
   { name: 'Revize – Data', href: '/admin/revisions', icon: ShieldCheck, roles: ['ADMIN', 'SUPPORT', 'CONTRACTOR'] },
   { name: 'E-maily', href: '/admin/emails', icon: Mail, roles: ['ADMIN', 'SUPPORT'] },

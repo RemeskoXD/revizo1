@@ -78,6 +78,13 @@ export default function NewOrderPage() {
       if (data.urgentSurcharge !== undefined) setUrgentSurchargeCzk(data.urgentSurcharge);
     }).catch(() => {});
     fetch('/api/revisions').then(r => r.json()).then(setRevisionCategories).catch(() => {});
+
+    if (typeof window !== 'undefined') {
+      const type = new URLSearchParams(window.location.search).get('serviceType');
+      if (type) {
+        setServiceType(type);
+      }
+    }
   }, []);
 
   useEffect(() => {

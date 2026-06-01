@@ -50,7 +50,7 @@ function defaultValidUntilDate(): string {
   return d.toISOString().slice(0, 10);
 }
 
-export default function PendingRegistrationsClient({ initialRows }: { initialRows: PendingRow[] }) {
+export default function PendingRegistrationsClient({ initialRows, categories }: { initialRows: PendingRow[], categories: { id: string; name: string; group: string }[] }) {
   const [rows, setRows] = useState(initialRows);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   
@@ -60,13 +60,21 @@ export default function PendingRegistrationsClient({ initialRows }: { initialRow
   const [rejectionReason, setRejectionReason] = useState('');
   const [selectedRow, setSelectedRow] = useState<PendingRow | null>(null);
   const [validUntil, setValidUntil] = useState(defaultValidUntilDate);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
 
   const approveRow = useMemo(() => rows.find((r) => r.id === approveForId), [rows, approveForId]);
   const rejectRow = useMemo(() => rows.find((r) => r.id === rejectForId), [rows, rejectForId]);
 
   const openApprove = (userId: string) => {
     setValidUntil(defaultValidUntilDate());
+    setSelectedCategoryIds([]);
     setApproveForId(userId);
+  };
+
+  const toggleCategory = (catId: string) => {
+    setSelectedCategoryIds(prev => 
+      prev.includes(catId) ? prev.filter(id => id !== catId) : [...prev, catId]
+    );
   };
 
   const confirmApprove = async () => {
@@ -76,7 +84,7 @@ export default function PendingRegistrationsClient({ initialRows }: { initialRow
       const res = await fetch(`/api/admin/pending-registrations/${approveForId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'approve', revisionAuthValidUntil: validUntil }),
+        body: JSON.stringify({ action: 'approve', revisionAuthValidUntil: validUntil, authorizedCategoryIds: selectedCategoryIds }),
       });
       if (res.ok) {
         setRows((r) => r.filter((x) => x.id !== approveForId));
@@ -463,9 +471,9 @@ export default function PendingRegistrationsClient({ initialRows }: { initialRow
               </p>
 
               {['TECHNICIAN', 'COMPANY_ADMIN'].includes(approveRow.role) ? (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <p className="text-sm text-gray-400">
-                    Zadejte, do kdy platí jeho nahrané <strong className="text-brand-yellow">oprávnění provádět revize</strong>. Tato informace mu bude zaslána e-mailem a zapíše se do profilu.
+                    Zadejte, do kdy platí jeho nahrané <strong className="text-brand-yellow">oprávnění provádět revize</strong>.
                   </p>
                   <div>
                     <label className="block text-xs font-semibold uppercase text-gray-400 mb-1.5 tracking-wider">
@@ -482,6 +490,28 @@ export default function PendingRegistrationsClient({ initialRows }: { initialRow
                       />
                     </div>
                   </div>
+
+                  {categories?.length > 0 && (
+                    <div className="pt-2">
+                       <label className="block text-xs font-semibold uppercase text-gray-400 mb-2.5 tracking-wider">
+                        Druhy revizí s povolením
+                      </label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[160px] overflow-y-auto pr-1 stylish-scrollbar">
+                        {categories.map((cat) => (
+                           <label key={cat.id} className="flex items-start gap-2.5 p-2 rounded-lg border border-white/5 bg-white/5 hover:bg-white/10 cursor-pointer transition-colors group">
+                             <div className="mt-0.5 flex items-center justify-center w-4 h-4 rounded border border-white/20 bg-black/20 group-hover:border-emerald-500/50 transition-colors shrink-0">
+                               {selectedCategoryIds.includes(cat.id) && <Check className="w-3 h-3 text-emerald-500" />}
+                             </div>
+                             <input type="checkbox" className="sr-only" checked={selectedCategoryIds.includes(cat.id)} onChange={() => toggleCategory(cat.id)} />
+                             <div className="text-xs">
+                               <p className="text-white font-medium leading-tight">{cat.name}</p>
+                               <p className="text-[10px] text-gray-500 truncate leading-tight mt-0.5">{cat.group}</p>
+                             </div>
+                           </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="bg-[#1b1b1b] border border-white/5 rounded-xl p-4 flex gap-3">

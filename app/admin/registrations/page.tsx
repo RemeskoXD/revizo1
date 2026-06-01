@@ -36,6 +36,11 @@ export default async function AdminRegistrationsPage() {
     createdAt: u.createdAt.toISOString(),
   }));
 
+  const categories = await prisma.revisionCategory.findMany({
+    orderBy: { name: 'asc' },
+    select: { id: true, name: true, group: true }
+  });
+
   return (
     <div className="space-y-8">
       <div>
@@ -45,7 +50,7 @@ export default async function AdminRegistrationsPage() {
         </p>
       </div>
 
-      <PendingRegistrationsClient initialRows={initialRows} />
+      <PendingRegistrationsClient initialRows={initialRows} categories={categories} />
     </div>
   );
 }

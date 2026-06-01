@@ -7,7 +7,6 @@ export const PUBLIC_ROUTE_PREFIXES = [
   '/register',
   '/registertest',
   '/success',
-  '/new-order',
   '/claim-property',
   '/share',
   '/test',

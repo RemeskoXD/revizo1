@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { LayoutDashboard, FileText, ShieldCheck, PlusCircle, X } from 'lucide-react';
+import { LayoutDashboard, FileText, ShieldCheck, PlusCircle, X, Upload } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { cn } from '@/lib/utils';
 import { useSidebarWidth } from '@/hooks/useSidebarWidth';
@@ -63,7 +63,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           </div>
 
           <div className="flex flex-1 min-h-0 flex-col gap-1 overflow-y-auto px-3 py-6">
-            <div className="mb-2 px-3">
+            <div className="mb-2 px-3 space-y-2">
               <Link
                 href="/dashboard/new-order"
                 onClick={onClose}
@@ -71,6 +71,14 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               >
                 <PlusCircle className="h-5 w-5" />
                 <span>Nová revize</span>
+              </Link>
+              <Link
+                href="/dashboard/new-order?serviceType=vlastni_revize"
+                onClick={onClose}
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/5 py-2 px-4 text-xs font-semibold text-gray-200 transition-colors hover:bg-white/10"
+              >
+                <Upload className="h-4 w-4 text-gray-400" />
+                <span>Nahrát vlastní revizi</span>
               </Link>
             </div>
 

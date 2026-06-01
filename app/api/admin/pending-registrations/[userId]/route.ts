@@ -20,7 +20,7 @@ export async function POST(
     }
 
     const { userId } = await params;
-    const body = await readJsonBody<{ action?: string; revisionAuthValidUntil?: string | null; reason?: string | null }>(req, 4096);
+    const body = await readJsonBody<{ action?: string; revisionAuthValidUntil?: string | null; reason?: string | null; authorizedCategoryIds?: string[] }>(req, 4096);
     const action = body.action === 'approve' ? 'approve' : body.action === 'reject' ? 'reject' : null;
     if (!action) {
       return NextResponse.json({ message: 'action: approve | reject' }, { status: 400 });
@@ -104,6 +104,11 @@ export async function POST(
         ...(untilParsed ? { revisionAuthValidUntil: untilParsed } : {}),
         ...(newInviteCode ? { inviteCode: newInviteCode } : {}),
         ...(companyId ? { companyId } : {}),
+        ...(body.authorizedCategoryIds && isTechOrCompany ? {
+          authorizedCategories: {
+            connect: body.authorizedCategoryIds.map(id => ({ id }))
+          }
+        } : {})
       },
     });
 

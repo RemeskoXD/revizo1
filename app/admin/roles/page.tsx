@@ -16,6 +16,11 @@ export default async function AdminRolesPage() {
     orderBy: { createdAt: 'desc' },
   });
 
+  const categories = await prisma.revisionCategory.findMany({
+    orderBy: { name: 'asc' },
+    select: { id: true, name: true, group: true }
+  });
+
   return (
     <div className="space-y-8">
       <div>
@@ -23,7 +28,7 @@ export default async function AdminRolesPage() {
         <p className="text-gray-400 mt-1">Správa žádostí uživatelů o změnu oprávnění.</p>
       </div>
 
-      <RoleRequestsClient initialRequests={roleRequests} />
+      <RoleRequestsClient initialRequests={roleRequests} categories={categories} />
     </div>
   );
 }

@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import {
   Check, ChevronRight, Home, Zap, FileText, Calendar, User, Phone,
-  MapPin, Info, ArrowLeft, Building, Loader2, CheckCircle2, Plus
+  MapPin, Info, ArrowLeft, Loader2, CheckCircle2, Plus
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatPriceCzk } from '@/lib/order-pricing';
@@ -13,7 +13,7 @@ import Link from 'next/link';
 import SubscriptionPricingBanner from '@/components/marketing/SubscriptionPricingBanner';
 import { motion, AnimatePresence } from 'motion/react';
 
-type BuildingOption = {
+type PropertyOption = {
   id: string;
   name: string;
   address: string | null;
@@ -36,13 +36,13 @@ const DEFAULT_SERVICE_TYPES = [
 
 const steps = [
   { id: 1, name: 'Typ revize', icon: Zap },
-  { id: 2, name: 'Výběr budovy', icon: Home },
+  { id: 2, name: 'Nemovitost', icon: Home },
   { id: 3, name: 'Kontakt', icon: User },
   { id: 4, name: 'Termín', icon: Calendar },
   { id: 5, name: 'Shrnutí', icon: FileText },
 ];
 
-export default function SVJNewOrderClient({ buildings }: { buildings: BuildingOption[] }) {
+export default function RealtyNewOrderClient({ properties }: { properties: PropertyOption[] }) {
   const { data: session } = useSession();
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
@@ -56,8 +56,8 @@ export default function SVJNewOrderClient({ buildings }: { buildings: BuildingOp
   const [urgentSurchargeCzk, setUrgentSurchargeCzk] = useState(2000);
 
   const [serviceType, setServiceType] = useState('');
-  const [selectedBuilding, setSelectedBuilding] = useState(buildings[0]?.id || '');
-  const [address, setAddress] = useState(buildings[0]?.address || buildings[0]?.name || '');
+  const [selectedProperty, setSelectedProperty] = useState(properties[0]?.id || '');
+  const [address, setAddress] = useState(properties[0]?.address || properties[0]?.name || '');
   const [floor, setFloor] = useState('');
   const [area, setArea] = useState('');
   const [accessInfo, setAccessInfo] = useState('');
@@ -111,7 +111,7 @@ export default function SVJNewOrderClient({ buildings }: { buildings: BuildingOp
 
   const canProceed = () => {
     if (currentStep === 1) return !!serviceType;
-    if (currentStep === 2) return !!selectedBuilding;
+    if (currentStep === 2) return !!selectedProperty;
     if (currentStep === 3) return contactName.length >= 2 && contactPhone.length >= 6;
     return true;
   };
@@ -122,8 +122,8 @@ export default function SVJNewOrderClient({ buildings }: { buildings: BuildingOp
   const prevStep = () => setCurrentStep(prev => Math.max(prev - 1, 1));
 
   const onSubmit = async () => {
-    if (!selectedBuilding) {
-      alert('Chyba: Nebyla vybrána žádná budova.');
+    if (!selectedProperty) {
+      alert('Chyba: Nebyla vybrána žádná nemovitost.');
       return;
     }
     setIsSubmitting(true);
@@ -137,13 +137,13 @@ export default function SVJNewOrderClient({ buildings }: { buildings: BuildingOp
         `Kontakt: ${contactName}, tel: ${contactPhone}, e-mail: ${contactEmail}`,
       ].filter(Boolean).join('\n');
 
-      const res = await fetch(`/api/properties/${selectedBuilding}/orders`, {
+      const res = await fetch(`/api/properties/${selectedProperty}/orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           serviceType: selectedService?.label || serviceType,
           serviceTypeId: serviceType,
-          propertyType: 'Bytový dům',
+          propertyType: 'Byt',
           address,
           notes: formattedNotes,
           preferredDate: preferredDate || null,
@@ -160,7 +160,7 @@ export default function SVJNewOrderClient({ buildings }: { buildings: BuildingOp
           window.location.href = data.url;
         } else {
           setTimeout(() => {
-            router.push(`/svj/buildings/${selectedBuilding}`);
+            router.push(`/realty/properties/${selectedProperty}`);
           }, 2000);
         }
       } else {
@@ -174,21 +174,21 @@ export default function SVJNewOrderClient({ buildings }: { buildings: BuildingOp
     }
   };
 
-  if (buildings.length === 0) {
+  if (properties.length === 0) {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4">
-          <Link href="/svj" className="p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors border border-white/10 group">
+          <Link href="/realty" className="p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors border border-white/10 group">
             <ArrowLeft className="w-5 h-5 text-gray-400 group-hover:text-white transition-colors" />
           </Link>
           <h1 className="text-2xl font-bold text-white">Nová objednávka</h1>
         </div>
         <div className="bg-[#1A1A1A] border border-white/5 rounded-2xl p-12 text-center">
-          <Building className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-white mb-2">Nejdříve přidejte budovu</h3>
-          <p className="text-gray-500 mb-6">Pro objednání revize musíte mít alespoň jednu budovu pod správou.</p>
-          <Link href="/svj/buildings" className="inline-flex items-center gap-2 px-6 py-3 bg-brand-yellow text-black font-semibold rounded-lg hover:bg-brand-yellow-hover transition-colors">
-            <Plus className="w-5 h-5" /> Přidat budovu
+          <Home className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-white mb-2">Nejdříve přidejte nemovitost</h3>
+          <p className="text-gray-500 mb-6">Pro objednání revize musíte mít alespoň jednu nemovitost ve svém portfoliu.</p>
+          <Link href="/realty/properties" className="inline-flex items-center gap-2 px-6 py-3 bg-brand-yellow text-black font-semibold rounded-lg hover:bg-brand-yellow-hover transition-colors">
+            <Plus className="w-5 h-5" /> Přidat nemovitost
           </Link>
         </div>
       </div>
@@ -207,17 +207,17 @@ export default function SVJNewOrderClient({ buildings }: { buildings: BuildingOp
     );
   }
 
-  const selectedBuildingDetails = buildings.find(b => b.id === selectedBuilding);
+  const selectedPropertyDetails = properties.find(p => p.id === selectedProperty);
 
   return (
     <div className="mx-auto max-w-4xl px-3 pb-8 sm:px-4">
       <div className="mb-6 flex items-start gap-3 sm:mb-8 sm:items-center sm:gap-4">
-        <Link href="/svj" className="shrink-0 rounded-lg p-2 text-gray-400 transition-colors hover:bg-white/5 hover:text-white">
+        <Link href="/realty" className="shrink-0 rounded-lg p-2 text-gray-400 transition-colors hover:bg-white/5 hover:text-white">
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div className="min-w-0">
           <h1 className="text-xl font-bold text-white sm:text-2xl">Nová objednávka revize</h1>
-          <p className="text-sm text-gray-400 sm:text-base">Vyberte si budovu pod správou a spravujte její bezpečí.</p>
+          <p className="text-sm text-gray-400 sm:text-base">Vyberte si nemovitost ze svého portfolia.</p>
         </div>
       </div>
 
@@ -250,7 +250,7 @@ export default function SVJNewOrderClient({ buildings }: { buildings: BuildingOp
           {/* Step 1: Service Type */}
           {currentStep === 1 && (
             <motion.div key="s1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }} className="space-y-6">
-              <h3 className="text-xl font-semibold text-white">O jakou revizi na budově máte zájem?</h3>
+              <h3 className="text-xl font-semibold text-white">O jakou revizi máte zájem?</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {serviceTypes.map(type => (
                   <label key={type.id} className={cn(
@@ -273,29 +273,29 @@ export default function SVJNewOrderClient({ buildings }: { buildings: BuildingOp
           {/* Step 2: Property Selection/Input */}
           {currentStep === 2 && (
             <motion.div key="s2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }} className="space-y-5">
-              <h3 className="text-xl font-semibold text-white">Pro jakou budovu bude revize probíhat?</h3>
+              <h3 className="text-xl font-semibold text-white">Kde bude revize probíhat?</h3>
               
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1.5 font-semibold">Vyberte ze svých budov *</label>
+                <label className="block text-sm font-medium text-gray-400 mb-1.5 font-semibold">Vyberte nemovitost z portfolia *</label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[220px] overflow-y-auto pr-1 stylish-scrollbar">
-                  {buildings.map(b => (
+                  {properties.map(p => (
                     <button
-                      key={b.id}
+                      key={p.id}
                       type="button"
                       onClick={() => {
-                        setSelectedBuilding(b.id);
-                        setAddress(b.address || b.name);
+                        setSelectedProperty(p.id);
+                        setAddress(p.address || p.name);
                       }}
                       className={cn(
                         "p-4 rounded-xl border text-left transition-all",
-                        selectedBuilding === b.id
+                        selectedProperty === p.id
                           ? 'bg-brand-yellow/10 border-brand-yellow/30 ring-1 ring-brand-yellow/20'
                           : 'bg-[#111] border-white/10 hover:border-white/20'
                       )}
                     >
-                      <p className={cn("text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1")}>SVJ Budova</p>
-                      <p className={cn("text-sm font-bold truncate", selectedBuilding === b.id ? 'text-brand-yellow' : 'text-white')}>{b.name}</p>
-                      {b.address && <p className="text-xs text-gray-500 mt-1 truncate"><MapPin className="w-3 h-3 inline mr-1" />{b.address}</p>}
+                      <p className={cn("text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1")}>Moje Nemovitost</p>
+                      <p className={cn("text-sm font-bold truncate", selectedProperty === p.id ? 'text-brand-yellow' : 'text-white')}>{p.name}</p>
+                      {p.address && <p className="text-xs text-gray-500 mt-1 truncate"><MapPin className="w-3 h-3 inline mr-1" />{p.address}</p>}
                     </button>
                   ))}
                 </div>
@@ -303,38 +303,38 @@ export default function SVJNewOrderClient({ buildings }: { buildings: BuildingOp
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-1.5">Podlaží / vchody (nepovinné)</label>
-                  <input type="text" value={floor} onChange={e => setFloor(e.target.value)} placeholder="Např. vchod A, B"
+                  <label className="block text-sm font-medium text-gray-400 mb-1.5">Podlaží / patro (nepovinné)</label>
+                  <input type="text" value={floor} onChange={e => setFloor(e.target.value)} placeholder="Např. 4. patro, byt č. 14"
                     className="w-full bg-[#111] border border-white/10 rounded-lg p-3 text-white focus:border-brand-yellow outline-none transition-all" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-400 mb-1.5">Plocha m² (nepovinné)</label>
-                  <input type="number" value={area} onChange={e => setArea(e.target.value)} placeholder="Např. 1200"
+                  <input type="number" value={area} onChange={e => setArea(e.target.value)} placeholder="Např. 75"
                     className="w-full bg-[#111] border border-white/10 rounded-lg p-3 text-white focus:border-brand-yellow outline-none transition-all" />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1.5">Klíče / Vstup do společných prostor (nepovinné)</label>
+                <label className="block text-sm font-medium text-gray-400 mb-1.5">Informace o přístupu a klíčích (nepovinné)</label>
                 <textarea value={accessInfo} onChange={e => setAccessInfo(e.target.value)} rows={2}
-                  placeholder="Kód ke vchodu, klíče u předsedy, kontakt na správce..."
+                  placeholder="Klíče na recepci, kód od schránky, nájemník Jiří mobil..."
                   className="w-full bg-[#111] border border-white/10 rounded-lg p-3 text-white focus:border-brand-yellow outline-none transition-all resize-none" />
               </div>
 
               <label className="flex items-center gap-3 p-3 bg-[#111] border border-white/10 rounded-lg cursor-pointer hover:border-white/20 transition-colors">
                 <input type="checkbox" checked={isFirstRevision} onChange={e => setIsFirstRevision(e.target.checked)} className="w-4 h-4 rounded" />
                 <div>
-                  <span className="text-sm text-white font-medium">Výchozí (první) revize společných prostor</span>
-                  <p className="text-xs text-gray-500">Jedná se o první/výchozí revizní zprávu pro budovu</p>
+                  <span className="text-sm text-white font-medium">Výchozí (první) revize zařízení</span>
+                  <p className="text-xs text-gray-500">Jedná se o první/výchozí revizi pro toto zařízení</p>
                 </div>
               </label>
 
               {serviceType === 'vlastni_revize' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-1.5">Nahrát dokument revize (PDF, JPG)</label>
+                  <label className="block text-sm font-medium text-gray-400 mb-1.5">Nahrát hotovou revizi (PDF, JPG)</label>
                   <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={handleFileChange}
                     className="w-full bg-[#111] border border-white/10 rounded-lg p-2 text-white focus:border-brand-yellow outline-none transition-all file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand-yellow file:text-black hover:file:bg-brand-yellow-hover" />
-                  {reportFile && <p className="text-sm text-green-500 mt-2">Soubor byl úspěšně připraven k uložení.</p>}
+                  {reportFile && <p className="text-sm text-green-500 mt-2">Zpráva byla úspěšně nahrána do zařazení.</p>}
                 </div>
               )}
             </motion.div>
@@ -344,13 +344,13 @@ export default function SVJNewOrderClient({ buildings }: { buildings: BuildingOp
           {currentStep === 3 && (
             <motion.div key="s3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }} className="space-y-5">
               <h3 className="text-xl font-semibold text-white">Na koho se má technik obrátit?</h3>
-              <p className="text-sm text-gray-400">Kontaktní osoba, která bude přítomna u revize (domovní správa / technik budovy).</p>
+              <p className="text-sm text-gray-400">Kontaktní osoba, která bude přítomna u revize (makléř, majitel, nájemce atp.).</p>
 
               <div>
                 <label className="block text-sm font-medium text-gray-400 mb-1.5">Jméno kontaktní osoby *</label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                  <input type="text" value={contactName} onChange={e => setContactName(e.target.value)} placeholder="Např. Jiří Předseda"
+                  <input type="text" value={contactName} onChange={e => setContactName(e.target.value)} placeholder="Zadejte jméno kontaktu"
                     className="w-full bg-[#111] border border-white/10 rounded-lg py-3 pl-10 pr-4 text-white focus:border-brand-yellow outline-none transition-all" />
                 </div>
               </div>
@@ -366,14 +366,14 @@ export default function SVJNewOrderClient({ buildings }: { buildings: BuildingOp
 
               <div>
                 <label className="block text-sm font-medium text-gray-400 mb-1.5">E-mail</label>
-                <input type="email" value={contactEmail} onChange={e => setContactEmail(e.target.value)} placeholder="predseda@svj-dům.cz"
+                <input type="email" value={contactEmail} onChange={e => setContactEmail(e.target.value)} placeholder="makler@reality.cz"
                   className="w-full bg-[#111] border border-white/10 rounded-lg p-3 text-white focus:border-brand-yellow outline-none transition-all" />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1.5">Upřesnění pro techniky</label>
+                <label className="block text-sm font-medium text-gray-400 mb-1.5">Poznámka pro revizního technika</label>
                 <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3}
-                  placeholder="Zde uveďte doplňující instrukce nebo specifika..."
+                  placeholder="Uveďte další podrobnosti nahlášené od nájemníků..."
                   className="w-full bg-[#111] border border-white/10 rounded-lg p-3 text-white focus:border-brand-yellow outline-none transition-all resize-none" />
               </div>
             </motion.div>
@@ -385,7 +385,7 @@ export default function SVJNewOrderClient({ buildings }: { buildings: BuildingOp
               {serviceType === 'vlastni_revize' ? (
                 <>
                   <h3 className="text-xl font-semibold text-white">Platnost vaší revize</h3>
-                  <p className="text-sm text-gray-400">Zadejte datum, do kdy je nahrávaná revize platná. Včas vás upozorníme na nutnost další kontroly.</p>
+                  <p className="text-sm text-gray-400">Zadejte datum, do kdy revize platí. Včas vás upozorníme na nutnost zadání nové objednávky.</p>
                   <div>
                     <label className="block text-sm font-medium text-gray-400 mb-1.5">Platnost do (nepovinné)</label>
                     <input type="date" value={preferredDate} onChange={e => setPreferredDate(e.target.value)}
@@ -396,9 +396,9 @@ export default function SVJNewOrderClient({ buildings }: { buildings: BuildingOp
                 <>
                   <h3 className="text-xl font-semibold text-white">Kdy se vám to hodí?</h3>
                   <p className="text-sm text-gray-400">
-                    <strong className="text-gray-300">Standardní:</strong> technik se ozve a potvrdí termín podle vašich možností.
+                    <strong className="text-gray-300">Standardní:</strong> technik naplánuje konkrétní termín dle domluvy.
                     {' '}
-                    <strong className="text-gray-300">Urgentní:</strong> přednostní naplánování techniků do několika dnů (+ příplatek {formatPriceCzk(urgentSurchargeCzk)}).
+                    <strong className="text-gray-300">Urgentní:</strong> přednostní zařazení do kalendáře do několika dní pro hladký proces prodeje/pronájmu (+ {formatPriceCzk(urgentSurchargeCzk)}).
                   </p>
 
                   <div>
@@ -408,14 +408,14 @@ export default function SVJNewOrderClient({ buildings }: { buildings: BuildingOp
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-2 font-semibold">Priorita termínu</label>
+                    <label className="block text-sm font-medium text-gray-400 mb-2 font-semibold font-medium text-gray-300">Priorita termínu</label>
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <button type="button" onClick={() => setUrgency('normal')}
                         className={cn("p-4 rounded-lg border text-left transition-all",
                           urgency === 'normal' ? "border-brand-yellow bg-brand-yellow/10 animate" : "border-white/10 hover:border-white/20"
                         )}>
                         <p className={cn("font-semibold text-sm", urgency === 'normal' ? "text-brand-yellow" : "text-white")}>Standardní</p>
-                        <p className="text-xs text-gray-500 mt-1">Podle obvyklé naplněnosti techniků, telefonická domluva</p>
+                        <p className="text-xs text-gray-500 mt-1">Dle standardních kapacit a telefonického kontaktu technika</p>
                       </button>
                       <button type="button" onClick={() => setUrgency('urgent')}
                         className={cn("p-4 rounded-lg border text-left transition-all",
@@ -432,7 +432,7 @@ export default function SVJNewOrderClient({ buildings }: { buildings: BuildingOp
                       <label className="block text-sm font-medium text-gray-400 mb-1.5">Kategorie revize</label>
                       <select value={selectedCategoryId} onChange={e => setSelectedCategoryId(e.target.value)}
                         className="w-full bg-[#111] border border-white/10 rounded-lg p-3 text-white focus:border-brand-yellow outline-none">
-                        <option value="">Vyberte prostředí k revizi...</option>
+                        <option value="">Vyberte typ prostředí...</option>
                         {Object.entries(
                           revisionCategories.reduce((acc: Record<string, any[]>, cat: any) => {
                             if (!acc[cat.group]) acc[cat.group] = [];
@@ -457,20 +457,20 @@ export default function SVJNewOrderClient({ buildings }: { buildings: BuildingOp
           {/* Step 5: Summary */}
           {currentStep === 5 && (
             <motion.div key="s5" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }} className="space-y-6">
-              <h3 className="text-xl font-semibold text-white">Kontrola a odeslání</h3>
+              <h3 className="text-xl font-semibold text-white">Kontrola a odeslání objednávky</h3>
 
               <div className="bg-[#111] rounded-xl p-6 space-y-4 border border-white/5">
                 {[
-                  { label: 'Oprávněná budova', value: selectedBuildingDetails?.name },
+                  { label: 'Vybraná nemovitost', value: selectedPropertyDetails?.name },
                   { label: 'Typ revize', value: selectedService?.label || serviceType },
-                  { label: 'Adresa', value: address },
+                  { label: 'Adresa nemovitosti', value: address },
                   floor ? { label: 'Upřesnění podlaží', value: floor } : null,
-                  area ? { label: 'Odhadovaná plocha', value: `${area} m²` } : null,
-                  { label: 'Přítomný kontakt', value: `${contactName}, ${contactPhone}` },
-                  { label: serviceType === 'vlastni_revize' ? 'Platnost revize do' : 'Preferovaný termín', value: preferredDate ? new Date(preferredDate).toLocaleDateString('cs-CZ') : 'Dle dohody' },
+                  area ? { label: 'Plocha rozlohy', value: `${area} m²` } : null,
+                  { label: 'Kontakt u revize', value: `${contactName}, ${contactPhone}` },
+                  { label: serviceType === 'vlastni_revize' ? 'Datum platnosti do' : 'Preferovaný termín', value: preferredDate ? new Date(preferredDate).toLocaleDateString('cs-CZ') : 'Dle domluvy' },
                   serviceType !== 'vlastni_revize'
                     ? {
-                        label: 'Urgence',
+                        label: 'Zvolená urgence',
                         value:
                           urgency === 'urgent'
                             ? `Urgentní (+ ${formatPriceCzk(urgentSurchargeCzk)})`
@@ -487,7 +487,7 @@ export default function SVJNewOrderClient({ buildings }: { buildings: BuildingOp
                 {serviceType !== 'vlastni_revize' && (
                   <div className="space-y-2 border-t border-brand-yellow/20 pt-4">
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-500 font-medium">Základní cena služby</span>
+                      <span className="text-gray-500 font-medium">Základní cena revize</span>
                       <span className="text-gray-300 font-semibold">{formatPriceCzk(basePriceOnly)}</span>
                     </div>
                     {urgency === 'urgent' && (
@@ -507,8 +507,8 @@ export default function SVJNewOrderClient({ buildings }: { buildings: BuildingOp
               <div className="flex items-start gap-3 p-4 bg-yellow-500/5 border border-yellow-500/10 rounded-lg">
                 <Info className="w-4 h-4 text-brand-yellow mt-0.5 shrink-0" />
                 <p className="text-xs text-gray-400">
-                  Potvrzením souhlasíte se spuštěním revizního řízení pro vybrané SVJ. 
-                  Pokud je revize zpoplatněná, budete v dalším kroku přesměrováni na platební bránu pro úhradu.
+                  Potvrzením souhlasíte se spuštěním revizního řízení pro vybrané nemovitostní portfolio.
+                  Bude-li revize zpoplatněná, v následujícím kroku se otevře platební brána.
                 </p>
               </div>
             </motion.div>

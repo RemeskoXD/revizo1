@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { Settings } from 'lucide-react';
 import { useSession } from 'next-auth/react';
-import { NotificationBell } from '@/components/NotificationBell';
 import { LogoutButton } from '@/components/LogoutButton';
 import { getRoleDisplayName } from '@/lib/role-labels';
 
@@ -19,11 +18,6 @@ export function SidebarFooterBlock({ settingsHref }: SidebarFooterBlockProps) {
 
   return (
     <div className="space-y-3 border-t border-white/10 p-4">
-      <div className="flex items-center justify-between gap-2 px-1">
-        <span className="text-xs font-medium uppercase tracking-wider text-gray-500">Oznámení</span>
-        <NotificationBell />
-      </div>
-
       <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-gray-800 text-sm font-semibold text-white">
           {(name || email || '?').charAt(0).toUpperCase()}
