@@ -52,7 +52,7 @@ export default function SVJNewOrderClient({ buildings }: { buildings: BuildingOp
   const [revisionCategories, setRevisionCategories] = useState<any[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
 
-  const [serviceTypes, setServiceTypes] = useState(DEFAULT_SERVICE_TYPES);
+  const [serviceTypes, setServiceTypes] = useState<any[]>([]);
   const [urgentSurchargeCzk, setUrgentSurchargeCzk] = useState(2000);
 
   const [serviceType, setServiceType] = useState('');
@@ -71,9 +71,25 @@ export default function SVJNewOrderClient({ buildings }: { buildings: BuildingOp
 
   useEffect(() => {
     fetch('/api/pricing').then(r => r.json()).then(data => {
-      if (data.services) setServiceTypes(data.services);
       if (data.urgentSurcharge !== undefined) setUrgentSurchargeCzk(data.urgentSurcharge);
     }).catch(() => {});
+    
+    fetch('/api/packages').then(r => r.json()).then(data => {
+      if (data.packages) {
+        setServiceTypes([
+          ...data.packages.map((p: any) => ({
+            id: p.id,
+            label: p.name,
+            desc: p.description,
+            price: p.approximatePrice ? `od ${p.approximatePrice.toLocaleString('cs-CZ')} Kč` : 'Individuální',
+            priceValue: p.approximatePrice || 0,
+            group: 'Revize'
+          })),
+          { id: 'vlastni_revize', label: 'Nahrát vlastní revizi', desc: 'Máte hotovou revizi? Nahrajte ji pro správu termínů', price: 'Zdarma', priceValue: 0, group: 'Ostatní' }
+        ]);
+      }
+    }).catch(() => {});
+
     fetch('/api/revisions').then(r => r.json()).then(setRevisionCategories).catch(() => {});
 
     if (typeof window !== 'undefined') {

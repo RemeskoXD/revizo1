@@ -19,6 +19,8 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
       technician: { select: { name: true, email: true, phone: true } },
       company: { select: { name: true, email: true, phone: true } },
       property: { select: { ownerId: true } },
+      pricingItems: { include: { pricingItem: true } },
+      servicePackage: true,
     }
   });
 

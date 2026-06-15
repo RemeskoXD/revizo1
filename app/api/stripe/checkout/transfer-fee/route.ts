@@ -11,10 +11,7 @@ import {
 } from '@/lib/stripe-config';
 import { readJsonBody, PayloadTooLargeError } from '@/lib/json-body';
 import { rateLimit } from '@/lib/rate-limit';
-import {
-  REALTY_TRANSFER_FEE_CZK,
-  STRIPE_PRICE_REALTY_TRANSFER_FEE,
-} from '@/lib/subscription-pricing';
+import { getObjectAddons } from '@/lib/pricing-db';
 import { ROLES } from '@/lib/constants';
 
 export const dynamic = 'force-dynamic';
@@ -84,9 +81,13 @@ export async function POST(req: Request) {
       );
     }
 
+    const objectAddons = await getObjectAddons();
+    const STRIPE_PRICE_REALTY_TRANSFER_FEE = objectAddons.realtyTransferFee.stripePriceId;
+    const REALTY_TRANSFER_FEE_CZK = objectAddons.realtyTransferFee.priceCzk;
+
     if (!STRIPE_PRICE_REALTY_TRANSFER_FEE) {
       return NextResponse.json(
-        { message: 'STRIPE_PRICE_REALTY_TRANSFER_FEE není nastaveno v .env' },
+        { message: 'STRIPE_PRICE_REALTY_TRANSFER_FEE není nastaveno v databázi' },
         { status: 500 },
       );
     }

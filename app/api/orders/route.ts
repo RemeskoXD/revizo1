@@ -174,33 +174,31 @@ export async function POST(req: Request) {
     const readableId = `ORD-${new Date().getFullYear()}-${idSuffix}`;
 
     const isUrgent = body.isUrgent === true;
-    const priceKey = serviceTypeIdNorm ?? "";
-    const pricingDb = await getPricingDatabase();
-    
-    let basePriceValue = 1500;
-    const foundService = pricingDb.services.find(s => s.id === (priceKey || 'unknown'));
-    if (foundService) {
-      basePriceValue = foundService.priceValue;
-    }
-
-    let price = basePriceValue;
-    if (!isVlastni && isUrgent) {
-      price += pricingDb.urgentSurcharge;
-    }
-    if (isVlastni) {
-      price = 0;
-    }
-
     const cancelToken = crypto.randomBytes(24).toString('hex');
+    
+    // Look up the package
+    let servicePackageId: string | null = null;
+    let approximatePrice = 0;
+    
+    if (!isVlastni && serviceTypeIdNorm) {
+      const pkg = await prisma.servicePackage.findUnique({
+        where: { id: serviceTypeIdNorm }
+      });
+      if (pkg) {
+        servicePackageId = pkg.id;
+        approximatePrice = pkg.approximatePrice || 0;
+      }
+    }
 
     const orderData: any = {
       readableId,
       customerId: session.user.id,
-      serviceType,
+      serviceType, // We still save the name
+      servicePackageId,
       propertyType,
       address,
       notes,
-      price,
+      price: isVlastni ? 0 : null, // Price is finalized later by technician
       isUrgent: !isVlastni && isUrgent,
       status: isVlastni ? "COMPLETED" : "PENDING",
       reportFile: reportFile || null,
@@ -241,43 +239,6 @@ export async function POST(req: Request) {
     });
 
     if (!isVlastni) {
-      let paymentUrl: string | undefined;
-
-      if (price > 0) {
-        const base = getAppBaseUrl();
-        if (isFakePaymentGatewayEnabled()) {
-          paymentUrl = `${base}/platba-test?rp=${encodeURIComponent('/dashboard')}&m=checkout&purpose=order&orderId=${order.readableId}`;
-        } else {
-          try {
-            const stripe = getStripe();
-            const checkoutSession = await stripe.checkout.sessions.create({
-              mode: 'payment',
-              payment_method_types: ['card'],
-              line_items: [{
-                price_data: {
-                  currency: 'czk',
-                  product_data: {
-                    name: `Revize: ${serviceType}`,
-                    description: `Adresa: ${address} (ID: ${readableId})`,
-                  },
-                  unit_amount: Math.round(price * 100),
-                },
-                quantity: 1,
-              }],
-              success_url: `${base}/dashboard?order_payment=success`,
-              cancel_url: `${base}/dashboard?order_payment=cancel`,
-              client_reference_id: order.id,
-              metadata: { orderId: order.id, userId: session.user.id },
-            });
-            if (checkoutSession.url) {
-              paymentUrl = checkoutSession.url;
-            }
-          } catch (err) {
-            console.error("Stripe error for order:", err);
-          }
-        }
-      }
-
       const customer = await prisma.user.findUnique({
         where: { id: session.user.id },
         select: { email: true, emailNotifications: true },
@@ -287,18 +248,16 @@ export async function POST(req: Request) {
           readableId: order.readableId,
           serviceType: order.serviceType,
           address: order.address,
-          price: order.price,
+          price: null,
           preferredDate: order.preferredDate?.toISOString() || null,
           isUrgent: order.isUrgent,
           cancelToken,
-          paymentUrl,
+          paymentUrl: undefined,
         });
         sendMail({ to: customer.email, ...emailData }).catch(console.error);
       }
 
-      if (paymentUrl) {
-        return NextResponse.json({ ...order, url: paymentUrl }, { status: 201 });
-      }
+      return NextResponse.json({ ...order, url: undefined }, { status: 201 });
     }
 
     return NextResponse.json(order, { status: 201 });

@@ -10,7 +10,6 @@ import {
   resolveStripeSettingsReturnPath,
 } from '@/lib/stripe-config';
 import { rateLimit } from '@/lib/rate-limit';
-import { COMPANY_TECH_SEAT_STRIPE_PRICE_ID } from '@/lib/subscription-pricing';
 import { getObjectAddons } from '@/lib/pricing-db';
 import { ROLES } from '@/lib/constants';
 import { readJsonBody, PayloadTooLargeError } from '@/lib/json-body';
@@ -128,7 +127,7 @@ export async function POST(request: Request) {
     const objectAddons = await getObjectAddons();
     const priceId =
       kind === 'COMPANY_TECH_SEATS'
-        ? COMPANY_TECH_SEAT_STRIPE_PRICE_ID
+        ? objectAddons.companyTechSeat.stripePriceId
         : kind === 'PACKAGE_10_OBJECTS'
         ? objectAddons.package10Objects.stripePriceId
         : objectAddons.customerExtraObject.stripePriceId;

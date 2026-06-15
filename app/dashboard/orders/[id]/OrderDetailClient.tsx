@@ -26,6 +26,9 @@ import { ReviewSection } from '@/components/ReviewSection';
 import { PhotoSection } from '@/components/PhotoSection';
 import { getTipsForService } from '@/lib/preparationTips';
 
+import { OrderPricingManager } from '@/components/dashboard/OrderPricingManager';
+import { formatPriceCzk } from '@/lib/order-pricing';
+
 export default function OrderDetailClient({ order, currentUser, technicians = [] }: { order: Order, currentUser: any, technicians?: any[] }) {
   const [selectedTechId, setSelectedTechId] = useState('');
   const [isAssigning, setIsAssigning] = useState(false);
@@ -114,6 +117,31 @@ export default function OrderDetailClient({ order, currentUser, technicians = []
               </select>
             )}
             
+            {currentUser.id === order.customerId && order.price && order.price > 0 && !order.isPaid && (
+              <button
+                onClick={async () => {
+                  try {
+                    const res = await fetch(`/api/orders/${order.readableId}/checkout`, { method: 'POST' });
+                    if (res.ok) {
+                      const data = await res.json();
+                      if (data.url) window.location.href = data.url;
+                    } else {
+                      alert('Chyba při vytváření platby');
+                    }
+                  } catch (e) {
+                    alert('Chyba při vytváření platby');
+                  }
+                }}
+                className="px-6 py-2 bg-brand-yellow text-black text-sm font-semibold rounded-lg hover:bg-brand-yellow-hover transition-colors"
+              >
+                Zaplatit revizi ({formatPriceCzk(order.price)})
+              </button>
+            )}
+            {currentUser.id === order.customerId && order.isPaid && (
+              <span className="px-4 py-2 bg-green-500/10 text-green-500 text-sm font-semibold rounded-lg border border-green-500/20">
+                Zaplaceno
+              </span>
+            )}
         </div>
       </div>
 
@@ -220,6 +248,20 @@ export default function OrderDetailClient({ order, currentUser, technicians = []
                   </button>
                 </div>
               )}
+              {['ADMIN', 'SUPPORT'].includes(currentUser.role) && order.status === 'COMPLETED' && !(order as any).isVerifiedAdmin && (
+                <button
+                  onClick={async () => {
+                    if (confirm('Opravdu chcete označit revizi za ověřenou?')) {
+                      const res = await fetch(`/api/admin/orders/${order.id}/verify`, { method: 'POST' });
+                      if (res.ok) window.location.reload();
+                      else alert('Chyba při ověřování');
+                    }
+                  }}
+                  className="px-4 py-1.5 bg-green-500 text-white text-sm font-semibold rounded-lg hover:bg-green-600 transition-colors"
+                >
+                  Ověřit revizi a uvolnit provizi
+                </button>
+              )}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
@@ -292,6 +334,13 @@ export default function OrderDetailClient({ order, currentUser, technicians = []
                 </div>
             </div>
           </div>
+
+          <OrderPricingManager 
+            orderId={order.id} 
+            readableId={order.readableId} 
+            initialItems={(order as any).pricingItems || []}
+            readOnly={!['TECHNICIAN', 'COMPANY_ADMIN', 'ADMIN'].includes(currentUser.role)}
+          />
 
           {/* Technician Info - Scheduling & Result */}
           {((order as any).scheduledDate || (order as any).revisionNotes || (order as any).nextRevisionDate) && (

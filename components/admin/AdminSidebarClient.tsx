@@ -26,6 +26,8 @@ const navigation = [
   { name: 'Přehled', href: '/admin', icon: LayoutDashboard, roles: ['ADMIN', 'SUPPORT', 'CONTRACTOR'] },
   { name: 'Objednávky', href: '/admin/orders', icon: FileText, roles: ['ADMIN', 'SUPPORT', 'CONTRACTOR'] },
   { name: 'Ceník produktů', href: '/admin/pricing', icon: DollarSign, roles: ['ADMIN'] },
+  { name: 'Balíčky revizí', href: '/admin/packages', icon: FileText, roles: ['ADMIN'] },
+  { name: 'Ceník techniků', href: '/admin/pricing-items', icon: FileText, roles: ['ADMIN'] },
   { name: 'Uživatelé', href: '/admin/users', icon: Users, roles: ['ADMIN', 'SUPPORT'] },
   { name: 'Nové registrace', href: '/admin/registrations', icon: UserPlus, roles: ['ADMIN', 'SUPPORT'] },
   { name: 'Žádosti o změnu role', href: '/admin/roles', icon: UserCheck, roles: ['ADMIN', 'SUPPORT'] },

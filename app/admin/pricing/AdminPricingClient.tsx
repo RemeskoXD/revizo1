@@ -25,6 +25,8 @@ export default function AdminPricingClient() {
   const [objectAddons, setObjectAddons] = useState<{
     customerExtraObject?: { label: string; yearlyPriceCzk: number; stripePriceId?: string; stripeConfigured: boolean };
     package10Objects?: { label: string; yearlyPriceCzk: number; packageLimit: number; stripePriceId?: string; stripeConfigured: boolean };
+    companyTechSeat?: { label: string; monthlyPriceCzk: number; stripePriceId?: string; stripeConfigured: boolean };
+    realtyTransferFee?: { label: string; priceCzk: number; stripePriceId?: string; stripeConfigured: boolean };
   } | null>(null);
 
   useEffect(() => {
@@ -67,7 +69,7 @@ export default function AdminPricingClient() {
     }));
   };
 
-  const handleAddonChange = (key: 'customerExtraObject' | 'package10Objects', field: string, value: string | number) => {
+  const handleAddonChange = (key: 'customerExtraObject' | 'package10Objects' | 'companyTechSeat' | 'realtyTransferFee', field: string, value: string | number) => {
     setObjectAddons(prev => {
       if (!prev) return null;
       const sub = prev[key];
@@ -286,6 +288,96 @@ export default function AdminPricingClient() {
               <div className="pt-1 text-xs text-gray-400 flex items-center gap-1.5">
                 Stav Stripe: 
                 {objectAddons?.package10Objects?.stripePriceId ? (
+                  <span className="text-emerald-400 font-semibold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full text-[10px]">nakonfigurováno</span>
+                ) : (
+                  <span className="text-red-400 font-semibold bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-full text-[10px]">není nastaveno (nutná cena)</span>
+                )}
+              </div>
+            </div>
+
+            {/* Company Tech Seat addon card */}
+            <div className="rounded-xl border border-white/10 bg-[#1A1A1A] p-4 space-y-3">
+              <div className="text-sm font-semibold text-white border-b border-white/5 pb-2">Firma – licence technika</div>
+
+              <div className="space-y-1">
+                <span className="text-xs text-gray-500 font-medium">Název doplňku</span>
+                <input
+                  type="text"
+                  className="w-full bg-[#111] border border-white/10 rounded-lg p-2 text-white text-sm focus:border-brand-yellow outline-none"
+                  value={objectAddons?.companyTechSeat?.label ?? 'Licence technika'}
+                  onChange={e => handleAddonChange('companyTechSeat', 'label', e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <span className="text-xs text-gray-500 font-medium">Měsíční cena (Kč)</span>
+                <input
+                  type="number"
+                  className="w-full bg-[#111] border border-white/10 rounded-lg p-2 text-white text-sm focus:border-brand-yellow outline-none"
+                  value={objectAddons?.companyTechSeat?.monthlyPriceCzk ?? 200}
+                  onChange={e => handleAddonChange('companyTechSeat', 'monthlyPriceCzk', parseInt(e.target.value) || 0)}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <span className="text-xs text-gray-500 font-medium">Stripe Price ID (před vázáním pro Firmu)</span>
+                <input
+                  type="text"
+                  placeholder="price_..."
+                  className="w-full bg-[#111] border border-white/10 rounded-lg p-2 text-white text-sm focus:border-brand-yellow outline-none font-mono"
+                  value={objectAddons?.companyTechSeat?.stripePriceId ?? ''}
+                  onChange={e => handleAddonChange('companyTechSeat', 'stripePriceId', e.target.value)}
+                />
+              </div>
+
+              <div className="pt-1 text-xs text-gray-400 flex items-center gap-1.5">
+                Stav Stripe: 
+                {objectAddons?.companyTechSeat?.stripePriceId ? (
+                  <span className="text-emerald-400 font-semibold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full text-[10px]">nakonfigurováno</span>
+                ) : (
+                  <span className="text-red-400 font-semibold bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-full text-[10px]">není nastaveno (nutná cena)</span>
+                )}
+              </div>
+            </div>
+
+            {/* Realty Transfer Fee addon card */}
+            <div className="rounded-xl border border-white/10 bg-[#1A1A1A] p-4 space-y-3">
+              <div className="text-sm font-semibold text-white border-b border-white/5 pb-2">Makléř – poplatek za převod</div>
+
+              <div className="space-y-1">
+                <span className="text-xs text-gray-500 font-medium">Název doplňku</span>
+                <input
+                  type="text"
+                  className="w-full bg-[#111] border border-white/10 rounded-lg p-2 text-white text-sm focus:border-brand-yellow outline-none"
+                  value={objectAddons?.realtyTransferFee?.label ?? 'Poplatek za převod nemovitosti'}
+                  onChange={e => handleAddonChange('realtyTransferFee', 'label', e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <span className="text-xs text-gray-500 font-medium">Jednorázová cena (Kč)</span>
+                <input
+                  type="number"
+                  className="w-full bg-[#111] border border-white/10 rounded-lg p-2 text-white text-sm focus:border-brand-yellow outline-none"
+                  value={objectAddons?.realtyTransferFee?.priceCzk ?? 200}
+                  onChange={e => handleAddonChange('realtyTransferFee', 'priceCzk', parseInt(e.target.value) || 0)}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <span className="text-xs text-gray-500 font-medium">Stripe Price ID (jednorázové)</span>
+                <input
+                  type="text"
+                  placeholder="price_..."
+                  className="w-full bg-[#111] border border-white/10 rounded-lg p-2 text-white text-sm focus:border-brand-yellow outline-none font-mono"
+                  value={objectAddons?.realtyTransferFee?.stripePriceId ?? ''}
+                  onChange={e => handleAddonChange('realtyTransferFee', 'stripePriceId', e.target.value)}
+                />
+              </div>
+
+              <div className="pt-1 text-xs text-gray-400 flex items-center gap-1.5">
+                Stav Stripe: 
+                {objectAddons?.realtyTransferFee?.stripePriceId ? (
                   <span className="text-emerald-400 font-semibold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full text-[10px]">nakonfigurováno</span>
                 ) : (
                   <span className="text-red-400 font-semibold bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-full text-[10px]">není nastaveno (nutná cena)</span>

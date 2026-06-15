@@ -3,7 +3,6 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { getObjectLimitStatus } from '@/lib/object-limits';
-import { REALTY_TRANSFER_FEE_CZK } from '@/lib/subscription-pricing';
 import { getObjectAddons } from '@/lib/pricing-db';
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -100,12 +99,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     // Viz docs/business-decisions.md sekce 2.4.
     if (property.claimedById) {
       try {
+        const addons = await getObjectAddons();
         await prisma.realtorTransferFee.create({
           data: {
             realtorId: session.user.id,
             customerId: property.claimedById,
             propertyId: property.id,
-            amountCzk: REALTY_TRANSFER_FEE_CZK,
+            amountCzk: addons.realtyTransferFee.priceCzk,
             status: 'PENDING',
           },
         });

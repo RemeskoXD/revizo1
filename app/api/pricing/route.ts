@@ -29,6 +29,18 @@ export async function GET() {
         stripePriceId: objectAddons.package10Objects.stripePriceId,
         stripeConfigured: Boolean(objectAddons.package10Objects.stripePriceId),
       },
+      companyTechSeat: objectAddons.companyTechSeat ? {
+        label: objectAddons.companyTechSeat.label,
+        monthlyPriceCzk: objectAddons.companyTechSeat.monthlyPriceCzk,
+        stripePriceId: objectAddons.companyTechSeat.stripePriceId,
+        stripeConfigured: Boolean(objectAddons.companyTechSeat.stripePriceId),
+      } : undefined,
+      realtyTransferFee: objectAddons.realtyTransferFee ? {
+        label: objectAddons.realtyTransferFee.label,
+        priceCzk: objectAddons.realtyTransferFee.priceCzk,
+        stripePriceId: objectAddons.realtyTransferFee.stripePriceId,
+        stripeConfigured: Boolean(objectAddons.realtyTransferFee.stripePriceId),
+      } : undefined,
     },
   });
 }

@@ -93,6 +93,16 @@ export type ObjectAddonConfig = {
     packageLimit: number;
     stripePriceId: string;
   };
+  companyTechSeat: {
+    label: string;
+    monthlyPriceCzk: number;
+    stripePriceId: string;
+  };
+  realtyTransferFee: {
+    label: string;
+    priceCzk: number;
+    stripePriceId: string;
+  };
 };
 
 export const DEFAULT_OBJECT_ADDONS: ObjectAddonConfig = {
@@ -107,6 +117,16 @@ export const DEFAULT_OBJECT_ADDONS: ObjectAddonConfig = {
     packageLimit: 10,
     stripePriceId: process.env.STRIPE_PRICE_PACKAGE_10_OBJECTS || '',
   },
+  companyTechSeat: {
+    label: 'Měsíční licence technika (Firma)',
+    monthlyPriceCzk: 200,
+    stripePriceId: process.env.STRIPE_PRICE_COMPANY_TECH_SEAT || '',
+  },
+  realtyTransferFee: {
+    label: 'Poplatek za převod nemovitosti od makléře',
+    priceCzk: 200,
+    stripePriceId: process.env.STRIPE_PRICE_REALTY_TRANSFER_FEE || '',
+  }
 };
 
 export async function getObjectAddons(): Promise<ObjectAddonConfig> {
@@ -115,6 +135,8 @@ export async function getObjectAddons(): Promise<ObjectAddonConfig> {
     try {
       const parsed = JSON.parse(config.value);
       if (parsed.customerExtraObject && parsed.package10Objects) {
+        if (!parsed.companyTechSeat) parsed.companyTechSeat = DEFAULT_OBJECT_ADDONS.companyTechSeat;
+        if (!parsed.realtyTransferFee) parsed.realtyTransferFee = DEFAULT_OBJECT_ADDONS.realtyTransferFee;
         return parsed as ObjectAddonConfig;
       }
     } catch (e) {

@@ -5,7 +5,8 @@ import { prisma } from '@/lib/prisma';
 import { randomBytes } from 'node:crypto';
 import { getRealtorRewardSummary, REFERRAL_REWARD_CZK } from '@/lib/referral';
 import { getAppBaseUrl } from '@/lib/stripe-config';
-import { REALTY_TRANSFER_FEE_CZK, REALTY_TRANSFER_REBATE_CZK } from '@/lib/subscription-pricing';
+import { REALTY_TRANSFER_REBATE_CZK } from '@/lib/subscription-pricing';
+import { getObjectAddons } from '@/lib/pricing-db';
 import RealtyReferralsClient from './RealtyReferralsClient';
 
 export const dynamic = 'force-dynamic';
@@ -43,6 +44,8 @@ export default async function RealtyReferralsPage() {
 
   const inviteCode = await ensureInviteCode(realtor.id, realtor.inviteCode);
   const summary = await getRealtorRewardSummary(realtor.id);
+  const objectAddons = await getObjectAddons();
+  const REALTY_TRANSFER_FEE_CZK = objectAddons.realtyTransferFee.priceCzk;
 
   const rewards = await prisma.referralReward.findMany({
     where: { realtorId: realtor.id },

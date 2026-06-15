@@ -267,6 +267,10 @@ model Order {
   isUrgent            Boolean           @default(false)
   lastExpiryEmailDays Int?
   isPaid              Boolean           @default(false)
+  /// Admin verified the revision and payment, ready to payout
+  isVerifiedAdmin     Boolean           @default(false)
+  servicePackageId    String?
+
   checklists          ChecklistItem[]
   defectTasks         DefectTask[]
   messages            Message[]
@@ -277,12 +281,59 @@ model Order {
   technician          User?             @relation("TechnicianOrders", fields: [technicianId], references: [id])
   photos              OrderPhoto[]
   review              Review?
+  pricingItems        OrderPricingItem[]
+  servicePackage      ServicePackage?   @relation(fields: [servicePackageId], references: [id])
 
   @@index([companyId], map: "Order_companyId_fkey")
   @@index([customerId], map: "Order_customerId_fkey")
   @@index([propertyId], map: "Order_propertyId_fkey")
   @@index([revisionCategoryId], map: "Order_revisionCategoryId_fkey")
   @@index([technicianId], map: "Order_technicianId_fkey")
+}
+
+model ServicePackage {
+  id                   String   @id @default(cuid())
+  name                 String
+  description          String?  @db.Text
+  approximatePrice     Float?
+  isVisibleRodinnyDum  Boolean  @default(true)
+  isVisibleSVJ         Boolean  @default(true)
+  orderIndex           Int      @default(0)
+  isActive             Boolean  @default(true)
+  
+  orders               Order[]
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model PricingItem {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  category    String
+  name        String
+  priceCzk    Float
+  unit        String   /// pausal, ks, km, hodina
+
+  orderItems  OrderPricingItem[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model OrderPricingItem {
+  id             String      @id @default(cuid())
+  orderId        String
+  pricingItemId  String
+  quantity       Float       @default(1)
+  unitPriceCzk   Float       /// snapshot of the price at the time of creation
+  totalPriceCzk  Float
+
+  order          Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  pricingItem    PricingItem @relation(fields: [pricingItemId], references: [id], onDelete: Restrict)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@index([orderId])
+  @@index([pricingItemId])
 }
 
 model RevisionCategory {
