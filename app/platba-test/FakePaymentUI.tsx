@@ -94,10 +94,7 @@ export default function FakePaymentUI({
       return;
     }
 
-    if (purpose !== 'onboarding') {
-      router.replace(successUrl);
-      return;
-    }
+    // Default to completing the core subscription license (covers 'onboarding' and 'settings' checkout)
     setBusy(true);
     try {
       const res = await fetch('/api/billing/complete-fake-onboarding', { method: 'POST' });

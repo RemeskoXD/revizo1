@@ -221,6 +221,21 @@ export async function processStripeEvent(event: Stripe.Event): Promise<void> {
         });
       }
 
+      // Core subscription activation (if it's a subscription and not an addon)
+      const isAddonSession = !!parseAddonMetadata(sess.metadata);
+      const isRealtyFeeSession = sess.metadata?.purpose === 'REALTY_TRANSFER_FEE';
+      if (sess.mode === 'subscription' && !isAddonSession && !isRealtyFeeSession && userId) {
+        const periodMonths = getStripeLicensePeriodMonths();
+        // Fallback k sess.created jako k platné chvíli (užitečné např. u trial subscription)
+        const paidAt = new Date(sess.created * 1000);
+        await applyLicenseAfterPayment({
+          userId: userId,
+          paidAt,
+          periodMonths,
+          stripeCustomerId: customerId,
+        });
+      }
+
       // Object-limit addon activation (viz docs/pricing-rules.md)
       const addon = parseAddonMetadata(sess.metadata);
       if (addon && sess.payment_status === 'paid') {
@@ -269,7 +284,18 @@ export async function processStripeEvent(event: Stripe.Event): Promise<void> {
 
       const stripe = getStripe();
       const sub = await stripe.subscriptions.retrieve(subId);
-      const userId = sub.metadata?.userId;
+      let userId = sub.metadata?.userId;
+      
+      const custId = invoiceCustomerId(inv);
+
+      if (!userId && custId) {
+        const u = await prisma.user.findFirst({
+          where: { stripeCustomerId: custId },
+          select: { id: true }
+        });
+        if (u) userId = u.id;
+      }
+
       if (!userId) return;
 
       // Faktura pro doplňkové předplatné neprodlužuje hlavní licenci, jen udržuje doplněk aktivní.

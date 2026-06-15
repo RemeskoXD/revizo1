@@ -14,6 +14,7 @@ import { motion } from 'motion/react';
 import { ChatSection } from '@/components/ChatSection';
 import { ChecklistSection } from '@/components/ChecklistSection';
 import { PhotoSection } from '@/components/PhotoSection';
+import { OrderPricingManager } from '@/components/dashboard/OrderPricingManager';
 
 export default function JobDetailClient({ order, currentUser, addressHistory = [] }: { order: any, currentUser: any, addressHistory?: any[] }) {
   const router = useRouter();
@@ -314,6 +315,13 @@ export default function JobDetailClient({ order, currentUser, addressHistory = [
               </div>
             </div>
           </div>
+
+          <OrderPricingManager 
+            orderId={order.id} 
+            readableId={order.readableId} 
+            initialItems={order.pricingItems || []}
+            readOnly={!isAssigned || status === 'COMPLETED'}
+          />
 
           {/* Completion Section */}
           {status === 'COMPLETED' ? (

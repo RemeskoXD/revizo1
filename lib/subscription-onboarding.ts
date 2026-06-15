@@ -15,11 +15,14 @@ import { tryCreateReferralReward } from '@/lib/referral';
 export async function completeFakeSubscriptionOnboarding(userId: string) {
   const user = await findUserForCompleteFakeOnboarding(userId);
 
-  if (!user?.requiresSubscriptionCheckout) {
-    return { ok: true as const, alreadyDone: true as const };
+  if (!user) {
+    return { ok: false, error: 'User not found' };
   }
 
-  const trialEnd = user.licenseValidUntil ?? addCalendarMonths(new Date(), 1);
+  // Odstraněn blok, který ukončoval funkci pokud isRequiresSubscriptionCheckout === false.
+  // Zákazník může mít tuto hodnotu defaultně false, ale přesto potřebuje vytvořit platnou licenci.
+  
+  const trialEnd = user.licenseValidUntil ?? new Date();
   const newUntil = licenseValidUntilAfterAnnualPay(trialEnd);
 
   await updateUserWithSubscriptionColumnFallback({

@@ -16,6 +16,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
       customer: true,
       technician: true,
       revisionCategory: true,
+      pricingItems: { include: { pricingItem: true } },
     },
   });
 
