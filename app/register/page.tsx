@@ -57,10 +57,11 @@ function getPackagesWithPrices(plans: typeof SUBSCRIPTION_PLANS): Package[] {
       id: "technician",
       role: "TECHNICIAN",
       title: safePlans.TECHNICIAN?.label || "Revizní technik",
-      yearlyPriceCzk: safePlans.TECHNICIAN?.yearlyPriceCzk || 899,
+      yearlyPriceCzk: safePlans.TECHNICIAN?.yearlyPriceCzk || 0,
       icon: <Wrench className="w-7 h-7" />,
       description: "Pro certifikované revizní techniky",
       benefits: [
+        "Zdarma navždy",
         "Přijímejte objednávky na revize",
         "Správa vlastního kalendáře",
         "Generování revizních zpráv",
@@ -73,21 +74,19 @@ function getPackagesWithPrices(plans: typeof SUBSCRIPTION_PLANS): Package[] {
       id: "company",
       role: "COMPANY_ADMIN",
       title: safePlans.COMPANY_ADMIN?.label || "Pracujeme v týmu",
-      // If we made COMPANY_ADMIN dynamic, map it accordingly
-      yearlyPriceCzk: safePlans.COMPANY_ADMIN?.yearlyPriceCzk || 4999,
+      yearlyPriceCzk: safePlans.COMPANY_ADMIN?.yearlyPriceCzk || 0,
       icon: <Building2 className="w-7 h-7" />,
       description: "Manažer revizních techniků (FO i PO)",
       benefits: [
-        "3 objekty v základu (rozšíření do 10 za 600 Kč / rok)",
-        "Nad 10 objektů – individuální nabídka",
+        "Manažerský účet a 3 technici zdarma",
+        "Každý další technik: 200 Kč / měsíc",
         "Správa týmu techniků",
         "Přehled všech zakázek firmy",
         "Přidělování objednávek",
         "Firemní statistiky",
-        "Zvací kód pro techniky po schválení",
       ],
       color: "from-blue-500 to-cyan-400",
-      objectsNote: "3 objekty v základu · do 10 za 600 Kč / rok · nad 10 individuálně",
+      objectsNote: "Zpoplatněno od 4. technika dále (200 Kč / měsíc).",
     },
     {
       id: "svj",
@@ -97,28 +96,28 @@ function getPackagesWithPrices(plans: typeof SUBSCRIPTION_PLANS): Package[] {
       icon: <Home className="w-7 h-7" />,
       description: "Pro správce bytových domů a SVJ",
       benefits: [
-        "3 objekty v základu (rozšíření do 10 za 600 Kč / rok)",
-        "Nad 10 objektů – individuální nabídka",
+        "3 objekty v základu (každých dalších 10 objektů za 600 Kč / rok)",
         "Správa revizí pro více nemovitostí",
         "Pozvánky pro nájemníky a vlastníky",
         "Společné revizní repozitáře",
         "Upozornění na propadlé revize",
       ],
       color: "from-emerald-500 to-green-400",
-      objectsNote: "3 objekty v základu · do 10 za 600 Kč / rok · nad 10 individuálně",
+      objectsNote: "3 objekty v základu · balíček 10 dalších objektů 600 Kč / rok",
     },
     {
       id: "realty",
       role: "REALTY",
       title: safePlans.REALTY?.label || "Realitní makléř",
-      yearlyPriceCzk: safePlans.REALTY?.yearlyPriceCzk || 699,
+      yearlyPriceCzk: safePlans.REALTY?.yearlyPriceCzk || 0,
       icon: <Percent className="w-7 h-7" />,
       description: "Pro realitní makléře a kanceláře",
       benefits: [
+        "Aplikace zdarma pro makléře",
+        "Převod nemovitosti s revizemi na klienta (200 Kč pro klienta)",
+        "Provize 20 Kč z každého převodu (i při ročním prodloužení)",
+        "Výplata provize od 1000 Kč",
         "Správa revizí prodávaných nemovitostí",
-        "Automatické připomínky",
-        "Sdílení zpráv s klienty",
-        "Komplexní portfolia",
       ],
       color: "from-pink-500 to-rose-400",
     },
@@ -366,8 +365,14 @@ function RegisterForm() {
                   <p className="text-gray-400 text-sm mb-5">{pkg.description}</p>
 
                   <p className="mb-2 text-sm font-medium text-white">
-                    {pkg.yearlyPriceCzk.toLocaleString("cs-CZ")} Kč / rok
-                    <span className="ml-2 text-xs font-normal text-brand-yellow">1. měsíc zdarma</span>
+                    {pkg.yearlyPriceCzk === 0 ? (
+                      <span className="text-brand-yellow">Zdarma</span>
+                    ) : (
+                      <>
+                        {pkg.yearlyPriceCzk.toLocaleString("cs-CZ")} Kč / rok
+                        <span className="ml-2 text-xs font-normal text-brand-yellow">1. měsíc zdarma</span>
+                      </>
+                    )}
                   </p>
 
                   {pkg.objectsNote && (
