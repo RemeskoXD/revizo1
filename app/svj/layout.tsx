@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { Building, Home, FileText, PlusCircle, Upload } from 'lucide-react';
+import { Building, Home, FileText, PlusCircle, Upload, DollarSign, ShieldCheck } from 'lucide-react';
 import { PageTransition } from '@/components/PageTransition';
 import { MobileSidebarToggle } from '@/components/MobileSidebarToggle';
 import { RevizoneSidebarBrand } from '@/components/layout/RevizoneSidebarBrand';
@@ -31,6 +31,12 @@ export default async function SVJLayout({ children }: { children: ReactNode }) {
           </Link>
           <Link href="/svj/revisions" className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-400 transition-colors hover:bg-white/5 hover:text-white">
             <FileText className="h-4 w-4" /> Revize
+          </Link>
+          <Link href="/svj/payments" className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-400 transition-colors hover:bg-white/5 hover:text-white">
+            <DollarSign className="h-4 w-4" /> Vystavené platby
+          </Link>
+          <Link href="/svj/support" className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-400 transition-colors hover:bg-white/5 hover:text-white">
+            <ShieldCheck className="h-4 w-4" /> Podpora
           </Link>
 
           <div className="pt-4 space-y-1">

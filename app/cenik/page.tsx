@@ -14,7 +14,7 @@ import {
 import { getPricingDatabase } from '@/lib/pricing-db';
 import {
   TECH_SEAT_MONTHLY_CZK,
-  TECH_FREE_PER_N,
+  TECH_FREE_TECHS,
 } from '@/lib/company-pricing';
 
 export const metadata: Metadata = {
@@ -93,7 +93,7 @@ export default async function CenikPage() {
       base: '3 objekty v základu',
       extras: [
         `Rozšíření do ${packageLimit} objektů: ${formatCzk(packagePrice)} / rok`,
-        `Billing techniků: ${formatCzk(TECH_SEAT_MONTHLY_CZK)} / měsíc / technik (každý ${TECH_FREE_PER_N}. zdarma)`,
+        `Billing techniků: ${formatCzk(TECH_SEAT_MONTHLY_CZK)} / měsíc / technik (prvních ${TECH_FREE_TECHS} zdarma)`,
         'Správa týmu, přidělování objednávek',
         'Firemní statistiky',
       ],
@@ -256,8 +256,7 @@ export default async function CenikPage() {
               </div>
             </div>
             <p className="mt-3 text-xs text-gray-500">
-              Každý <strong className="text-gray-300">{TECH_FREE_PER_N}. technik zdarma</strong> – sleva se
-              vypočítá automaticky.
+              Prvních <strong className="text-gray-300">{TECH_FREE_TECHS} technici zdarma</strong> pro každou firmu.
             </p>
             <div className="mt-4 overflow-hidden rounded-xl border border-white/5">
               <table className="w-full text-left text-xs">
@@ -269,8 +268,8 @@ export default async function CenikPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5 text-gray-200">
-                  {[1, 5, 10, 20, 100].map((n) => {
-                    const billable = n - Math.floor(n / TECH_FREE_PER_N);
+                  {[1, 3, 5, 10, 20].map((n) => {
+                    const billable = Math.max(0, n - TECH_FREE_TECHS);
                     return (
                       <tr key={n}>
                         <td className="px-3 py-2">{n}</td>

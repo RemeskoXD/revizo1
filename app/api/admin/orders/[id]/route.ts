@@ -44,12 +44,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
     const { id } = await params;
     const body = await req.json();
-    const { technicianId, companyId, status } = body;
+    const { technicianId, companyId, status, isVerifiedAdmin } = body;
 
     const dataToUpdate: any = {};
     if (technicianId !== undefined) dataToUpdate.technicianId = technicianId;
     if (companyId !== undefined) dataToUpdate.companyId = companyId;
     if (status !== undefined) dataToUpdate.status = status;
+    if (isVerifiedAdmin !== undefined) dataToUpdate.isVerifiedAdmin = isVerifiedAdmin;
 
     const updatedOrder = await prisma.order.update({
       where: { id },

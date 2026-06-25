@@ -1,30 +1,25 @@
 /**
  * Cenotvorba pro firemní účet (`COMPANY_ADMIN`) – billing techniků.
  *
- * Pravidla z diagramu (viz docs/pricing-rules.md, sekce 4a):
- *   - 200 Kč / měsíc za každého technika ve skupině
- *   - Každý 10. technik zdarma (sleva)
+ * Pravidla:
+ *   - První 3 technici jsou zdarma
+ *   - Za každého dalšího technika se platí 200 Kč / měsíc
  *
  * Formule:
- *   billableTechs(n) = n - floor(n / FREE_PER_N)
+ *   billableTechs(n) = max(0, n - FREE_TECHS)
  *   monthlyCostCzk(n) = billableTechs(n) * SEAT_MONTHLY_CZK
  */
 
 export const TECH_SEAT_MONTHLY_CZK = 200;
-export const TECH_FREE_PER_N = 10;
+export const TECH_FREE_TECHS = 3;
 
 /**
- * Počet techniků, kteří se účtují (po odečtení zlevněných „každý N. zdarma“).
- *  - 0 techniků → 0 placených
- *  - 9 techniků → 9 placených
- *  - 10 techniků → 9 placených (1 zdarma)
- *  - 15 techniků → 14 placených (1 zdarma)
- *  - 20 techniků → 18 placených (2 zdarma)
+ * Počet techniků, kteří se účtují (nad rámec prvních 3 zdarma).
  */
 export function computeBillableTechs(techCount: number): number {
   if (!Number.isFinite(techCount) || techCount <= 0) return 0;
   const n = Math.floor(techCount);
-  return Math.max(0, n - Math.floor(n / TECH_FREE_PER_N));
+  return Math.max(0, n - TECH_FREE_TECHS);
 }
 
 /** Měsíční fakturace za techniky (v Kč). */

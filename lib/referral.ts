@@ -34,7 +34,7 @@ export async function findRealtorByInviteCode(code: string): Promise<RealtorLook
     select: { id: true, inviteCode: true, role: true },
   });
   if (!u) return null;
-  if (u.role !== ROLES.REALTY && u.role !== ROLES.PRODUCT_MANAGER) return null;
+  if (u.role !== ROLES.REALTY && u.role !== ROLES.PRODUCT_MANAGER && u.role !== ROLES.TECHNICIAN) return null;
   return u;
 }
 
@@ -59,6 +59,9 @@ export async function tryCreateReferralReward(customerId: string): Promise<
   if (customer.role !== ROLES.CUSTOMER) return 'NOT_CUSTOMER';
   if (!customer.referredByRealtorId) return 'NO_REF';
 
+  const year = new Date().getFullYear();
+  const sourceLabel = `REF_LINK_${year}`;
+
   try {
     await prisma.referralReward.create({
       data: {
@@ -66,7 +69,7 @@ export async function tryCreateReferralReward(customerId: string): Promise<
         customerId: customer.id,
         amountCzk: REFERRAL_REWARD_CZK,
         status: 'PENDING',
-        source: 'REF_LINK',
+        source: sourceLabel,
       },
     });
 

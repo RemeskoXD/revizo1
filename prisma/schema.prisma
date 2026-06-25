@@ -80,6 +80,9 @@ model User {
   assignedOrders               Order[]                  @relation("TechnicianOrders")
   claimedProperties            Property[]               @relation("PropertyClaimer")
   properties                   Property[]               @relation("PropertyOwner")
+  payoutRequests               PayoutRequest[]
+  supportTickets               SupportTicket[]          @relation("UserSupportTickets")
+  supportMessages              SupportTicketMessage[]   @relation("UserSupportMessages")
   pushDevices                  PushDevice[]
   customerReviews              Review[]                 @relation("CustomerReviews")
   technicianReviews            Review[]                 @relation("TechnicianReviews")
@@ -509,4 +512,56 @@ model EmailLog {
   @@index([to])
   @@index([type])
   @@index([createdAt])
+}
+
+/// Žádost o výplatu od technika (Ticket pro výplatu)
+model PayoutRequest {
+  id             String    @id @default(cuid())
+  technicianId   String
+  technician     User      @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+  amount         Float
+  status         String    @default("PENDING") /// PENDING, PROCESSING, PAID, REJECTED
+  requestedAt    DateTime  @default(now())
+  paidAt         DateTime?
+  notes          String?   @db.Text
+  iban           String?
+  invoiceUrl     String?   @db.LongText
+  amountPaid     Float?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([technicianId])
+}
+
+/// Tiket na support
+model SupportTicket {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation("UserSupportTickets", fields: [userId], references: [id], onDelete: Cascade)
+  subject     String   @db.VarChar(255)
+  category    String   @default("GENERAL")
+  status      String   @default("OPEN") /// OPEN, CLOSED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  messages    SupportTicketMessage[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+/// Zprava v tiketu na support
+model SupportTicketMessage {
+  id            String         @id @default(cuid())
+  ticketId      String
+  ticket        SupportTicket  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  senderId      String
+  sender        User           @relation("UserSupportMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  text          String?        @db.Text
+  attachmentUrl String?        @db.LongText
+  fileName      String?        @db.VarChar(255)
+  createdAt     DateTime       @default(now())
+
+  @@index([ticketId])
+  @@index([senderId])
 }

@@ -6,10 +6,10 @@ import EarningsClient from './EarningsClient';
 
 export default async function EarningsPage() {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== 'TECHNICIAN') redirect('/login');
+  if (!session || (session.user.role !== 'TECHNICIAN' && session.user.role !== 'COMPANY_ADMIN')) redirect('/login');
 
   const user = await prisma.user.findUnique({ where: { id: session.user.id } });
-  const commissionRate = (user?.commissionRate || 100) / 100;
+  const commissionRate = user?.commissionRate || 90;
 
   const now = new Date();
   const months: { label: string; start: Date; end: Date }[] = [];
@@ -30,18 +30,28 @@ export default async function EarningsPage() {
           technicianId: session.user.id,
           status: 'COMPLETED',
           completedAt: { gte: m.start, lte: m.end },
+          isVerifiedAdmin: true, // Only show earnings when admin confirmed it
         },
-        select: { id: true, readableId: true, serviceType: true, address: true, price: true, completedAt: true },
+        select: { id: true, readableId: true, serviceType: true, address: true, price: true, completedAt: true, customer: { select: { referredByRealtorId: true } } },
         orderBy: { completedAt: 'desc' },
       });
+      const baseRate = (user?.commissionRate || 90) / 100;
       const revenue = orders.reduce((sum, o) => sum + (o.price || 0), 0);
-      const earnings = revenue * commissionRate;
+      const earnings = orders.reduce((sum, o) => {
+        const isReferredByMe = o.customer?.referredByRealtorId === session.user.id;
+        const rate = isReferredByMe ? Math.min(1, baseRate + 0.05) : baseRate;
+        return sum + (o.price || 0) * rate;
+      }, 0);
       return {
         label: m.label,
         count: orders.length,
         revenue,
         earnings,
-        orders,
+        orders: orders.map(o => {
+          const isReferredByMe = o.customer?.referredByRealtorId === session.user.id;
+          const rate = isReferredByMe ? Math.min(1, baseRate + 0.05) : baseRate;
+          return { ...o, earnings: (o.price || 0) * rate, isReferredByMe };
+        }),
       };
     })
   );
@@ -49,12 +59,18 @@ export default async function EarningsPage() {
   const totalEarnings = monthlyData.reduce((sum, m) => sum + m.earnings, 0);
   const totalCount = monthlyData.reduce((sum, m) => sum + m.count, 0);
 
+  const payoutRequests = await prisma.payoutRequest.findMany({
+    where: { technicianId: session.user.id },
+    orderBy: { createdAt: 'desc' },
+  });
+
   return (
     <EarningsClient 
       monthlyData={monthlyData} 
       totalEarnings={totalEarnings} 
       totalCount={totalCount}
       commissionRate={commissionRate * 100}
+      payoutRequests={payoutRequests}
     />
   );
 }

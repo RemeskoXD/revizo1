@@ -12,6 +12,7 @@ export default function AdminOrdersClient({ initialOrders, technicians, companie
   const [editStatus, setEditStatus] = useState<string>('');
   const [editTechnician, setEditTechnician] = useState<string>('');
   const [editCompany, setEditCompany] = useState<string>('');
+  const [editIsVerified, setEditIsVerified] = useState<boolean>(false);
   const router = useRouter();
 
   const handleSaveStatus = async (orderId: string) => {
@@ -22,7 +23,8 @@ export default function AdminOrdersClient({ initialOrders, technicians, companie
         body: JSON.stringify({ 
           status: editStatus,
           technicianId: editTechnician || null,
-          companyId: editCompany || null
+          companyId: editCompany || null,
+          isVerifiedAdmin: editIsVerified
         }),
       });
 
@@ -147,7 +149,7 @@ export default function AdminOrdersClient({ initialOrders, technicians, companie
                           </td>
                           <td className="px-3 py-3 sm:px-5 sm:py-4">
                               {editingOrder === order.id ? (
-                                <div className="flex items-center gap-2">
+                                <div className="flex flex-col gap-2">
                                   <select 
                                     value={editStatus} 
                                     onChange={(e) => setEditStatus(e.target.value)}
@@ -159,20 +161,34 @@ export default function AdminOrdersClient({ initialOrders, technicians, companie
                                     <option value="COMPLETED">Dokončeno</option>
                                     <option value="CANCELLED">Zrušeno</option>
                                   </select>
+                                  <label className="flex items-center gap-2 text-xs text-white">
+                                    <input 
+                                      type="checkbox" 
+                                      checked={editIsVerified} 
+                                      onChange={(e) => setEditIsVerified(e.target.checked)} 
+                                      className="rounded bg-[#1A1A1A] border-white/10 text-brand-yellow focus:ring-brand-yellow" 
+                                    />
+                                    Schváleno adminem
+                                  </label>
                                 </div>
                               ) : (
-                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                    order.status === 'COMPLETED' ? 'bg-green-500/10 text-green-500' :
-                                    order.status === 'IN_PROGRESS' ? 'bg-blue-500/10 text-blue-500' :
-                                    order.status === 'NEEDS_REVISION' ? 'bg-orange-500/10 text-orange-500' :
-                                    order.status === 'CANCELLED' ? 'bg-red-500/10 text-red-500' :
-                                    'bg-yellow-500/10 text-yellow-500'
-                                }`}>
-                                    {order.status === 'COMPLETED' ? 'Dokončeno' :
-                                     order.status === 'IN_PROGRESS' ? 'Probíhá' :
-                                     order.status === 'NEEDS_REVISION' ? 'K přepracování' :
-                                     order.status === 'CANCELLED' ? 'Zrušeno' : 'Nová'}
-                                </span>
+                                <div className="flex flex-col gap-1">
+                                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium w-fit ${
+                                      order.status === 'COMPLETED' ? 'bg-green-500/10 text-green-500' :
+                                      order.status === 'IN_PROGRESS' ? 'bg-blue-500/10 text-blue-500' :
+                                      order.status === 'NEEDS_REVISION' ? 'bg-orange-500/10 text-orange-500' :
+                                      order.status === 'CANCELLED' ? 'bg-red-500/10 text-red-500' :
+                                      'bg-yellow-500/10 text-yellow-500'
+                                  }`}>
+                                      {order.status === 'COMPLETED' ? 'Dokončeno' :
+                                       order.status === 'IN_PROGRESS' ? 'Probíhá' :
+                                       order.status === 'NEEDS_REVISION' ? 'K přepracování' :
+                                       order.status === 'CANCELLED' ? 'Zrušeno' : 'Nová'}
+                                  </span>
+                                  {order.isVerifiedAdmin && (
+                                    <span className="text-[10px] text-green-400 font-semibold uppercase">Schváleno</span>
+                                  )}
+                                </div>
                               )}
                           </td>
                           <td className="px-3 py-3 text-right sm:px-5 sm:py-4">
@@ -183,7 +199,7 @@ export default function AdminOrdersClient({ initialOrders, technicians, companie
                                 </div>
                               ) : (
                                 <div className="flex items-center justify-end gap-2">
-                                  <button onClick={() => { setEditingOrder(order.id); setEditStatus(order.status); setEditTechnician(order.technicianId || ''); setEditCompany(order.companyId || ''); }} className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors inline-block">
+                                  <button onClick={() => { setEditingOrder(order.id); setEditStatus(order.status); setEditTechnician(order.technicianId || ''); setEditCompany(order.companyId || ''); setEditIsVerified(order.isVerifiedAdmin || false); }} className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors inline-block">
                                       <Edit2 className="w-4 h-4" />
                                   </button>
                                   <Link href={`/dashboard/orders/${order.readableId}`} className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors inline-block">

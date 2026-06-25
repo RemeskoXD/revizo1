@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { LayoutDashboard, FileText, ShieldCheck, PlusCircle, X, Upload } from 'lucide-react';
+import { LayoutDashboard, FileText, ShieldCheck, PlusCircle, X, Upload, DollarSign } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { cn } from '@/lib/utils';
 import { useSidebarWidth } from '@/hooks/useSidebarWidth';
@@ -13,6 +13,8 @@ const navigation = [
   { name: 'Přehled', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Objednávky', href: '/dashboard/orders', icon: FileText },
   { name: 'Trezor revizí', href: '/dashboard/vault', icon: ShieldCheck },
+  { name: 'Vystavené platby', href: '/dashboard/payments', icon: DollarSign },
+  { name: 'Podpora', href: '/dashboard/support', icon: ShieldCheck },
 ];
 
 interface SidebarProps {

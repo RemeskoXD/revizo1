@@ -28,6 +28,8 @@ const navigation = [
   { name: 'Ceník produktů', href: '/admin/pricing', icon: DollarSign, roles: ['ADMIN'] },
   { name: 'Balíčky revizí', href: '/admin/packages', icon: FileText, roles: ['ADMIN'] },
   { name: 'Ceník techniků', href: '/admin/pricing-items', icon: FileText, roles: ['ADMIN'] },
+  { name: 'Výplaty', href: '/admin/payouts', icon: DollarSign, roles: ['ADMIN', 'SUPPORT'] },
+  { name: 'Podpora', href: '/admin/support', icon: FileText, roles: ['ADMIN', 'SUPPORT'] },
   { name: 'Uživatelé', href: '/admin/users', icon: Users, roles: ['ADMIN', 'SUPPORT'] },
   { name: 'Nové registrace', href: '/admin/registrations', icon: UserPlus, roles: ['ADMIN', 'SUPPORT'] },
   { name: 'Žádosti o změnu role', href: '/admin/roles', icon: UserCheck, roles: ['ADMIN', 'SUPPORT'] },

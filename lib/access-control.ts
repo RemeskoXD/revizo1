@@ -14,11 +14,6 @@ import { ROLES } from './constants';
 /** Role, které mají licenční model (předplatné). Ostatní (ADMIN, …) přístup nikdy nelosí. */
 const LICENSED_ROLES: ReadonlySet<string> = new Set([
   ROLES.CUSTOMER,
-  ROLES.SVJ,
-  ROLES.COMPANY_ADMIN,
-  ROLES.TECHNICIAN,
-  ROLES.REALTY,
-  ROLES.PRODUCT_MANAGER,
 ]);
 
 export type LicenseUser = {

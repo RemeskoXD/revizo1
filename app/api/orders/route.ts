@@ -208,25 +208,43 @@ export async function POST(req: Request) {
     };
 
     if (!isVlastni) {
-      // Find the highest priority technician or company
-      const highestPriorityUser = await prisma.user.findFirst({
-        where: {
-          role: { in: ['TECHNICIAN', 'COMPANY_ADMIN'] },
-          // Could add logic here to check if they are available or in the same region
-        },
-        orderBy: {
-          priority: 'desc',
-        },
+      // Find the customer to check for referral priority
+      const customer = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { referredByRealtorId: true }
       });
+      
+      let priorityUser = null;
+      
+      if (customer?.referredByRealtorId) {
+        const referrer = await prisma.user.findUnique({
+          where: { id: customer.referredByRealtorId }
+        });
+        if (referrer && (referrer.role === 'TECHNICIAN' || referrer.role === 'COMPANY_ADMIN')) {
+          priorityUser = referrer;
+        }
+      }
+      
+      if (!priorityUser) {
+        // Fallback: Find the highest priority technician or company
+        priorityUser = await prisma.user.findFirst({
+          where: {
+            role: { in: ['TECHNICIAN', 'COMPANY_ADMIN'] },
+          },
+          orderBy: {
+            priority: 'desc',
+          },
+        });
+      }
 
-      if (highestPriorityUser) {
-        if (highestPriorityUser.role === 'TECHNICIAN') {
-          orderData.technicianId = highestPriorityUser.id;
-          if (highestPriorityUser.companyId) {
-            orderData.companyId = highestPriorityUser.companyId;
+      if (priorityUser) {
+        if (priorityUser.role === 'TECHNICIAN') {
+          orderData.technicianId = priorityUser.id;
+          if (priorityUser.companyId) {
+            orderData.companyId = priorityUser.companyId;
           }
-        } else if (highestPriorityUser.role === 'COMPANY_ADMIN') {
-          orderData.companyId = highestPriorityUser.id;
+        } else if (priorityUser.role === 'COMPANY_ADMIN') {
+          orderData.companyId = priorityUser.id;
         }
         orderData.assignedAt = new Date();
       } else {

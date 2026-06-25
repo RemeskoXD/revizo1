@@ -22,10 +22,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ message: 'Order not found' }, { status: 404 });
     }
 
-    if (order.customerId !== session.user.id) {
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-    }
-
     if (order.isPaid || !order.price || order.price <= 0) {
       return NextResponse.json({ message: 'Order is already paid or has no price' }, { status: 400 });
     }
@@ -33,7 +29,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const base = getAppBaseUrl();
     
     if (isFakePaymentGatewayEnabled()) {
-      const url = `${base}/platba-test?rp=${encodeURIComponent('/dashboard')}&m=checkout&purpose=order&orderId=${order.readableId}`;
+      const url = `${base}/platba-test?rp=${encodeURIComponent('/pay/' + order.readableId)}&m=checkout&purpose=order&orderId=${order.readableId}`;
       return NextResponse.json({ url });
     }
 
@@ -56,10 +52,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         },
         quantity: 1,
       }],
-      success_url: `${base}/dashboard/orders/${order.readableId}?order_payment=success`,
-      cancel_url: `${base}/dashboard/orders/${order.readableId}?order_payment=cancel`,
+      success_url: `${base}/pay/${order.readableId}?order_payment=success`,
+      cancel_url: `${base}/pay/${order.readableId}?order_payment=cancel`,
       client_reference_id: order.id,
-      metadata: { orderId: order.id, userId: session.user.id, type: "ONEOFF_ORDER" },
+      metadata: { orderId: order.id, userId: order.customerId, type: "ONEOFF_ORDER" },
     });
 
     return NextResponse.json({ url: checkoutSession.url });

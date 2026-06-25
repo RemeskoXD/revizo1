@@ -260,6 +260,44 @@ export default function ProfileClient({ user }: { user: any }) {
           </div>
         </div>
       )}
+
+      {/* Referral Section */}
+      <div className="bg-[#1A1A1A] border border-white/5 rounded-xl overflow-hidden mt-6">
+        <div className="p-6 border-b border-white/5">
+          <h2 className="text-xl font-bold text-white">Můj doporučovací kód</h2>
+          <p className="text-gray-400 mt-1">Sdílejte tento kód zákazníkům. Pokud se přes něj zaregistrují, získáte u nich provizi ve výši 95% (poplatek platformy jen 5%) místo standardních 90% a jejich objednávky vám budou nabízeny přednostně.</p>
+        </div>
+        <div className="p-6">
+          {user.inviteCode ? (
+            <div className="flex gap-4 items-center">
+              <code className="px-4 py-2 bg-[#111] border border-brand-yellow/30 rounded-lg text-brand-yellow font-mono text-lg">{user.inviteCode}</code>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/register?ref=${user.inviteCode}`);
+                  alert('Odkaz zkopírován do schránky');
+                }}
+                className="px-4 py-2 bg-white/10 text-white text-sm font-medium rounded-lg hover:bg-white/20 transition-colors"
+              >
+                Zkopírovat odkaz
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={async () => {
+                const res = await fetch('/api/technician/generate-referral', { method: 'POST' });
+                if (res.ok) {
+                  router.refresh();
+                } else {
+                  alert('Chyba při generování kódu.');
+                }
+              }}
+              className="px-6 py-2 bg-brand-yellow text-black text-sm font-bold rounded-lg hover:bg-brand-yellow-hover transition-colors"
+            >
+              Vygenerovat doporučovací kód
+            </button>
+          )}
+        </div>
+      </div>
     </motion.div>
   );
 }

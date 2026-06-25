@@ -367,19 +367,21 @@ export default function SettingsClient({
                           Po dokončení první platby předplatného se zde objeví tlačítko do platebního portálu, kde si můžete spravovat faktury.
                         </p>
                         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                          <button
-                            type="button"
-                            onClick={startCheckout}
-                            disabled={stripeLoading !== null}
-                            className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-yellow px-4 py-2.5 text-sm font-semibold text-black hover:bg-brand-yellow-hover disabled:opacity-50"
-                          >
-                            {stripeLoading === 'checkout' ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <CreditCard className="h-4 w-4" />
-                            )}
-                            Zahájit předplatné
-                          </button>
+                          {user.role === 'CUSTOMER' && (
+                            <button
+                              type="button"
+                              onClick={startCheckout}
+                              disabled={stripeLoading !== null}
+                              className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-yellow px-4 py-2.5 text-sm font-semibold text-black hover:bg-brand-yellow-hover disabled:opacity-50"
+                            >
+                              {stripeLoading === 'checkout' ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <CreditCard className="h-4 w-4" />
+                              )}
+                              Zahájit předplatné
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => setActiveTab('billing')}
@@ -469,19 +471,21 @@ export default function SettingsClient({
                       </div>
 
                       <div className="flex flex-col sm:flex-row gap-3">
-                        <button
-                          type="button"
-                          onClick={startCheckout}
-                          disabled={stripeLoading !== null}
-                          className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-yellow px-5 py-2.5 text-sm font-semibold text-black hover:bg-brand-yellow-hover disabled:opacity-50"
-                        >
-                          {stripeLoading === 'checkout' ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <CreditCard className="h-4 w-4" />
-                          )}
-                          Předplatit / změnit plán
-                        </button>
+                        {user.role === 'CUSTOMER' && (
+                          <button
+                            type="button"
+                            onClick={startCheckout}
+                            disabled={stripeLoading !== null}
+                            className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-yellow px-5 py-2.5 text-sm font-semibold text-black hover:bg-brand-yellow-hover disabled:opacity-50"
+                          >
+                            {stripeLoading === 'checkout' ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <CreditCard className="h-4 w-4" />
+                            )}
+                            Předplatit / změnit plán
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={openPortal}

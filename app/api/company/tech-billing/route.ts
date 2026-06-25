@@ -6,7 +6,7 @@ import { ROLES } from '@/lib/constants';
 import {
   getCompanyTechBillingStatus,
   TECH_SEAT_MONTHLY_CZK,
-  TECH_FREE_PER_N,
+  TECH_FREE_TECHS,
 } from '@/lib/company-pricing';
 
 export const dynamic = 'force-dynamic';
@@ -43,7 +43,7 @@ export async function GET() {
     ...status,
     rules: {
       seatMonthlyCzk: TECH_SEAT_MONTHLY_CZK,
-      freePerN: TECH_FREE_PER_N,
+      freeTechs: TECH_FREE_TECHS,
     },
   });
 }

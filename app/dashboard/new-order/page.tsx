@@ -72,6 +72,25 @@ export default function NewOrderPage() {
   const [isFirstRevision, setIsFirstRevision] = useState(false);
   const [urgency, setUrgency] = useState<'normal' | 'urgent'>('normal');
 
+  const getMinDate = () => {
+    // Pro vlastní revizi neomezujeme
+    if (serviceType === 'vlastni_revize') return undefined;
+    
+    const d = new Date();
+    if (urgency === 'normal') {
+      // min 4 dny
+      d.setDate(d.getDate() + 4);
+    }
+    return d.toISOString().split('T')[0];
+  };
+
+  useEffect(() => {
+    const minD = getMinDate();
+    if (minD && preferredDate && preferredDate < minD) {
+      setPreferredDate('');
+    }
+  }, [urgency, serviceType]);
+
   useEffect(() => {
     fetch('/api/pricing').then(r => r.json()).then(data => {
       if (data.urgentSurcharge !== undefined) setUrgentSurchargeCzk(data.urgentSurcharge);
@@ -132,6 +151,14 @@ export default function NewOrderPage() {
     if (currentStep === 1) return !!serviceType;
     if (currentStep === 2) return address.length >= 5;
     if (currentStep === 3) return contactName.length >= 2 && contactPhone.length >= 6;
+    if (currentStep === 4) {
+      if (preferredDate) {
+        const minDate = getMinDate();
+        if (minDate && preferredDate < minDate) {
+          return false;
+        }
+      }
+    }
     return true;
   };
 
@@ -386,8 +413,11 @@ export default function NewOrderPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-400 mb-1.5">Preferované datum (orientační)</label>
                     <input type="date" value={preferredDate} onChange={e => setPreferredDate(e.target.value)}
+                      min={getMinDate()}
                       className="w-full bg-[#111] border border-white/10 rounded-lg p-3 text-white focus:border-brand-yellow outline-none transition-all" />
-                    <p className="text-xs text-gray-600 mt-1.5">Platí pro obě varianty; u urgentní jde o první možný termín v co nejkratší době.</p>
+                    <p className="text-xs text-gray-600 mt-1.5">
+                      {urgency === 'normal' ? 'Pro standardní objednávku lze vybrat termín nejdříve za 4 dny.' : 'U urgentní žádosti vyberte nejbližší možný termín.'}
+                    </p>
                   </div>
 
                   <div>

@@ -356,12 +356,66 @@ export default function JobDetailClient({ order, currentUser, addressHistory = [
                   <span className="text-sm text-brand-yellow">Další revize: {new Date(order.nextRevisionDate).toLocaleDateString('cs-CZ')}</span>
                 </div>
               )}
+              {order.price > 0 && !order.isPaid && (
+                <div className="mt-6 pt-6 border-t border-white/5">
+                  <h4 className="text-sm font-semibold text-white mb-2">Vygenerovat platbu zákazníkovi</h4>
+                  <p className="text-xs text-gray-400 mb-4">Můžete zákazníkovi odeslat odkaz k platbě nebo mu zobrazit QR kód na místě.</p>
+                  <div className="flex gap-2">
+                    <Link 
+                      href={`/pay/${order.readableId}`}
+                      target="_blank"
+                      className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-brand-yellow px-4 py-2.5 text-sm font-bold text-black transition-colors hover:bg-brand-yellow-hover shadow-lg shadow-brand-yellow/10"
+                    >
+                      <DollarSign className="w-4 h-4" /> Platební stránka
+                    </Link>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${window.location.origin}/pay/${order.readableId}`);
+                        alert('Odkaz zkopírován do schránky');
+                      }}
+                      className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/20"
+                    >
+                      Kopírovat odkaz
+                    </button>
+                  </div>
+                </div>
+              )}
+              {order.isPaid && (
+                <div className="mt-6 pt-6 border-t border-white/5 flex items-center gap-2 text-green-500 font-semibold">
+                  <CheckCircle2 className="w-5 h-5" /> Zákazník úspěšně zaplatil na místě
+                </div>
+              )}
             </div>
           ) : status === 'IN_PROGRESS' ? (
             <div className="bg-[#1A1A1A] border border-white/5 rounded-xl p-6 space-y-5">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <ClipboardCheck className="w-5 h-5 text-brand-yellow" /> Dokončení revize
               </h3>
+
+              {order.price > 0 && !order.isPaid && (
+                <div className="p-4 bg-brand-yellow/5 border border-brand-yellow/20 rounded-xl mb-4">
+                  <h4 className="text-sm font-semibold text-white mb-2">Platba před dokončením</h4>
+                  <p className="text-xs text-gray-400 mb-3">Nechcete čekat? Můžete zákazníka nechat zaplatit předem. Nasdílejte mu odkaz nebo ukažte QR kód.</p>
+                  <div className="flex gap-2">
+                    <Link 
+                      href={`/pay/${order.readableId}`}
+                      target="_blank"
+                      className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-brand-yellow/20 px-4 py-2 text-sm font-semibold text-brand-yellow transition-colors hover:bg-brand-yellow/30"
+                    >
+                      <DollarSign className="w-4 h-4" /> Platební stránka
+                    </Link>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${window.location.origin}/pay/${order.readableId}`);
+                        alert('Odkaz zkopírován do schránky');
+                      }}
+                      className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-white/10 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/20"
+                    >
+                      Kopírovat odkaz
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Built-in Report Form */}
               <Link href={`/technician/job/${order.readableId}/report`}

@@ -77,9 +77,9 @@ export async function POST(req: Request) {
       referralCode: rawReferralCode,
     } = body;
 
-    // Referral kód funguje pouze u nového CUSTOMER účtu.
+    // Referral kód funguje u zákaznických účtů (CUSTOMER, SVJ, REALTY).
     let referredByRealtorId: string | null = null;
-    if (rawReferralCode && (rawRole || 'CUSTOMER') === 'CUSTOMER') {
+    if (rawReferralCode && ['CUSTOMER', 'SVJ', 'REALTY'].includes(rawRole || 'CUSTOMER')) {
       const realtor = await findRealtorByInviteCode(String(rawReferralCode).slice(0, 64));
       if (realtor) referredByRealtorId = realtor.id;
     }
@@ -159,7 +159,7 @@ export async function POST(req: Request) {
           address: address || null,
           licenseValidUntil: trialUntil,
           requiresSubscriptionCheckout: false,
-          ...(role === 'CUSTOMER' && referredByRealtorId ? { referredByRealtorId } : {}),
+          ...(['CUSTOMER', 'SVJ', 'REALTY'].includes(role) && referredByRealtorId ? { referredByRealtorId } : {}),
         },
         select: { id: true, email: true, role: true },
       });

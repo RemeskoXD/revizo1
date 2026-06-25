@@ -6,11 +6,10 @@ export const SUBSCRIPTION_PLANS: Record<
   SubscriptionPlanKey,
   { label: string; yearlyPriceCzk: number; stripePriceId: string }
 > = {
-  // Pozn.: Ceny vychází z architektonického diagramu z 18. 5. 2026 (viz docs/pricing-rules.md).
-  // Stripe Price ID je nutné aktualizovat v Dashboardu Stripe na novou cenu.
+  // Ceny vychází z poslední úpravy (25. 6. 2026):
   CUSTOMER: { label: 'Zákazník', yearlyPriceCzk: 199, stripePriceId: 'price_1TRxwALtyGxFBhS8q8DqepQ9' },
-  TECHNICIAN: { label: 'Revizní technik', yearlyPriceCzk: 899, stripePriceId: 'price_1TRyMhLtyGxFBhS8Eo71vv3V' },
-  COMPANY_ADMIN: { label: 'Pracujeme v týmu', yearlyPriceCzk: 4999, stripePriceId: 'price_1TRyN2LtyGxFBhS8Io9Mnq3k' },
+  TECHNICIAN: { label: 'Revizní technik', yearlyPriceCzk: 0, stripePriceId: 'price_1TRyMhLtyGxFBhS8Eo71vv3V' },
+  COMPANY_ADMIN: { label: 'Pracujeme v týmu', yearlyPriceCzk: 0, stripePriceId: 'price_1TRyN2LtyGxFBhS8Io9Mnq3k' },
   SVJ: { label: 'Správce SVJ / Bytové domy', yearlyPriceCzk: 1199, stripePriceId: 'price_1TRyNaLtyGxFBhS85AGMIiJl' },
   REALTY: { label: 'Realitní makléř / Kancelář', yearlyPriceCzk: 0, stripePriceId: 'price_1TRyNzLtyGxFBhS8gKCP5MBJ' },
 };
