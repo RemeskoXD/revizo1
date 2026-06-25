@@ -485,6 +485,127 @@ export function registrationRejectedEmail(params: { name: string | null; reason?
   return {
     subject: 'Revizone – registrace nebyla schválena',
     html,
-    text: `Dobrý den, vaše registrace nebyla schválena.${params.reason ? ` Důvod: ${params.reason}.` : ''} Pro více informací kontaktujte podporu.`,
+  };
+}
+
+export function subscriptionRenewedEmail(data: {
+  userName: string | null;
+  periodMonths: number;
+  validUntil: Date;
+}) {
+  const html = layout(`
+    <h2 style="color:#fff;font-size:20px;margin:0 0 8px">Předplatné bylo prodlouženo</h2>
+    <p style="color:#999;font-size:14px;margin:0 0 24px">Dobrý den${data.userName ? ', ' + data.userName : ''},</p>
+
+    <div style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.2);border-radius:12px;padding:20px;margin-bottom:24px;text-align:center">
+      <p style="font-size:32px;margin:0">✅</p>
+      <p style="color:#22c55e;font-size:18px;font-weight:700;margin:8px 0 4px">Předplatné úspěšně uhrazeno</p>
+      <p style="color:#999;font-size:13px;margin:0">Vaše oprávnění a přístup byly prodlouženy o ${data.periodMonths} měsíců.</p>
+    </div>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#111;border-radius:12px;border:1px solid rgba(255,255,255,0.05);margin-bottom:24px">
+      <tr><td style="padding:16px 20px">
+        <span style="color:#999;font-size:12px">Platnost prodloužena do</span><br>
+        <span style="color:#fff;font-size:15px;font-weight:600">${data.validUntil.toLocaleDateString('cs-CZ')}</span>
+      </td></tr>
+    </table>
+
+    <div style="text-align:center;margin:24px 0">
+      ${button('Otevřít přehled', `${baseUrl}/dashboard`)}
+    </div>
+  `);
+
+  return {
+    subject: `✅ Předplatné prodlouženo do ${data.validUntil.toLocaleDateString('cs-CZ')}`,
+    html,
+  };
+}
+
+export function subscriptionPaymentFailedEmail(data: {
+  userName: string | null;
+  invoiceUrl?: string | null;
+}) {
+  const html = layout(`
+    <h2 style="color:#fff;font-size:20px;margin:0 0 8px">Problém s platbou předplatného</h2>
+    <p style="color:#999;font-size:14px;margin:0 0 24px">Dobrý den${data.userName ? ', ' + data.userName : ''},</p>
+
+    <div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);border-radius:12px;padding:20px;margin-bottom:24px;text-align:center">
+      <p style="font-size:32px;margin:0">⚠️</p>
+      <p style="color:#ef4444;font-size:18px;font-weight:700;margin:8px 0 4px">Platba se nezdařila</p>
+      <p style="color:#999;font-size:13px;margin:0">Nepodařilo se nám automaticky strhnout platbu za vaše předplatné.</p>
+    </div>
+
+    <p style="color:#ccc;font-size:14px;line-height:1.6;margin:0 0 16px">
+      Zkontrolujte prosím stav vaší platební karty nebo aktualizujte platební metodu v zákaznickém portálu.
+    </p>
+
+    <div style="text-align:center;margin:24px 0">
+      ${data.invoiceUrl ? button('Zaplatit online', data.invoiceUrl, '#ef4444', '#fff') + '<br>' : ''}
+      ${button('Spravovat předplatné', `${baseUrl}/dashboard/settings`)}
+    </div>
+  `);
+
+  return {
+    subject: `⚠️ Platba předplatného se nezdařila`,
+    html,
+  };
+}
+
+export function orderOverdueEmail(data: {
+  userName: string | null;
+  readableId: string;
+  serviceType: string;
+  price: number;
+  paymentUrl: string;
+}) {
+  const html = layout(`
+    <h2 style="color:#fff;font-size:20px;margin:0 0 8px">Upozornění: Revize po splatnosti</h2>
+    <p style="color:#999;font-size:14px;margin:0 0 24px">Dobrý den${data.userName ? ', ' + data.userName : ''},</p>
+
+    <div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);border-radius:12px;padding:20px;margin-bottom:24px;text-align:center">
+      <p style="font-size:32px;margin:0">⚠️</p>
+      <p style="color:#ef4444;font-size:18px;font-weight:700;margin:8px 0 4px">Platba po splatnosti: ${data.price.toLocaleString('cs-CZ')} Kč</p>
+      <p style="color:#999;font-size:13px;margin:0">Zaznamenali jsme nezaplacenou fakturu za revizi #${data.readableId}.</p>
+    </div>
+
+    <p style="color:#ccc;font-size:14px;line-height:1.6;margin:0 0 16px">
+      Prosíme o úhradu dlužné částky co nejdříve, abyste se vyhnuli případným sankcím nebo pozastavení služeb.
+    </p>
+
+    <div style="text-align:center;margin:24px 0">
+      ${button('Zaplatit revizi online ihned', data.paymentUrl, '#ef4444', '#fff')}
+    </div>
+  `);
+
+  return {
+    subject: `⚠️ Platba po splatnosti za revizi #${data.readableId}`,
+    html,
+  };
+}
+
+export function orderPaymentLinkEmail(data: {
+  userName: string | null;
+  readableId: string;
+  serviceType: string;
+  price: number;
+  paymentUrl: string;
+}) {
+  const html = layout(`
+    <h2 style="color:#fff;font-size:20px;margin:0 0 8px">Platba za revizi</h2>
+    <p style="color:#999;font-size:14px;margin:0 0 24px">Dobrý den${data.userName ? ', ' + data.userName : ''},</p>
+
+    <div style="background:rgba(250,204,21,0.05);border:1px solid rgba(250,204,21,0.15);border-radius:12px;padding:20px;margin-bottom:24px;text-align:center">
+      <p style="color:#facc15;font-size:18px;font-weight:700;margin:0 0 4px">K úhradě: ${data.price.toLocaleString('cs-CZ')} Kč</p>
+      <p style="color:#999;font-size:13px;margin:0">Technik vystavil konečnou cenu za vaši revizi #${data.readableId}.</p>
+    </div>
+
+    <div style="text-align:center;margin:24px 0">
+      ${button('Zaplatit revizi online', data.paymentUrl, '#22c55e', '#fff')}
+    </div>
+  `);
+
+  return {
+    subject: `💳 Platba za revizi #${data.readableId} – ${data.price.toLocaleString('cs-CZ')} Kč`,
+    html,
   };
 }

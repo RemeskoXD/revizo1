@@ -161,6 +161,7 @@ function TicketDetailClient({ id, onBack, currentUser }: { id: string, onBack: (
   const [attachmentData, setAttachmentData] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [viewingPhoto, setViewingPhoto] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchDetail = async () => {
@@ -282,9 +283,12 @@ function TicketDetailClient({ id, onBack, currentUser }: { id: string, onBack: (
                 {msg.attachmentUrl && (
                   <div className="mt-2">
                     {msg.attachmentUrl.startsWith('data:image') ? (
-                      <a href={msg.attachmentUrl} target="_blank" rel="noopener noreferrer">
-                        <img src={msg.attachmentUrl} alt="Příloha" className="max-h-60 rounded-md border border-black/10" />
-                      </a>
+                      <button 
+                        onClick={() => setViewingPhoto(msg.attachmentUrl)}
+                        className="block cursor-pointer outline-none"
+                      >
+                        <img src={msg.attachmentUrl} alt="Příloha" className="max-h-60 rounded-md border border-black/10 hover:opacity-90 transition-opacity" />
+                      </button>
                     ) : (
                       <a href={msg.attachmentUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 bg-black/20 rounded-lg hover:bg-black/30 text-sm">
                         <FileText size={16} />
@@ -338,6 +342,15 @@ function TicketDetailClient({ id, onBack, currentUser }: { id: string, onBack: (
       ) : (
         <div className="shrink-0 text-center p-4 bg-[#1A1A1A] border border-white/5 rounded-xl text-gray-500">
           Tento tiket byl uzavřen.
+        </div>
+      )}
+      
+      {viewingPhoto && (
+        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4" onClick={() => setViewingPhoto(null)}>
+          <button className="absolute top-4 right-4 p-2 text-white hover:bg-white/10 rounded-full">
+            <X className="w-6 h-6" />
+          </button>
+          <img src={viewingPhoto} alt="Photo detail" className="max-w-full max-h-[90vh] object-contain rounded-lg" />
         </div>
       )}
     </div>

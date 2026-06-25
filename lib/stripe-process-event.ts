@@ -8,6 +8,8 @@ import {
   paymentSuccessEmail,
   objectAddonActivatedEmail,
   objectAddonRevokedEmail,
+  subscriptionRenewedEmail,
+  subscriptionPaymentFailedEmail,
 } from '@/lib/email-templates';
 import { getObjectAddons } from '@/lib/pricing-db';
 import { notifyAddonActivated, notifyAddonRevoked } from '@/lib/notifications';
@@ -313,15 +315,42 @@ export async function processStripeEvent(event: Stripe.Event): Promise<void> {
       const paidAt = new Date(paidUnix * 1000);
       const cust = invoiceCustomerId(inv);
 
-      await applyLicenseAfterPayment({
+      const { licenseValidUntil } = await applyLicenseAfterPayment({
         userId,
         paidAt,
         periodMonths,
         stripeCustomerId: cust,
       });
 
+      const updatedUser = await prisma.user.findUnique({ where: { id: userId } });
+
+      if (updatedUser && updatedUser.email && updatedUser.emailNotifications) {
+        const tpl = subscriptionRenewedEmail({
+          userName: updatedUser.name,
+          periodMonths,
+          validUntil: licenseValidUntil || new Date()
+        });
+        sendMail({ to: updatedUser.email, ...tpl }).catch(console.error);
+      }
+
       // Referral program – po první platbě CUSTOMER vytvoř odměnu makléři (idempotentní).
       tryCreateReferralReward(userId).catch((e) => console.error('Referral reward failed:', e));
+      return;
+    }
+
+    case 'invoice.payment_failed': {
+      const inv = event.data.object as Stripe.Invoice;
+      const custId = invoiceCustomerId(inv);
+      if (custId) {
+        const user = await prisma.user.findFirst({ where: { stripeCustomerId: custId } });
+        if (user && user.email && user.emailNotifications) {
+          const tpl = subscriptionPaymentFailedEmail({
+            userName: user.name,
+            invoiceUrl: inv.hosted_invoice_url || null
+          });
+          sendMail({ to: user.email, ...tpl }).catch(console.error);
+        }
+      }
       return;
     }
 

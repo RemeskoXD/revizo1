@@ -22,6 +22,22 @@ export default function JobDetailClient({ order, currentUser, addressHistory = [
   const [status, setStatus] = useState(order.status);
   const [isClaiming, setIsClaiming] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isSendingLink, setIsSendingLink] = useState(false);
+
+  const sendPaymentEmail = async () => {
+    setIsSendingLink(true);
+    try {
+      const res = await fetch(`/api/orders/${order.readableId}/send-payment-link`, {
+        method: 'POST'
+      });
+      if (res.ok) alert('E-mail s výzvou k platbě odeslán.');
+      else alert('Nepodařilo se odeslat e-mail.');
+    } catch (error) {
+      alert('Došlo k chybě při odesílání.');
+    } finally {
+      setIsSendingLink(false);
+    }
+  };
   const [isSavingSchedule, setIsSavingSchedule] = useState(false);
 
   // Scheduling
@@ -396,7 +412,7 @@ export default function JobDetailClient({ order, currentUser, addressHistory = [
                 <div className="p-4 bg-brand-yellow/5 border border-brand-yellow/20 rounded-xl mb-4">
                   <h4 className="text-sm font-semibold text-white mb-2">Platba před dokončením</h4>
                   <p className="text-xs text-gray-400 mb-3">Nechcete čekat? Můžete zákazníka nechat zaplatit předem. Nasdílejte mu odkaz nebo ukažte QR kód.</p>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     <Link 
                       href={`/pay/${order.readableId}`}
                       target="_blank"
@@ -411,7 +427,14 @@ export default function JobDetailClient({ order, currentUser, addressHistory = [
                       }}
                       className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-white/10 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/20"
                     >
-                      Kopírovat odkaz
+                      Kopírovat
+                    </button>
+                    <button
+                      onClick={sendPaymentEmail}
+                      disabled={isSendingLink}
+                      className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-brand-yellow px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-brand-yellow-hover disabled:opacity-50"
+                    >
+                      {isSendingLink ? 'Odesílám...' : 'Poslat e-mailem'}
                     </button>
                   </div>
                 </div>
