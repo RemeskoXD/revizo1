@@ -259,6 +259,7 @@ model Order {
   reportFile          String?   @db.LongText
   invoiceFile         String?   @db.LongText
   invoiceDueDate      DateTime?
+  invoiceStatus       String?   @default("UNPAID")
   price               Float?
   preferredDate       DateTime?
   propertyId          String?

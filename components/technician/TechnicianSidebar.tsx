@@ -12,7 +12,7 @@ import { SidebarResizeHandle } from '@/components/layout/SidebarResizeHandle';
 const navigation = [
   { name: 'Přehled', href: '/technician', icon: LayoutDashboard },
   { name: 'Moje zakázky', href: '/technician/queue', icon: ClipboardList },
-  { name: 'Faktury', href: '/technician/earnings', icon: DollarSign },
+  { name: 'Faktury', href: '/technician/invoices', icon: FileText },
   { name: 'Zprávy', href: '/technician/messages', icon: MessageSquare },
   { name: 'Podpora', href: '/technician/support', icon: ShieldCheck },
   { name: 'Profil', href: '/technician/profile', icon: User },

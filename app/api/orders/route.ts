@@ -126,18 +126,23 @@ export async function POST(req: Request) {
     }
 
     if (userForLimit && userForLimit.role === 'CUSTOMER') {
-      const customerOrdersCount = await prisma.order.count({
-        where: { customerId: session.user.id }
+      const uniqueAddresses = await prisma.order.groupBy({
+        by: ['address'],
+        where: { customerId: session.user.id, isDeleted: false }
       });
+      
+      const existingAddresses = uniqueAddresses.map(u => u.address);
+      const isNewAddress = !existingAddresses.includes(String(address).slice(0, 500));
+      
+      const customerObjectsCount = existingAddresses.length;
       const extraPaid = userForLimit.objectLimitExtraPaid || 0;
-      const allowedRevisions = 1 + extraPaid;
-      const requestedRevisions = serviceTypeIds.length;
+      const allowedObjects = 1 + extraPaid;
+      const requestedNewObjects = isNewAddress ? 1 : 0;
 
-      // If they are creating more revisions than allowed
-      if (customerOrdersCount + requestedRevisions > allowedRevisions) {
+      if (customerObjectsCount + requestedNewObjects > allowedObjects) {
         return NextResponse.json(
           {
-            message: "Další revize je za příplatek 100 Kč / rok.",
+            message: "Další objekt (budova) je za příplatek 100 Kč / rok.",
             code: "LICENSE_REQUIRED",
             checkoutPath: "/api/stripe/checkout/addon?kind=CUSTOMER_EXTRA_OBJECT",
             state: "EXPIRED"

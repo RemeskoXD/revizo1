@@ -174,6 +174,7 @@ function RegisterForm() {
   const [licenseDataUrl, setLicenseDataUrl] = useState("");
 
   const [mathAnswer, setMathAnswer] = useState("");
+  const [manualReferralCode, setManualReferralCode] = useState(referralCode || "");
   const [honeypot, setHoneypot] = useState("");
 
   const [error, setError] = useState("");
@@ -263,7 +264,7 @@ function RegisterForm() {
           name,
           phone,
           address,
-          ...(referralCode ? { referralCode } : {}),
+          ...(manualReferralCode ? { referralCode: manualReferralCode } : {}),
         };
       } else if (role === "TECHNICIAN") {
         body = {
@@ -514,6 +515,19 @@ function RegisterForm() {
                           required
                         />
                       </div>
+                      {role === "CUSTOMER" && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-300 mb-1">Doporučující kód (nepovinné)</label>
+                          <input
+                            type="text"
+                            value={manualReferralCode}
+                            onChange={(e) => setManualReferralCode(e.target.value)}
+                            name="manualReferralCode"
+                            className="w-full bg-[#111111] border border-white/10 rounded-xl py-3 px-4 text-white placeholder-gray-500 focus:outline-none focus:border-brand-yellow/50 transition-colors"
+                            placeholder="Zadejte kód technika nebo makléře"
+                          />
+                        </div>
+                      )}
                     </>
                   )}
 

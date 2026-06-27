@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { 
   ArrowLeft, MapPin, User, Phone, Calendar, Upload, FileText, 
   CheckCircle2, Briefcase, DollarSign, Clock, Edit3, Save, 
@@ -15,9 +15,36 @@ import { ChatSection } from '@/components/ChatSection';
 import { ChecklistSection } from '@/components/ChecklistSection';
 import { PhotoSection } from '@/components/PhotoSection';
 import { OrderPricingManager } from '@/components/dashboard/OrderPricingManager';
+import { QRCodeSVG } from 'qrcode.react';
+
+// Jednoduchý konvertor českého čísla účtu na IBAN
+function czAccountToIban(account: string): string | null {
+  try {
+    const clean = account.replace(/\s/g, '');
+    if (clean.startsWith('CZ') && clean.length === 24) return clean;
+
+    const match = clean.match(/^(?:(\d{1,6})-)?(\d{2,10})\/(\d{4})$/);
+    if (!match) return null;
+
+    const prefix = match[1] ? match[1].padStart(6, '0') : '000000';
+    const accNumber = match[2].padStart(10, '0');
+    const bankCode = match[3];
+
+    const bban = `${bankCode}${prefix}${accNumber}`;
+    const checkString = `${bban}123500`;
+    
+    const mod = BigInt(checkString) % BigInt(97);
+    const checkDigits = (BigInt(98) - mod).toString().padStart(2, '0');
+
+    return `CZ${checkDigits}${bankCode}${prefix}${accNumber}`;
+  } catch (e) {
+    return null;
+  }
+}
 
 export default function JobDetailClient({ order, currentUser, addressHistory = [] }: { order: any, currentUser: any, addressHistory?: any[] }) {
   const router = useRouter();
+  const invoiceRef = useRef<HTMLDivElement>(null);
 
   const [status, setStatus] = useState(order.status);
   const [isClaiming, setIsClaiming] = useState(false);
@@ -132,13 +159,34 @@ export default function JobDetailClient({ order, currentUser, addressHistory = [
     finally { setIsSavingSchedule(false); }
   };
 
+  const generatePDF = async (finalAmount: number): Promise<string | null> => {
+    if (!invoiceRef.current) return null;
+    try {
+      const html2canvas = (await import('html2canvas')).default;
+      const { jsPDF } = await import('jspdf');
+
+      const canvas = await html2canvas(invoiceRef.current, { scale: 2 });
+      const imgData = canvas.toDataURL('image/jpeg', 0.8);
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+      return pdf.output('datauristring');
+    } catch (err) {
+      console.error(err);
+      return null;
+    }
+  };
+
   const handleComplete = async () => {
     if (unsavedPricing) { alert('Máte neuložené položky v rozpočtu. Uložte je prosím nejdříve.'); return; }
     if (!file && !order.reportFile) { alert('Nahrajte revizní zprávu (PDF) nebo ji vytvořte online.'); return; }
-    if (!safeForUse && revisionResult === 'PASS') {
-      alert('Potvrďte, že zařízení je schopné bezpečného provozu.'); return;
+    if (!defectsFixed || !safeForUse) {
+      alert('Musíte potvrdit, že zjištěné závady byly odstraněny na místě a že zařízení je schopné bezpečného provozu.');
+      return;
     }
-    if (invoiceFile && (!order.price || order.price <= 0) && (!priceInput || parseFloat(priceInput) <= 0)) {
+    const finalAmount = priceInput ? parseFloat(priceInput) : (order.price || 0);
+    if (invoiceFile && finalAmount <= 0) {
       alert('K faktuře musíte zadat platnou konečnou cenu (větší než 0).'); return;
     }
 
@@ -155,6 +203,8 @@ export default function JobDetailClient({ order, currentUser, addressHistory = [
       let base64Invoice = null;
       if (invoiceFile) {
         base64Invoice = await processFile(invoiceFile, false);
+      } else if (finalAmount > 0) {
+        base64Invoice = await generatePDF(finalAmount);
       }
 
       const res = await fetch(`/api/orders/${order.readableId}/complete`, {
@@ -414,10 +464,19 @@ export default function JobDetailClient({ order, currentUser, addressHistory = [
                     <Link 
                       href={`/technician/job/${order.readableId}/invoice`}
                       target="_blank"
-                      className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-brand-yellow px-4 py-2.5 text-sm font-bold text-black transition-colors hover:bg-brand-yellow-hover shadow-lg shadow-brand-yellow/10"
+                      className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-white/5 border border-white/10 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-white/10"
                     >
-                      <FileText className="w-4 h-4" /> Zobrazit fakturu a QR
+                      <FileText className="w-4 h-4" /> Zobrazit v prohlížeči
                     </Link>
+                    {order.invoiceFile && (
+                      <a 
+                        href={`/api/orders/${order.readableId}/download?type=invoice`}
+                        download
+                        className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-brand-yellow px-4 py-2.5 text-sm font-bold text-black transition-colors hover:bg-brand-yellow-hover shadow-lg shadow-brand-yellow/10"
+                      >
+                        <FileText className="w-4 h-4" /> Stáhnout fakturu
+                      </a>
+                    )}
                   </div>
                 </div>
               )}
@@ -708,6 +767,93 @@ export default function JobDetailClient({ order, currentUser, addressHistory = [
                 <ChatSection orderId={order.id} currentUserId={currentUser.id} />
               </div>
             )}
+          </div>
+        </div>
+      </div>
+
+      {/* Hidden Invoice Template for PDF Generation */}
+      <div style={{ position: 'absolute', top: '-9999px', left: '-9999px', width: '800px', backgroundColor: 'white' }}>
+        <div ref={invoiceRef} className="bg-white p-12 text-black">
+          <div className="flex justify-between items-start border-b border-gray-200 pb-8 mb-8">
+            <div>
+              <h1 className="text-3xl font-bold mb-2">Faktura</h1>
+              <p className="text-gray-500">Číslo: {order.readableId}</p>
+              <p className="text-gray-500">Datum vystavení: {new Date().toLocaleDateString('cs-CZ')}</p>
+            </div>
+            <div className="text-right">
+              <h2 className="font-bold text-lg">{currentUser?.name || 'Dodavatel'}</h2>
+              <p className="text-gray-600 mt-1">{currentUser?.address || 'Adresa nedoplněna'}</p>
+              {currentUser?.phone && <p className="text-gray-600">{currentUser.phone}</p>}
+              <p className="text-gray-600">{currentUser?.email}</p>
+            </div>
+          </div>
+
+          <div className="flex justify-between items-start mb-12">
+            <div>
+              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Odběratel</h3>
+              <h2 className="font-bold text-lg">{order.customer?.name || order.customer?.email}</h2>
+              {order.customer?.address && <p className="text-gray-600 mt-1">{order.customer.address}</p>}
+              {order.customer?.phone && <p className="text-gray-600 mt-1">{order.customer.phone}</p>}
+            </div>
+            <div className="bg-gray-50 p-6 rounded-lg text-right min-w-[200px]">
+              <p className="text-sm text-gray-500 mb-1">K úhradě</p>
+              <p className="text-3xl font-bold">{(priceInput ? parseFloat(priceInput) : (order.price || 0)).toLocaleString('cs-CZ')} Kč</p>
+            </div>
+          </div>
+
+          <table className="w-full mb-12">
+            <thead>
+              <tr className="border-b border-gray-200 text-left text-sm font-semibold text-gray-500">
+                <th className="pb-3">Popis položky</th>
+                <th className="pb-3 text-right">Částka</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-b border-gray-100">
+                <td className="py-4 font-medium">{order.serviceType} - {order.propertyType}</td>
+                <td className="py-4 text-right font-medium">{(priceInput ? parseFloat(priceInput) : (order.price || 0)).toLocaleString('cs-CZ')} Kč</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div className="flex justify-between items-center bg-gray-50 p-6 rounded-xl border border-gray-200 gap-8">
+            <div className="flex-1">
+              <h3 className="font-bold text-lg mb-4">Platební údaje</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between border-b border-gray-200 pb-2">
+                  <span className="text-gray-500">Číslo účtu:</span>
+                  <span className="font-bold">{currentUser?.bankAccount || 'Není zadáno v profilu dodavatele'}</span>
+                </div>
+                <div className="flex justify-between border-b border-gray-200 pb-2">
+                  <span className="text-gray-500">Banka:</span>
+                  <span className="font-medium">Kód banky {currentUser?.bankAccount?.split('/')[1] || ''}</span>
+                </div>
+                <div className="flex justify-between border-b border-gray-200 pb-2">
+                  <span className="text-gray-500">Variabilní symbol:</span>
+                  <span className="font-bold">{order.readableId.replace(/\D/g, '')}</span>
+                </div>
+                <div className="flex justify-between pt-2">
+                  <span className="text-gray-500">Částka:</span>
+                  <span className="font-bold text-lg">{(priceInput ? parseFloat(priceInput) : (order.price || 0)).toLocaleString('cs-CZ')} Kč</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+              {czAccountToIban(currentUser?.bankAccount || '') ? (
+                <div className="text-center">
+                  <QRCodeSVG 
+                    value={`SPD*1.0*ACC:${czAccountToIban(currentUser?.bankAccount || '')}*AM:${priceInput ? parseFloat(priceInput) : (order.price || 0)}*CC:CZK*MSG:Za zakazku ${order.readableId}*X-VS:${order.readableId.replace(/\D/g, '')}`} 
+                    size={150} level="M" includeMargin={true} 
+                  />
+                  <p className="text-xs text-gray-500 mt-2 font-medium">QR Platba</p>
+                </div>
+              ) : (
+                <div className="w-[150px] h-[150px] flex items-center justify-center bg-gray-100 text-gray-400 text-sm text-center p-4">
+                  Pro QR kód doplňte číslo účtu
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

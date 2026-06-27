@@ -39,7 +39,16 @@ export async function GET() {
     return NextResponse.json({ message: 'Uživatel nenalezen' }, { status: 404 });
   }
 
-  const count = await prisma.property.count({ where: { ownerId: session.user.id } });
+  let count = 0;
+  if (user.role === 'CUSTOMER') {
+    const uniqueAddresses = await prisma.order.groupBy({
+      by: ['address'],
+      where: { customerId: session.user.id, isDeleted: false },
+    });
+    count = uniqueAddresses.length;
+  } else {
+    count = await prisma.property.count({ where: { ownerId: session.user.id } });
+  }
   const status = getObjectLimitStatus(user, count, {
     extraPrice: addons.customerExtraObject.yearlyPriceCzk,
     packagePrice: addons.package10Objects.yearlyPriceCzk,

@@ -38,6 +38,10 @@ export async function GET(req: Request) {
       select: {
         price: true,
         completedAt: true,
+        technicianId: true,
+        customer: {
+          select: { referredByRealtorId: true }
+        }
       },
     });
 
@@ -56,8 +60,6 @@ export async function GET(req: Request) {
 
     // 2. Stripe API for Subscriptions and Total Flow
     const stripe = getStripe();
-    // Stripe charges are limited to 100 per request, we should paginate if needed, but for MVP 100 might be enough.
-    // Or balanceTransactions which includes fees.
     let hasMore = true;
     let startingAfter: string | undefined = undefined;
     let totalFlow = 0;
@@ -76,18 +78,17 @@ export async function GET(req: Request) {
     
     for (const order of completedOrders) {
       if (!order.price) continue;
+      
+      let feePercentage = 10;
+      if (order.customer && order.customer.referredByRealtorId === order.technicianId) {
+        feePercentage = 5;
+      }
+      const platformFee = order.price * (feePercentage / 100);
+      
       const dateStr = order.completedAt!.toISOString().split('T')[0];
       if (dailyData[dateStr]) {
-        dailyData[dateStr].revisions += order.price;
-        totalRevisionsEarnings += order.price;
-      }
-    }
-    
-    for (const payout of payoutRequests) {
-      const dateStr = payout.createdAt.toISOString().split('T')[0];
-      if (dailyData[dateStr]) {
-        dailyData[dateStr].revisions -= payout.amount;
-        totalRevisionsEarnings -= payout.amount;
+        dailyData[dateStr].revisions += platformFee;
+        totalRevisionsEarnings += platformFee;
       }
     }
 
