@@ -5,6 +5,27 @@ import { prisma } from '@/lib/prisma';
 import { readJsonBody, PayloadTooLargeError } from '@/lib/json-body';
 import { rateLimit } from '@/lib/rate-limit';
 
+export async function GET(req: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { name: true, email: true, phone: true, address: true, ico: true, bankAccount: true, role: true, objectLimitExtraPaid: true }
+    });
+    
+    const ordersCount = await prisma.order.count({
+      where: { customerId: session.user.id }
+    });
+    
+    return NextResponse.json({ ...user, ordersCount }, { status: 200 });
+  } catch (error) {
+    return NextResponse.json({ message: 'Internal server error' }, { status: 500 });
+  }
+}
+
 export async function PUT(req: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -25,19 +46,25 @@ export async function PUT(req: Request) {
       firstName?: string;
       lastName?: string;
       phone?: string | null;
+      bankAccount?: string | null;
+      ico?: string | null;
+      address?: string | null;
       emailNotifications?: boolean;
     }>(req, 16_384);
 
     const first = body.firstName != null ? String(body.firstName).trim().slice(0, 80) : '';
     const last = body.lastName != null ? String(body.lastName).trim().slice(0, 80) : '';
     const phone = body.phone != null ? String(body.phone).trim().slice(0, 40) : undefined;
+    const bankAccount = body.bankAccount != null ? String(body.bankAccount).trim().slice(0, 100) : undefined;
+    const ico = body.ico != null ? String(body.ico).trim().slice(0, 20) : undefined;
+    const address = body.address != null ? String(body.address).trim().slice(0, 500) : undefined;
 
     const name = `${first} ${last}`.trim();
     if (name.length < 2) {
       return NextResponse.json({ message: 'Jméno je příliš krátké' }, { status: 400 });
     }
 
-    const data: { name: string; phone?: string; emailNotifications?: boolean } = { name, phone };
+    const data: { name: string; phone?: string; bankAccount?: string; ico?: string; address?: string; emailNotifications?: boolean } = { name, phone, bankAccount, ico, address };
     if (typeof body.emailNotifications === 'boolean') {
       data.emailNotifications = body.emailNotifications;
     }

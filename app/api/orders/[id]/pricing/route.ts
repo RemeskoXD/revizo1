@@ -27,15 +27,24 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ message: 'Order not found' }, { status: 404 });
     }
 
+    if (session.user.role === 'TECHNICIAN' && order.technicianId !== session.user.id) {
+      return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+    }
+    if (session.user.role === 'COMPANY_ADMIN' && order.companyId !== session.user.id) {
+      return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+    }
+
     // Only allow modification if status is PENDING or IN_PROGRESS, or if Admin
     if (order.status === 'COMPLETED' && session.user.role !== 'ADMIN') {
       return NextResponse.json({ message: 'Order is already completed' }, { status: 400 });
     }
 
-    // Replace all existing pricing items
-    await prisma.orderPricingItem.deleteMany({
-      where: { orderId: order.id }
-    });
+    // Replace all existing pricing items inside a transaction
+    const transactionOperations: any[] = [
+      prisma.orderPricingItem.deleteMany({
+        where: { orderId: order.id }
+      })
+    ];
 
     let totalOrderPrice = 0;
 
@@ -45,23 +54,29 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         const itemTotal = pricingItem.priceCzk * item.quantity;
         totalOrderPrice += itemTotal;
 
-        await prisma.orderPricingItem.create({
-          data: {
-            orderId: order.id,
-            pricingItemId: pricingItem.id,
-            quantity: item.quantity,
-            unitPriceCzk: pricingItem.priceCzk,
-            totalPriceCzk: itemTotal
-          }
-        });
+        transactionOperations.push(
+          prisma.orderPricingItem.create({
+            data: {
+              orderId: order.id,
+              pricingItemId: pricingItem.id,
+              quantity: item.quantity,
+              unitPriceCzk: pricingItem.priceCzk,
+              totalPriceCzk: itemTotal
+            }
+          })
+        );
       }
     }
 
-    // Update order total price
-    await prisma.order.update({
-      where: { id: order.id },
-      data: { price: totalOrderPrice }
-    });
+    // Update order total price (only if not completed, for safety)
+    transactionOperations.push(
+      prisma.order.update({
+        where: { id: order.id, status: session.user.role !== 'ADMIN' ? { not: 'COMPLETED' } : undefined },
+        data: { price: totalOrderPrice }
+      })
+    );
+
+    await prisma.$transaction(transactionOperations);
 
     return NextResponse.json({ success: true, totalOrderPrice });
   } catch (error) {

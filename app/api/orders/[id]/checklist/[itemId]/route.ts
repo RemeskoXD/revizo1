@@ -24,19 +24,15 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const body = await readJsonBody<{ isCompleted?: boolean }>(req, 4096);
     const isCompleted = Boolean(body.isCompleted);
 
-    const existing = await prisma.checklistItem.findFirst({
-      where: { id: itemId, orderId: order.id },
-    });
-    if (!existing) {
-      return NextResponse.json({ message: 'Not found' }, { status: 404 });
-    }
-
     const item = await prisma.checklistItem.update({
-      where: { id: itemId },
+      where: { id: itemId, orderId: order.id },
       data: { isCompleted },
     });
     return NextResponse.json(item);
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.code === 'P2025') {
+      return NextResponse.json({ message: 'Not found' }, { status: 404 });
+    }
     if (error instanceof PayloadTooLargeError) {
       return NextResponse.json({ message: 'Payload too large' }, { status: 413 });
     }
@@ -64,18 +60,14 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
       return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
 
-    const existing = await prisma.checklistItem.findFirst({
+    await prisma.checklistItem.delete({
       where: { id: itemId, orderId: order.id },
     });
-    if (!existing) {
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    if (error?.code === 'P2025') {
       return NextResponse.json({ message: 'Not found' }, { status: 404 });
     }
-
-    await prisma.checklistItem.delete({
-      where: { id: itemId },
-    });
-    return NextResponse.json({ success: true });
-  } catch (error) {
     return NextResponse.json({ message: 'Error deleting checklist item' }, { status: 500 });
   }
 }

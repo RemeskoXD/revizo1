@@ -82,11 +82,11 @@ export default function AdminDashboardClient({
           </div>
         </AnimatedItem>
         <AnimatedItem delay={0.14}>
-          <div className="bg-[#1A1A1A] border border-brand-yellow/20 rounded-xl p-4">
+          <Link href="/admin/finances" className="block bg-[#1A1A1A] border border-brand-yellow/20 rounded-xl p-4 hover:bg-[#222] transition-colors">
             <DollarSign className="w-4 h-4 text-brand-yellow mb-2" />
             <p className="text-2xl font-bold text-brand-yellow">{monthlyRevenue.toLocaleString('cs-CZ')}</p>
-            <p className="text-xs text-gray-500">Obrat tento měsíc</p>
-          </div>
+            <p className="text-xs text-brand-yellow/70 font-medium">Finance (detail) →</p>
+          </Link>
         </AnimatedItem>
         <AnimatedItem delay={0.16}>
           <div className="bg-[#1A1A1A] border border-green-500/20 rounded-xl p-4">

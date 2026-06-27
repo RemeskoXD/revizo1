@@ -15,7 +15,7 @@ export default async function AdminDashboard() {
     totalUsers, totalOrders, completedOrders, cancelledOrders,
     pendingOrders, inProgressOrders, recentOrders,
     monthlyCompletedOrders, unassignedCount, pendingRoleRequests,
-    techniciansWithStats
+    totalByTechData, cancelledByTechData
   ] = await Promise.all([
     prisma.user.count(),
     prisma.order.count(),
@@ -39,13 +39,16 @@ export default async function AdminDashboard() {
       where: { technicianId: null, companyId: null, status: { notIn: ['COMPLETED', 'CANCELLED'] } },
     }),
     prisma.roleRequest.count({ where: { status: 'PENDING' } }),
-    prisma.user.findMany({
-      where: { role: 'TECHNICIAN' },
-      select: {
-        id: true, name: true, email: true,
-        assignedOrders: { select: { status: true } },
-      },
+    prisma.order.groupBy({
+      by: ['technicianId'],
+      where: { technicianId: { not: null } },
+      _count: { id: true },
     }),
+    prisma.order.groupBy({
+      by: ['technicianId'],
+      where: { technicianId: { not: null }, status: 'CANCELLED' },
+      _count: { id: true },
+    })
   ]);
 
   const monthlyRevenue = monthlyCompletedOrders.reduce((sum, o) => sum + (o.price || 0), 0);
@@ -53,11 +56,32 @@ export default async function AdminDashboard() {
   const conversionRate = totalOrders > 0 ? Math.round((completedOrders / totalOrders) * 100) : 0;
   const cancelRate = totalOrders > 0 ? Math.round((cancelledOrders / totalOrders) * 100) : 0;
 
-  const redFlagTechnicians = techniciansWithStats.filter(t => {
-    const total = t.assignedOrders.length;
-    const cancelled = t.assignedOrders.filter(o => o.status === 'CANCELLED').length;
-    return total >= 5 && (cancelled / total) > 0.2;
-  }).map(t => ({ id: t.id, name: t.name || t.email, cancelRate: Math.round((t.assignedOrders.filter(o => o.status === 'CANCELLED').length / t.assignedOrders.length) * 100) }));
+  const totalByTech = totalByTechData as unknown as { technicianId: string, _count: { id: number } }[];
+  const cancelledByTech = cancelledByTechData as unknown as { technicianId: string, _count: { id: number } }[];
+
+  const redFlagTechIds = (totalByTech || []).filter(t => {
+    const total = t._count.id;
+    if (total < 5) return false;
+    const cancelled = (cancelledByTech || []).find(c => c.technicianId === t.technicianId)?._count.id || 0;
+    return (cancelled / total) > 0.2;
+  }).map(t => t.technicianId);
+
+  let redFlagTechnicians: any[] = [];
+  if (redFlagTechIds.length > 0) {
+    const techs = await prisma.user.findMany({
+      where: { id: { in: redFlagTechIds } },
+      select: { id: true, name: true, email: true }
+    });
+    redFlagTechnicians = techs.map(t => {
+      const total = (totalByTech || []).find(x => x.technicianId === t.id)?._count.id || 1;
+      const cancelled = (cancelledByTech || []).find(x => x.technicianId === t.id)?._count.id || 0;
+      return {
+        id: t.id,
+        name: t.name || t.email,
+        cancelRate: Math.round((cancelled / total) * 100)
+      };
+    });
+  }
 
   return (
     <AdminDashboardClient

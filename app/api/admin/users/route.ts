@@ -4,6 +4,70 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 
+export async function GET(req: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session || !['ADMIN', 'SUPPORT'].includes(session.user.role)) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const search = searchParams.get('search') || '';
+    const roleFilter = searchParams.get('role') || 'all';
+    const companyFilter = searchParams.get('company') || 'all';
+    
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = parseInt(searchParams.get('limit') || '50', 10);
+    const skip = (page - 1) * limit;
+
+    const conditions: any[] = [];
+
+    if (search) {
+      conditions.push({
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { email: { contains: search, mode: 'insensitive' } },
+          { phone: { contains: search, mode: 'insensitive' } },
+        ]
+      });
+    }
+
+    if (roleFilter !== 'all') {
+      conditions.push({ role: roleFilter });
+    }
+
+    if (companyFilter !== 'all') {
+      conditions.push({
+        OR: [
+          { companyId: companyFilter },
+          { role: 'COMPANY_ADMIN', id: companyFilter }
+        ]
+      });
+    }
+
+    const where = conditions.length > 0 ? { AND: conditions } : {};
+
+    const [users, total] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+        include: {
+          company: { select: { id: true, name: true, email: true } },
+        },
+      }),
+      prisma.user.count({ where })
+    ]);
+
+    return NextResponse.json({ users, total, page, totalPages: Math.ceil(total / limit) }, { status: 200 });
+  } catch (error) {
+    console.error('Fetch users error:', error);
+    return NextResponse.json({ message: 'Internal server error' }, { status: 500 });
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);

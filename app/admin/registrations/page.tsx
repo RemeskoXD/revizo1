@@ -12,10 +12,11 @@ export default async function AdminRegistrationsPage() {
   }
 
   const users = await prisma.user.findMany({
+    take: 100,
+    orderBy: { createdAt: 'desc' },
     where: {
       accountStatus: 'PENDING_APPROVAL',
     },
-    orderBy: { createdAt: 'asc' },
     select: {
       id: true,
       name: true,

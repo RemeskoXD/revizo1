@@ -28,15 +28,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ message: 'Neplatný podpis' }, { status: 400 });
   }
 
-  const existing = await prisma.stripeWebhookEvent.findUnique({ where: { id: event.id } });
-  if (existing) {
-    return NextResponse.json({ received: true, duplicate: true });
+  try {
+    await prisma.stripeWebhookEvent.create({ data: { id: event.id } });
+  } catch (e: any) {
+    if (e.code === 'P2002') {
+      return NextResponse.json({ received: true, duplicate: true });
+    }
+    console.error('Stripe webhook db lock error:', e);
+    return NextResponse.json({ message: 'Database lock failed' }, { status: 500 });
   }
 
   try {
     await processStripeEvent(event);
-    await prisma.stripeWebhookEvent.create({ data: { id: event.id } });
   } catch (e) {
+    // Pokud selže zpracování, musíme event smazat, aby to Stripe mohl zkusit znovu
+    await prisma.stripeWebhookEvent.delete({ where: { id: event.id } }).catch(console.error);
     console.error('Stripe webhook processing:', e);
     return NextResponse.json({ message: 'Zpracování selhalo' }, { status: 500 });
   }

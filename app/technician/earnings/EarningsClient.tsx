@@ -1,45 +1,119 @@
 'use client';
 
-import { DollarSign, TrendingUp, FileText, Calendar } from 'lucide-react';
+import { DollarSign, TrendingUp, FileText, Calendar, Plus, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'motion/react';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 
-export default function EarningsClient({ monthlyData, totalEarnings, totalCount, commissionRate, payoutRequests = [] }: any) {
+export default function EarningsClient({ monthlyData, totalEarnings, totalCount, commissionRate, payoutRequests = [], technician }: any) {
   const [expandedMonth, setExpandedMonth] = useState<number>(0);
   const [isRequesting, setIsRequesting] = useState(false);
+  const [invoiceMode, setInvoiceMode] = useState<'upload' | 'generate'>('upload');
+  
   const [amount, setAmount] = useState('');
-  const [iban, setIban] = useState('');
+  const [orderId, setOrderId] = useState('');
+  const [dueDate, setDueDate] = useState('');
+  const [iban, setIban] = useState(technician?.bankAccount || '');
   const [notes, setNotes] = useState('');
   const [invoiceData, setInvoiceData] = useState<string>('');
   const [invoiceFileName, setInvoiceFileName] = useState('');
   const [busy, setBusy] = useState(false);
+
+  // Invoice generator state
+  const [invoiceItems, setInvoiceItems] = useState<{name: string, qty: number, price: number}[]>([]);
+  const invoiceRef = useRef<HTMLDivElement>(null);
+
   
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setInvoiceFileName(file.name);
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      setInvoiceData(reader.result as string);
-    };
-    reader.readAsDataURL(file);
+    try {
+      const { compressImage, fileToBase64 } = await import('@/lib/client-compress');
+      const compressed = await compressImage(file);
+      const b64 = await fileToBase64(compressed);
+      setInvoiceData(b64);
+    } catch (err) {
+      console.error(err);
+      alert('Při zpracování souboru došlo k chybě.');
+    }
   };
   
+  const handleOrderChange = (id: string) => {
+    setOrderId(id);
+    if (!id) {
+      setInvoiceItems([]);
+      setAmount('');
+      return;
+    }
+    const order = monthlyData.flatMap((m: any) => m.orders).find((o: any) => o.id === id);
+    if (order) {
+      setInvoiceItems([{ name: `Revize: ${order.readableId} - ${order.address}`, qty: 1, price: order.earnings }]);
+      setAmount(order.earnings.toString());
+    }
+  };
+
+  const handleUpdateItem = (index: number, field: string, value: any) => {
+    const newItems = [...invoiceItems];
+    newItems[index] = { ...newItems[index], [field]: value };
+    setInvoiceItems(newItems);
+    
+    // Auto-update amount
+    const total = newItems.reduce((sum, item) => sum + (item.qty * item.price), 0);
+    setAmount(total.toString());
+  };
+
+  const generatePDF = async () => {
+    if (!invoiceRef.current) return null;
+    try {
+      const html2canvas = (await import('html2canvas')).default;
+      const { jsPDF } = await import('jspdf');
+
+      const canvas = await html2canvas(invoiceRef.current, { scale: 2 });
+      const imgData = canvas.toDataURL('image/jpeg', 0.8);
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+      return pdf.output('datauristring');
+    } catch (err) {
+      console.error(err);
+      return null;
+    }
+  };
+
   const handleRequestPayout = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
+
+    let finalInvoiceData = invoiceData;
+    if (invoiceMode === 'generate') {
+      const generated = await generatePDF();
+      if (!generated) {
+        alert('Chyba při generování faktury.');
+        setBusy(false);
+        return;
+      }
+      finalInvoiceData = generated;
+    }
+
+    if (!finalInvoiceData) {
+      alert('Prosím nahrajte fakturu nebo ji vygenerujte.');
+      setBusy(false);
+      return;
+    }
+
     try {
       const res = await fetch('/api/technician/payout-requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: Number(amount), iban, notes, invoiceData }),
+        body: JSON.stringify({ amount: Number(amount), iban, notes, invoiceData: finalInvoiceData, orderId, dueDate }),
       });
       if (res.ok) {
         window.location.reload();
       } else {
-        alert('Chyba při žádosti o výplatu');
+        alert('Chyba při nahrávání faktury');
       }
     } catch (err) {
       console.error(err);
@@ -141,116 +215,6 @@ export default function EarningsClient({ monthlyData, totalEarnings, totalCount,
           ))}
         </div>
       </div>
-
-      {/* Payouts Section */}
-      <div className="bg-[#1A1A1A] border border-white/5 rounded-xl p-6">
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Žádosti o výplatu (Můj tiket)</h3>
-          <button 
-            onClick={() => setIsRequesting(!isRequesting)}
-            className="px-4 py-2 bg-brand-yellow text-black text-sm font-semibold rounded-lg hover:bg-yellow-400"
-          >
-            Požádat o výplatu
-          </button>
-        </div>
-
-        {isRequesting && (
-          <form onSubmit={handleRequestPayout} className="bg-[#111] border border-white/10 rounded-lg p-4 mb-6 space-y-4">
-            <div>
-              <label className="block text-xs font-medium text-gray-400 mb-1">Částka (Kč) *</label>
-              <input 
-                type="number" 
-                required 
-                value={amount} 
-                onChange={e => setAmount(e.target.value)}
-                className="w-full bg-[#1A1A1A] text-white border border-white/10 rounded-lg px-4 py-2"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-400 mb-1">Číslo účtu / IBAN</label>
-              <input 
-                type="text" 
-                value={iban} 
-                onChange={e => setIban(e.target.value)}
-                placeholder="Nepovinné, pokud již máme Váš účet"
-                className="w-full bg-[#1A1A1A] text-white border border-white/10 rounded-lg px-4 py-2"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-400 mb-1">Poznámka pro admina</label>
-              <input 
-                type="text" 
-                value={notes} 
-                onChange={e => setNotes(e.target.value)}
-                className="w-full bg-[#1A1A1A] text-white border border-white/10 rounded-lg px-4 py-2"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-400 mb-1">Faktura (PDF nebo obrázek)</label>
-              <input 
-                type="file" 
-                accept="application/pdf,image/*"
-                onChange={handleFileChange}
-                className="w-full bg-[#1A1A1A] text-white border border-white/10 rounded-lg px-4 py-2 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand-yellow file:text-black hover:file:bg-yellow-400"
-              />
-            </div>
-            <div className="flex justify-end gap-3 pt-2">
-              <button 
-                type="button" 
-                onClick={() => setIsRequesting(false)} 
-                className="px-4 py-2 text-white hover:text-gray-300 font-medium text-sm"
-              >
-                Zrušit
-              </button>
-              <button 
-                type="submit" 
-                disabled={busy}
-                className="px-4 py-2 bg-brand-yellow text-black font-bold text-sm rounded-lg hover:bg-yellow-400 disabled:opacity-50"
-              >
-                {busy ? 'Odesílám...' : 'Odeslat žádost'}
-              </button>
-            </div>
-          </form>
-        )}
-
-        {payoutRequests.length > 0 ? (
-          <div className="space-y-3">
-            {payoutRequests.map((req: any) => (
-              <div key={req.id} className="flex justify-between items-center p-4 bg-[#111] rounded-lg border border-white/5">
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center gap-3">
-                    <span className="text-white font-bold">{req.amount.toLocaleString('cs-CZ')} Kč</span>
-                    <span className={cn(
-                      "text-xs font-semibold px-2 py-1 rounded-md",
-                      req.status === 'PENDING' ? "bg-blue-500/10 text-blue-400" :
-                      req.status === 'PAID' ? "bg-green-500/10 text-green-400" :
-                      req.status === 'REJECTED' ? "bg-red-500/10 text-red-500" : "bg-gray-500/10 text-gray-400"
-                    )}>
-                      {req.status === 'PENDING' ? 'ČEKÁ (do 7 dnů)' : req.status === 'PAID' ? 'VYPLACENO' : req.status}
-                    </span>
-                  </div>
-                  <span className="text-xs text-gray-500">Založeno: {new Date(req.createdAt).toLocaleDateString('cs-CZ')} | Účet: {req.iban || 'Nespecifikován'}</span>
-                  {req.notes && <span className="text-xs text-gray-400 mt-1">Poznámka: {req.notes}</span>}
-                  {req.invoiceUrl && (
-                    <a href={req.invoiceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:underline mt-1">
-                      Zobrazit nahranou fakturu
-                    </a>
-                  )}
-                </div>
-                {req.paidAt && (
-                  <div className="flex flex-col items-end gap-1">
-                    <span className="text-xs text-green-500 font-medium whitespace-nowrap">Vyplaceno: {new Date(req.paidAt).toLocaleDateString('cs-CZ')}</span>
-                    {req.amountPaid && <span className="text-sm font-bold text-green-400">({req.amountPaid.toLocaleString('cs-CZ')} Kč)</span>}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center p-6 text-gray-500 text-sm">Žádné žádosti o výplatu</div>
-        )}
-      </div>
-
     </div>
   );
 }

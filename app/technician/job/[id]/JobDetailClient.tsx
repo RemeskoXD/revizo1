@@ -48,11 +48,14 @@ export default function JobDetailClient({ order, currentUser, addressHistory = [
 
   // Completion
   const [file, setFile] = useState<File | null>(null);
+  const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
+  const [invoiceDueDate, setInvoiceDueDate] = useState<string>('');
   const [revisionResult, setRevisionResult] = useState<string>('PASS');
   const [revisionNotes, setRevisionNotes] = useState('');
   const [nextRevisionDate, setNextRevisionDate] = useState(order.nextRevisionDate ? new Date(order.nextRevisionDate).toISOString().slice(0, 10) : '');
   const [defectsFixed, setDefectsFixed] = useState(false);
   const [safeForUse, setSafeForUse] = useState(false);
+  const [priceInput, setPriceInput] = useState<string>('');
 
   // Chat toggle
   const [chatOpen, setChatOpen] = useState(false);
@@ -129,38 +132,57 @@ export default function JobDetailClient({ order, currentUser, addressHistory = [
   };
 
   const handleComplete = async () => {
-    if (!file) { alert('Nahrajte revizní zprávu (PDF).'); return; }
+    if (!file && !order.reportFile) { alert('Nahrajte revizní zprávu (PDF) nebo ji vytvořte online.'); return; }
     if (!safeForUse && revisionResult === 'PASS') {
       alert('Potvrďte, že zařízení je schopné bezpečného provozu.'); return;
+    }
+    if (invoiceFile && (!order.price || order.price <= 0) && (!priceInput || parseFloat(priceInput) <= 0)) {
+      alert('K faktuře musíte zadat platnou konečnou cenu (větší než 0).'); return;
     }
 
     setIsUploading(true);
     try {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = async () => {
-        const base64File = reader.result as string;
-        const res = await fetch(`/api/orders/${order.readableId}/complete`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            reportFile: base64File,
-            revisionResult,
-            revisionNotes: revisionNotes || null,
-            nextRevisionDate: nextRevisionDate || null,
-          }),
-        });
-        if (res.ok) {
-          setStatus('COMPLETED');
-          router.refresh();
+      const { compressImage, fileToBase64 } = await import('@/lib/client-compress');
+
+      const processFile = async (f: File, isReport: boolean = false) => {
+        const compressed = await compressImage(f, isReport ? { maxSizeMB: 4, maxWidthOrHeight: 3000 } : undefined);
+        return fileToBase64(compressed);
+      };
+
+      const base64Report = file ? await processFile(file, true) : order.reportFile;
+      let base64Invoice = null;
+      if (invoiceFile) {
+        base64Invoice = await processFile(invoiceFile, false);
+      }
+
+      const res = await fetch(`/api/orders/${order.readableId}/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reportFile: base64Report,
+          invoiceFile: base64Invoice,
+          invoiceDueDate: invoiceDueDate || null,
+          price: priceInput ? parseFloat(priceInput) : undefined,
+          revisionResult,
+          revisionNotes: revisionNotes || null,
+          nextRevisionDate: nextRevisionDate || null,
+        }),
+      });
+      if (res.ok) {
+        setStatus('COMPLETED');
+        router.refresh();
+      } else {
+        const data = await res.json();
+        if (res.status === 402) {
+          if (confirm(data.message + '\n\nChcete přejít do nastavení a dobít kredit?')) {
+            window.location.href = '/dashboard/settings?tab=billing';
+          }
         } else {
-          const data = await res.json();
           alert(data.message || 'Chyba při dokončování.');
         }
-        setIsUploading(false);
-      };
-      reader.onerror = () => { alert('Chyba při čtení souboru.'); setIsUploading(false); };
-    } catch { alert('Chyba.'); setIsUploading(false); }
+      }
+    } catch { alert('Chyba při komunikaci se serverem.'); }
+    finally { setIsUploading(false); }
   };
 
   const statusLabel = (s: string) => ({
@@ -374,25 +396,16 @@ export default function JobDetailClient({ order, currentUser, addressHistory = [
               )}
               {order.price > 0 && !order.isPaid && (
                 <div className="mt-6 pt-6 border-t border-white/5">
-                  <h4 className="text-sm font-semibold text-white mb-2">Vygenerovat platbu zákazníkovi</h4>
-                  <p className="text-xs text-gray-400 mb-4">Můžete zákazníkovi odeslat odkaz k platbě nebo mu zobrazit QR kód na místě.</p>
+                  <h4 className="text-sm font-semibold text-white mb-2">Vygenerovat fakturu a QR kód k platbě</h4>
+                  <p className="text-xs text-gray-400 mb-4">Platba proběhne přímo na váš bankovní účet.</p>
                   <div className="flex gap-2">
                     <Link 
-                      href={`/pay/${order.readableId}`}
+                      href={`/technician/job/${order.readableId}/invoice`}
                       target="_blank"
                       className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-brand-yellow px-4 py-2.5 text-sm font-bold text-black transition-colors hover:bg-brand-yellow-hover shadow-lg shadow-brand-yellow/10"
                     >
-                      <DollarSign className="w-4 h-4" /> Platební stránka
+                      <FileText className="w-4 h-4" /> Zobrazit fakturu a QR
                     </Link>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(`${window.location.origin}/pay/${order.readableId}`);
-                        alert('Odkaz zkopírován do schránky');
-                      }}
-                      className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/20"
-                    >
-                      Kopírovat odkaz
-                    </button>
                   </div>
                 </div>
               )}
@@ -410,68 +423,149 @@ export default function JobDetailClient({ order, currentUser, addressHistory = [
 
               {order.price > 0 && !order.isPaid && (
                 <div className="p-4 bg-brand-yellow/5 border border-brand-yellow/20 rounded-xl mb-4">
-                  <h4 className="text-sm font-semibold text-white mb-2">Platba před dokončením</h4>
-                  <p className="text-xs text-gray-400 mb-3">Nechcete čekat? Můžete zákazníka nechat zaplatit předem. Nasdílejte mu odkaz nebo ukažte QR kód.</p>
+                  <h4 className="text-sm font-semibold text-white mb-2">Platba za zakázku</h4>
+                  <p className="text-xs text-gray-400 mb-3">Zákazníkovi ukažte QR kód k platbě na váš bankovní účet. Z vašeho kreditu se po dokončení odečte provize platformy.</p>
                   <div className="flex gap-2 flex-wrap">
                     <Link 
-                      href={`/pay/${order.readableId}`}
+                      href={`/technician/job/${order.readableId}/invoice`}
                       target="_blank"
                       className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-brand-yellow/20 px-4 py-2 text-sm font-semibold text-brand-yellow transition-colors hover:bg-brand-yellow/30"
                     >
-                      <DollarSign className="w-4 h-4" /> Platební stránka
+                      <FileText className="w-4 h-4" /> Faktura a QR kód
                     </Link>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(`${window.location.origin}/pay/${order.readableId}`);
-                        alert('Odkaz zkopírován do schránky');
-                      }}
-                      className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-white/10 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/20"
-                    >
-                      Kopírovat
-                    </button>
-                    <button
-                      onClick={sendPaymentEmail}
-                      disabled={isSendingLink}
-                      className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-brand-yellow px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-brand-yellow-hover disabled:opacity-50"
-                    >
-                      {isSendingLink ? 'Odesílám...' : 'Poslat e-mailem'}
-                    </button>
                   </div>
                 </div>
               )}
 
               {/* Built-in Report Form */}
-              <Link href={`/technician/job/${order.readableId}/report`}
-                className="flex items-center justify-center gap-3 p-4 bg-brand-yellow/10 border-2 border-brand-yellow/30 rounded-xl text-brand-yellow font-semibold hover:bg-brand-yellow/20 transition-colors">
-                <FileText className="w-5 h-5" />
-                Vyplnit revizní zprávu online
-              </Link>
+              {!order.reportFile ? (
+                <>
+                  <Link href={`/technician/job/${order.readableId}/report`}
+                    className="flex items-center justify-center gap-3 p-4 bg-brand-yellow/10 border-2 border-brand-yellow/30 rounded-xl text-brand-yellow font-semibold hover:bg-brand-yellow/20 transition-colors">
+                    <FileText className="w-5 h-5" />
+                    Vyplnit revizní zprávu online
+                  </Link>
 
-              <div className="flex items-center gap-3 text-gray-500">
-                <div className="flex-1 h-px bg-white/10" />
-                <span className="text-xs">nebo nahrajte vlastní PDF</span>
-                <div className="flex-1 h-px bg-white/10" />
-              </div>
-
-              {/* PDF Upload */}
-              <div className="border-2 border-dashed border-white/10 rounded-xl p-6 text-center hover:border-brand-yellow/50 hover:bg-white/[0.02] transition-colors relative">
-                <input type="file" accept=".pdf" onChange={(e) => e.target.files?.[0] && setFile(e.target.files[0])} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                {file ? (
-                  <div className="flex items-center justify-center gap-3">
-                    <FileText className="w-8 h-8 text-brand-yellow" />
-                    <div className="text-left">
-                      <p className="text-white font-medium">{file.name}</p>
-                      <p className="text-sm text-gray-500">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                  <div className="flex items-center gap-3 text-gray-500">
+                    <div className="flex-1 h-px bg-white/10" />
+                    <span className="text-xs">nebo nahrajte vlastní PDF</span>
+                    <div className="flex-1 h-px bg-white/10" />
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center justify-between p-4 bg-green-500/10 border border-green-500/30 rounded-xl">
+                  <div className="flex items-center gap-3 text-green-500">
+                    <CheckCircle2 className="w-5 h-5" />
+                    <div>
+                      <p className="text-sm font-semibold">Zpráva vygenerována online</p>
+                      <p className="text-xs text-green-500/70">Můžete přejít k fakturaci a dokončení.</p>
                     </div>
                   </div>
-                ) : (
-                  <>
-                    <Upload className="w-8 h-8 text-gray-500 mx-auto mb-3" />
-                    <p className="text-white font-medium">Nahrajte revizní zprávu (PDF)</p>
-                    <p className="text-xs text-gray-500 mt-1">Klikněte nebo přetáhněte soubor</p>
-                  </>
-                )}
+                  <Link href={`/technician/job/${order.readableId}/report`} className="text-xs font-semibold px-3 py-1.5 bg-green-500/20 text-green-400 rounded-lg hover:bg-green-500/30">Upravit</Link>
+                </div>
+              )}
+
+              {/* PDF Upload */}
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className={cn("border-2 border-dashed rounded-xl p-6 text-center transition-colors relative", order.reportFile ? "border-green-500/30 bg-green-500/5" : "border-white/10 hover:border-brand-yellow/50 hover:bg-white/[0.02]")}>
+                  {!order.reportFile && (
+                    <input type="file" accept=".pdf" onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) {
+                        if (f.size > 5 * 1024 * 1024) {
+                          alert('Soubor je příliš velký. Maximální velikost je 5 MB.');
+                          return;
+                        }
+                        setFile(f);
+                      }
+                    }} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed" disabled={isUploading} />
+                  )}
+                  {order.reportFile ? (
+                    <div className="flex flex-col items-center justify-center gap-3">
+                      <FileText className="w-8 h-8 text-green-500" />
+                      <div>
+                        <p className="text-green-500 font-medium text-sm">Zpráva připravena</p>
+                      </div>
+                    </div>
+                  ) : file ? (
+                    <div className="flex flex-col items-center justify-center gap-3">
+                      <FileText className="w-8 h-8 text-brand-yellow" />
+                      <div>
+                        <p className="text-white font-medium text-sm">{file.name}</p>
+                        <p className="text-xs text-gray-500">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <Upload className="w-8 h-8 text-gray-500 mx-auto mb-3" />
+                      <p className="text-white font-medium text-sm">Nahrát revizní zprávu (PDF)</p>
+                      <p className="text-xs text-gray-500 mt-1">Povinné</p>
+                    </>
+                  )}
+                </div>
+
+                <div className="border-2 border-dashed border-white/10 rounded-xl p-6 text-center hover:border-brand-yellow/50 hover:bg-white/[0.02] transition-colors relative">
+                  <input type="file" accept=".pdf,.png,.jpg,.jpeg" onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) {
+                      if (f.size > 5 * 1024 * 1024) {
+                        alert('Soubor je příliš velký. Maximální velikost je 5 MB.');
+                        return;
+                      }
+                      setInvoiceFile(f);
+                    }
+                  }} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed" disabled={isUploading} />
+                  {invoiceFile ? (
+                    <div className="flex flex-col items-center justify-center gap-3">
+                      <FileText className="w-8 h-8 text-brand-yellow" />
+                      <div>
+                        <p className="text-white font-medium text-sm">{invoiceFile.name}</p>
+                        <p className="text-xs text-gray-500">{(invoiceFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <Upload className="w-8 h-8 text-gray-500 mx-auto mb-3" />
+                      <p className="text-white font-medium text-sm">Vlastní faktura (PDF, IMG)</p>
+                      <p className="text-xs text-gray-500 mt-1">Nepovinné</p>
+                    </>
+                  )}
+                </div>
               </div>
+
+              {invoiceFile && (
+                <div className="bg-[#111] border border-white/5 rounded-xl p-4 space-y-4">
+                  {(!order.price || order.price <= 0) && (
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-400">
+                        Konečná cena k faktuře (Kč)
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={priceInput}
+                        onChange={e => setPriceInput(e.target.value)}
+                        placeholder="Zadejte částku k úhradě"
+                        className="w-full px-4 py-2 bg-[#1A1A1A] border border-white/10 rounded-lg text-white"
+                      />
+                    </div>
+                  )}
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-400">
+                      Splatnost faktury (2 - 60 dnů)
+                    </label>
+                    <input
+                      type="date"
+                      min={new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)}
+                      max={new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)}
+                      value={invoiceDueDate}
+                      onChange={e => setInvoiceDueDate(e.target.value)}
+                      className="w-full px-4 py-2 bg-[#1A1A1A] border border-white/10 rounded-lg text-white"
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Revision Result */}
               <div>
@@ -527,8 +621,8 @@ export default function JobDetailClient({ order, currentUser, addressHistory = [
               </div>
 
               {/* Submit */}
-              <button onClick={handleComplete} disabled={isUploading || !file} className="w-full py-3 bg-brand-yellow text-black font-bold rounded-lg hover:bg-brand-yellow-hover transition-colors shadow-lg shadow-brand-yellow/10 flex items-center justify-center gap-2 disabled:opacity-50">
-                {isUploading ? 'Nahrávání zprávy...' : <><CheckCircle2 className="w-5 h-5" /> Dokončit revizi a odeslat zprávu</>}
+              <button onClick={handleComplete} disabled={isUploading || !file} className="w-full py-3 bg-brand-yellow text-black font-bold rounded-lg hover:bg-brand-yellow-hover transition-colors shadow-lg shadow-brand-yellow/10 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                {isUploading ? 'Nahrávám dokumenty a dokončuji...' : <><CheckCircle2 className="w-5 h-5" /> Dokončit revizi a odeslat zprávu</>}
               </button>
             </div>
           ) : (

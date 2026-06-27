@@ -12,7 +12,11 @@ export default async function PayPage({ params }: { params: Promise<{ id: string
 
   if (!order) return <div className="p-8 text-center text-white">Objednávka nebyla nalezena.</div>;
 
-  const plainOrder = JSON.parse(JSON.stringify(order));
+  const plainOrder = JSON.parse(JSON.stringify({
+    ...order,
+    customer: undefined,
+    technician: undefined
+  }));
 
   return <PayClient order={plainOrder} />;
 }

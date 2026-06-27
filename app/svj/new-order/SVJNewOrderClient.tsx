@@ -107,12 +107,13 @@ export default function SVJNewOrderClient({ buildings }: { buildings: BuildingOp
     }
   }, [session]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => setReportFile(reader.result as string);
-      reader.readAsDataURL(file);
+      const { compressImage, fileToBase64 } = await import('@/lib/client-compress');
+      const compressed = await compressImage(file, { maxSizeMB: 4, maxWidthOrHeight: 3000 });
+      const b64 = await fileToBase64(compressed);
+      setReportFile(b64);
     }
   };
 

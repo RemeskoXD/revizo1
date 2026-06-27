@@ -33,7 +33,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     const updatedRequest = await prisma.$transaction(async (tx) => {
       const updated = await tx.roleRequest.update({
-        where: { id },
+        where: { id, status: 'PENDING' },
         data: { status: action === 'APPROVE' ? 'APPROVED' : 'REJECTED' },
         include: { user: true },
       });

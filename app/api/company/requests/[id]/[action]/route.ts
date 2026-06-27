@@ -18,16 +18,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       where: { id }
     });
 
-    if (!request || request.companyId !== session.user.id) {
-      return NextResponse.json({ error: 'Request not found' }, { status: 404 });
+    if (!request || request.companyId !== session.user.id || request.status !== 'PENDING') {
+      return NextResponse.json({ error: 'Request not found or not pending' }, { status: 404 });
     }
 
     if (action === 'approve') {
       // Update the request status
-      await prisma.companyJoinRequest.update({
-        where: { id },
+      const updated = await prisma.companyJoinRequest.updateMany({
+        where: { id, status: 'PENDING' },
         data: { status: 'APPROVED' }
       });
+      if (updated.count === 0) {
+        return NextResponse.json({ error: 'Request already processed' }, { status: 400 });
+      }
 
       // Assign the technician to the company
       await prisma.user.update({
@@ -51,10 +54,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       );
 
     } else if (action === 'reject') {
-      await prisma.companyJoinRequest.update({
-        where: { id },
+      const updated = await prisma.companyJoinRequest.updateMany({
+        where: { id, status: 'PENDING' },
         data: { status: 'REJECTED' }
       });
+      if (updated.count === 0) {
+        return NextResponse.json({ error: 'Request already processed' }, { status: 400 });
+      }
     } else {
       return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }

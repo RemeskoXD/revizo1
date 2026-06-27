@@ -14,6 +14,7 @@ export async function GET() {
 
     const items = await prisma.accountDeletionRequest.findMany({
       where: { status: 'PENDING' },
+      take: 100,
       include: {
         user: {
           select: {

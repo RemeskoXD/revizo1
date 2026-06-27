@@ -61,12 +61,16 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       }
     }
 
-    if (!order.reportFile) {
-      return NextResponse.json({ message: 'Report file not found' }, { status: 404 });
+    const { searchParams } = new URL(req.url);
+    const type = searchParams.get('type') === 'invoice' ? 'invoice' : 'report';
+
+    const fileData = type === 'invoice' ? (order as any).invoiceFile : order.reportFile;
+    if (!fileData) {
+      return NextResponse.json({ message: 'File not found' }, { status: 404 });
     }
 
     // Extract base64 data and mime type
-    const matches = order.reportFile.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    const matches = fileData.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
     
     if (!matches || matches.length !== 3) {
       return NextResponse.json({ message: 'Invalid file format' }, { status: 500 });
@@ -76,10 +80,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const base64Data = matches[2];
     const buffer = Buffer.from(base64Data, 'base64');
 
+    const ext = mimeType.includes('pdf') ? 'pdf' : mimeType.includes('jpeg') ? 'jpg' : mimeType.includes('png') ? 'png' : 'pdf';
+    const filename = type === 'invoice' ? `Faktura_${order.readableId}.${ext}` : `Revizni_zprava_${order.readableId}.pdf`;
+
     // Return the file
     const response = new NextResponse(buffer);
     response.headers.set('Content-Type', mimeType);
-    response.headers.set('Content-Disposition', `attachment; filename="Revizni_zprava_${order.readableId}.pdf"`);
+    response.headers.set('Content-Disposition', `attachment; filename="${filename}"`);
     
     return response;
   } catch (error) {

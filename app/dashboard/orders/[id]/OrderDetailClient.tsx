@@ -117,25 +117,23 @@ export default function OrderDetailClient({ order, currentUser, technicians = []
               </select>
             )}
             
-            {currentUser.id === order.customerId && order.price && order.price > 0 && !order.isPaid && (
-              <button
-                onClick={async () => {
-                  try {
-                    const res = await fetch(`/api/orders/${order.readableId}/checkout`, { method: 'POST' });
-                    if (res.ok) {
-                      const data = await res.json();
-                      if (data.url) window.location.href = data.url;
-                    } else {
-                      alert('Chyba při vytváření platby');
-                    }
-                  } catch (e) {
-                    alert('Chyba při vytváření platby');
-                  }
-                }}
-                className="px-6 py-2 bg-brand-yellow text-black text-sm font-semibold rounded-lg hover:bg-brand-yellow-hover transition-colors"
-              >
-                Zaplatit revizi ({formatPriceCzk(order.price)})
-              </button>
+            {currentUser.id === order.customerId && order.price && order.price > 0 && !order.isPaid && !order.invoiceFile && (
+              <span className="px-4 py-2 bg-brand-yellow/10 text-brand-yellow text-sm font-semibold rounded-lg border border-brand-yellow/20">
+                Čeká se na platbu (fakturu vystaví technik)
+              </span>
+            )}
+            {currentUser.id === order.customerId && order.price && order.price > 0 && !order.isPaid && order.invoiceFile && (
+              <div className="flex flex-col gap-2 items-end">
+                <span className="px-4 py-2 bg-brand-yellow/10 text-brand-yellow text-sm font-semibold rounded-lg border border-brand-yellow/20 text-right">
+                  Faktura k úhradě vystavena
+                  {order.invoiceDueDate && (
+                    <span className="block text-xs mt-1 text-brand-yellow/80">Splatnost do: {new Date(order.invoiceDueDate).toLocaleDateString('cs-CZ')}</span>
+                  )}
+                </span>
+                <Link href={`/pay/${order.readableId}`} className="text-sm text-brand-yellow hover:underline">
+                  Přejít k platbě &rarr;
+                </Link>
+              </div>
             )}
             {currentUser.id === order.customerId && order.isPaid && (
               <span className="px-4 py-2 bg-green-500/10 text-green-500 text-sm font-semibold rounded-lg border border-green-500/20">
@@ -382,31 +380,56 @@ export default function OrderDetailClient({ order, currentUser, technicians = []
           {/* Documents (if any) */}
           <div className="bg-[#1A1A1A] border border-white/5 rounded-xl p-6">
             <h3 className="text-lg font-semibold text-white mb-4">Dokumenty</h3>
-            {/* @ts-ignore */}
-            {order.reportFile ? (
-              <div className="flex flex-col gap-3 rounded-lg border border-white/10 bg-[#111] p-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex min-w-0 items-center gap-3">
-                  <div className="shrink-0 rounded-lg bg-brand-yellow/10 p-2 text-brand-yellow">
-                    <FileText className="h-6 w-6" />
+            <div className="space-y-3">
+              {/* @ts-ignore */}
+              {order.reportFile ? (
+                <div className="flex flex-col gap-3 rounded-lg border border-white/10 bg-[#111] p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="shrink-0 rounded-lg bg-brand-yellow/10 p-2 text-brand-yellow">
+                      <FileText className="h-6 w-6" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-medium text-white">Revizní zpráva</p>
+                      <p className="text-xs text-gray-500">PDF Dokument</p>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="font-medium text-white">Revizní zpráva</p>
-                    <p className="text-xs text-gray-500">PDF Dokument</p>
-                  </div>
+                  <a 
+                    href={`/api/orders/${order.readableId}/download`} 
+                    download 
+                    className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-white/5 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/10 sm:self-center"
+                  >
+                    <Download className="h-4 w-4" /> Stáhnout
+                  </a>
                 </div>
-                <a 
-                  href={`/api/orders/${order.readableId}/download`} 
-                  download 
-                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-white/5 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/10 sm:self-center"
-                >
-                  <Download className="h-4 w-4" /> Stáhnout
-                </a>
-              </div>
-            ) : (
-              <div className="flex items-center justify-center py-8 border border-dashed border-white/10 rounded-lg text-gray-500">
-                  <p>Zatím nebyly nahrány žádné dokumenty.</p>
-              </div>
-            )}
+              ) : null}
+              {/* @ts-ignore */}
+              {order.invoiceFile ? (
+                <div className="flex flex-col gap-3 rounded-lg border border-white/10 bg-[#111] p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="shrink-0 rounded-lg bg-brand-yellow/10 p-2 text-brand-yellow">
+                      <FileText className="h-6 w-6" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-medium text-white">Faktura</p>
+                      <p className="text-xs text-gray-500">Dokument</p>
+                    </div>
+                  </div>
+                  <a 
+                    href={`/api/orders/${order.readableId}/download?type=invoice`} 
+                    download 
+                    className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-white/5 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/10 sm:self-center"
+                  >
+                    <Download className="h-4 w-4" /> Stáhnout
+                  </a>
+                </div>
+              ) : null}
+              {/* @ts-ignore */}
+              {!order.reportFile && !order.invoiceFile && (
+                <div className="flex items-center justify-center py-8 border border-dashed border-white/10 rounded-lg text-gray-500">
+                    <p>Zatím nebyly nahrány žádné dokumenty.</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

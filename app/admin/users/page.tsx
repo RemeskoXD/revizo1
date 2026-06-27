@@ -14,12 +14,14 @@ export default async function AdminUsersPage() {
   const [users, companyAdmins] = await Promise.all([
     prisma.user.findMany({
       orderBy: { createdAt: 'desc' },
+      take: 50,
       include: {
         company: { select: { id: true, name: true, email: true } },
       },
     }),
     prisma.user.findMany({
       where: { role: 'COMPANY_ADMIN' },
+      take: 500,
       orderBy: [{ name: 'asc' }, { email: 'asc' }],
       select: { id: true, name: true, email: true },
     }),

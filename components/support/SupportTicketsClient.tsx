@@ -174,15 +174,20 @@ function TicketDetailClient({ id, onBack, currentUser }: { id: string, onBack: (
     return () => clearInterval(interval);
   }, [id]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = () => {
-      setAttachmentData(reader.result as string);
-    };
-    reader.readAsDataURL(file);
+    
+    try {
+      const { compressImage, fileToBase64 } = await import('@/lib/client-compress');
+      const compressed = await compressImage(file);
+      const b64 = await fileToBase64(compressed);
+      setAttachmentData(b64);
+    } catch (err) {
+      console.error(err);
+      toast.error('Při zpracování souboru došlo k chybě.');
+    }
   };
 
   const handleSend = async (e: React.FormEvent) => {

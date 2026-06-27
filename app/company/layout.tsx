@@ -32,6 +32,9 @@ export default async function CompanyLayout({ children }: { children: ReactNode 
           <Link href="/company/technicians" className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
             <Users className="w-4 h-4" /> Naši technici
           </Link>
+          <Link href="/company/tech-invoices" className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
+            <FileText className="w-4 h-4" /> Faktury techniků
+          </Link>
           <Link href="/company/settlement" className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
             <DollarSign className="w-4 h-4" /> Vyúčtování
           </Link>

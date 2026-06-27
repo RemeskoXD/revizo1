@@ -9,13 +9,25 @@ export async function PATCH(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'SUPPORT')) {
+    if (!session || !['ADMIN', 'SUPPORT', 'COMPANY_ADMIN'].includes(session.user.role)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { id } = await context.params;
 
     const { status, amountPaid } = await req.json();
+
+    const existing = await prisma.payoutRequest.findUnique({ 
+      where: { id },
+      include: { technician: true }
+    });
+    if (!existing) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+
+    if (session.user.role === 'COMPANY_ADMIN' && existing.technician.companyId !== session.user.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
     const data: any = { status };
     if (status === 'PAID') {
@@ -29,12 +41,15 @@ export async function PATCH(
     }
 
     const updated = await prisma.payoutRequest.update({
-      where: { id },
+      where: { id, status: existing.status },
       data
     });
 
     return NextResponse.json(updated);
   } catch (error: any) {
+    if (error?.code === 'P2025') {
+      return NextResponse.json({ error: 'Uživatel nemá dostatek kreditu nebo se stav změnil' }, { status: 400 });
+    }
     console.error('Payout request update error:', error);
     return NextResponse.json({ error: 'Failed to update' }, { status: 500 });
   }

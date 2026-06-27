@@ -259,6 +259,50 @@ export function orderStatusEmail(data: {
   };
 }
 
+export function orderCompletedEmail(data: {
+  readableId: string;
+  serviceType: string;
+  address: string;
+  customerName?: string | null;
+  price: number;
+  dueDate: Date | null;
+}) {
+  const html = layout(`
+    <h2 style="color:#fff;font-size:20px;margin:0 0 8px">Revize byla dokončena</h2>
+    <p style="color:#999;font-size:14px;margin:0 0 24px">Dobrý den${data.customerName ? `, ${data.customerName}` : ''}. Vaše revize byla úspěšně dokončena technikem.</p>
+
+    <div style="background:#22c55e15;border:1px solid #22c55e40;border-radius:12px;padding:20px;margin-bottom:24px;text-align:center">
+      <p style="font-size:32px;margin:0">✅</p>
+      <p style="color:#22c55e;font-size:18px;font-weight:700;margin:8px 0 4px">Dokončeno</p>
+      <p style="color:#999;font-size:13px;margin:0">Revizní zpráva a faktura jsou k dispozici.</p>
+    </div>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#111;border-radius:12px;border:1px solid rgba(255,255,255,0.05);margin-bottom:24px">
+      <tr><td style="padding:12px 20px;border-bottom:1px solid rgba(255,255,255,0.05)">
+        <span style="color:#999;font-size:12px">Číslo objednávky</span><br>
+        <span style="color:#facc15;font-size:16px;font-weight:700;font-family:monospace">#${data.readableId}</span>
+      </td></tr>
+      <tr><td style="padding:12px 20px;border-bottom:1px solid rgba(255,255,255,0.05)">
+        <span style="color:#999;font-size:12px">K úhradě</span><br>
+        <span style="color:#fff;font-size:15px;font-weight:600">${new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK' }).format(data.price)}</span>
+      </td></tr>
+      ${data.dueDate ? `<tr><td style="padding:12px 20px;border-bottom:1px solid rgba(255,255,255,0.05)">
+        <span style="color:#999;font-size:12px">Splatnost faktury do</span><br>
+        <span style="color:#fff;font-size:15px;font-weight:600">${new Date(data.dueDate).toLocaleDateString('cs-CZ')}</span>
+      </td></tr>` : ''}
+    </table>
+
+    <div style="text-align:center">
+      ${button('Zobrazit a zaplatit fakturu', `${baseUrl}/pay/${data.readableId}`)}
+    </div>
+  `);
+
+  return {
+    subject: `✅ Vaše revize #${data.readableId} je dokončena – Revizone`,
+    html,
+  };
+}
+
 export function registrationApprovedEmail(params: {
   name: string | null;
   roleLabel: string;

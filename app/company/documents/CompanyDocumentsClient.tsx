@@ -283,18 +283,23 @@ function DocumentModal({
       setFileName(null);
       return;
     }
-    if (f.size > 4 * 1024 * 1024) {
-      toast.error('Soubor je příliš velký (max. 4 MB)');
-      return;
+    
+    try {
+      const { compressImage, fileToBase64 } = await import('@/lib/client-compress');
+      const compressed = await compressImage(f);
+      
+      if (compressed.size > 4 * 1024 * 1024) {
+        toast.error('Soubor je po kompresi stále příliš velký (max. 4 MB).');
+        return;
+      }
+      
+      const b64 = await fileToBase64(compressed);
+      setFileBase64(b64);
+      setFileMime(compressed.type || 'application/octet-stream');
+      setFileName(compressed.name);
+    } catch (err) {
+      toast.error('Při zpracování souboru došlo k chybě.');
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = String(reader.result || '');
-      setFileBase64(result);
-      setFileMime(f.type || 'application/octet-stream');
-      setFileName(f.name);
-    };
-    reader.readAsDataURL(f);
   };
 
   const submit = async (e: React.FormEvent) => {

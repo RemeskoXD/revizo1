@@ -13,6 +13,7 @@ export default async function AdminOrdersPage() {
 
   const orders = await prisma.order.findMany({
     orderBy: { createdAt: 'desc' },
+    take: 50,
     include: {
       customer: true,
       technician: true,
@@ -22,11 +23,15 @@ export default async function AdminOrdersPage() {
 
   const technicians = await prisma.user.findMany({
     where: { role: 'TECHNICIAN' },
+    take: 500,
+    orderBy: { name: 'asc' },
     select: { id: true, name: true, email: true }
   });
 
   const companies = await prisma.user.findMany({
     where: { role: 'COMPANY_ADMIN' },
+    take: 500,
+    orderBy: { name: 'asc' },
     select: { id: true, name: true, email: true }
   });
 

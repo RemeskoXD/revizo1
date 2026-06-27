@@ -48,15 +48,22 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       updateData.companyId = session.user.id;
     }
 
-    const updatedOrder = await prisma.order.update({
-      where: { id: order.id },
-      data: updateData,
-    });
+    try {
+      const updatedOrder = await prisma.order.update({
+        where: { id: order.id, isPublic: true },
+        data: updateData,
+      });
 
-    await notifyOrderAssigned(order.id, order.readableId, order.customerId, session.user.name || 'Technik');
-    sendOrderStatusEmail(order.id, 'PENDING').catch(console.error);
+      await notifyOrderAssigned(order.id, order.readableId, order.customerId, session.user.name || 'Technik');
+      sendOrderStatusEmail(order.id, 'PENDING').catch(console.error);
 
-    return NextResponse.json(updatedOrder, { status: 200 });
+      return NextResponse.json(updatedOrder, { status: 200 });
+    } catch (e: any) {
+      if (e.code === 'P2025') {
+        return NextResponse.json({ message: 'Zakázka už byla rozebrána někým jiným' }, { status: 400 });
+      }
+      throw e;
+    }
   } catch (error) {
     console.error('Claim order error:', error);
     return NextResponse.json({ message: 'Internal server error' }, { status: 500 });

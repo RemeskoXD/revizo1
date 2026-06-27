@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import {
   Search,
   Shield,
@@ -76,7 +76,12 @@ export default function AdminUsersClient({
   userRole: string;
   currentUserId: string;
 }) {
-  const [users, setUsers] = useState(initialUsers);
+  const [users, setUsers] = useState<UserWithCompany[]>(initialUsers);
+  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
+  const limit = 50;
+
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [companyFilter, setCompanyFilter] = useState<string>('all');
@@ -121,22 +126,34 @@ export default function AdminUsersClient({
 
   const canModerate = userRole === 'ADMIN' || userRole === 'SUPPORT';
 
-  const filteredUsers = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return users.filter((u) => {
-      const matchesSearch =
-        !q ||
-        u.name?.toLowerCase().includes(q) ||
-        u.email?.toLowerCase().includes(q) ||
-        u.phone?.toLowerCase().includes(q);
-      const matchesRole = roleFilter === 'all' || u.role === roleFilter;
-      const matchesCompany =
-        companyFilter === 'all' ||
-        u.companyId === companyFilter ||
-        (u.role === 'COMPANY_ADMIN' && u.id === companyFilter);
-      return matchesSearch && matchesRole && matchesCompany;
-    });
-  }, [users, search, roleFilter, companyFilter]);
+  useEffect(() => {
+    // We can't rely just on initialUsers if filters change
+    // but initially we don't want to double fetch.
+    const fetchUsers = async () => {
+      setIsLoading(true);
+      try {
+        const res = await fetch(`/api/admin/users?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}&role=${encodeURIComponent(roleFilter)}&company=${encodeURIComponent(companyFilter)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setUsers(data.users);
+          setTotalCount(data.total);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    const timeout = setTimeout(() => {
+      fetchUsers();
+    }, 300); // debounce search
+    
+    return () => clearTimeout(timeout);
+  }, [page, search, roleFilter, companyFilter]);
+
+  // Remove the client side filtering useMemo
+  const filteredUsers = users;
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -485,7 +502,7 @@ export default function AdminUsersClient({
                                   >
                                     <option value="CUSTOMER">Zákazník</option>
                                     <option value="TECHNICIAN">Revizní technik</option>
-                                    <option value="COMPANY_ADMIN">Pracujeme v týmu</option>
+                                    <option value="COMPANY_ADMIN">Firma (Pracujeme v týmu)</option>
                                     <option value="PRODUCT_MANAGER">Produkt Manager (Realitní makléř)</option>
                                     <option value="REALTY">Produkt Manager (Realitní makléř)</option>
                                     <option value="SVJ">Správce SVJ</option>
@@ -538,6 +555,7 @@ export default function AdminUsersClient({
                                 <div className="flex flex-col gap-1">
                                     <div className="flex items-center gap-2 text-xs">
                                         <Mail className="w-3 h-3" /> {user.email}
+                                        {user.emailVerified && <span title="E-mail ověřen"><CheckCircle2 className="w-3 h-3 text-emerald-400" /></span>}
                                     </div>
                                     <div className="flex items-center gap-2 text-xs">
                                         <Phone className="w-3 h-3" /> {user.phone || 'Nenastaveno'}
@@ -600,6 +618,24 @@ export default function AdminUsersClient({
                                   </div>
                                 ) : (
                                   <div className="flex flex-wrap items-center justify-end gap-2">
+                                    {canModerate && user.emailVerified === null && (
+                                      <button
+                                        type="button"
+                                        onClick={async () => {
+                                          if (!confirm('Opravdu chcete ručně ověřit e-mail tohoto uživatele?')) return;
+                                          try {
+                                            const res = await fetch(`/api/admin/users/${user.id}/verify-email`, { method: 'POST' });
+                                            if (res.ok) window.location.reload();
+                                            else alert('Chyba při ověřování');
+                                          } catch (e) {
+                                            console.error(e);
+                                          }
+                                        }}
+                                        className="rounded-lg px-2 py-1.5 text-xs font-semibold text-blue-400 hover:bg-blue-500/10 transition-colors"
+                                      >
+                                        Ověřit
+                                      </button>
+                                    )}
                                     {canModerate && user.id !== currentUserId && (
                                       <button
                                         type="button"
@@ -643,6 +679,30 @@ export default function AdminUsersClient({
                     )}
                 </tbody>
             </table>
+        </div>
+        
+        {/* Pagination Controls */}
+        <div className="flex items-center justify-between border-t border-white/5 p-4 bg-[#111]">
+          <div className="text-sm text-gray-400">
+            Zobrazeno {users.length} z {totalCount} uživatelů
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1 || isLoading}
+              className="px-3 py-1 text-sm bg-white/5 rounded hover:bg-white/10 disabled:opacity-50"
+            >
+              Předchozí
+            </button>
+            <span className="text-sm text-white px-2">Strana {page}</span>
+            <button
+              onClick={() => setPage((p) => p + 1)}
+              disabled={page * limit >= totalCount || isLoading}
+              className="px-3 py-1 text-sm bg-white/5 rounded hover:bg-white/10 disabled:opacity-50"
+            >
+              Další
+            </button>
+          </div>
         </div>
       </div>
 
@@ -899,7 +959,7 @@ export default function AdminUsersClient({
                   {[
                     ['CUSTOMER', 'Zákazník'],
                     ['TECHNICIAN', 'Revizní technik'],
-                    ['COMPANY_ADMIN', 'Pracujeme v týmu'],
+                    ['COMPANY_ADMIN', 'Firma (Pracujeme v týmu)'],
                     ['PRODUCT_MANAGER', 'Produkt Manager (Realitní makléř)'],
                     ['REALTY', 'Produkt Manager (Realitní makléř)'],
                     ['SVJ', 'Správce SVJ'],

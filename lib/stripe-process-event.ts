@@ -182,29 +182,17 @@ export async function processStripeEvent(event: Stripe.Event): Promise<void> {
     case 'checkout.session.completed': {
       const sess = event.data.object as Stripe.Checkout.Session;
       
-      // Order Payment
-      const orderId = sess.metadata?.orderId;
-      if (orderId && sess.payment_status === 'paid') {
-        const order = await prisma.order.findUnique({
-          where: { id: orderId },
-          include: { customer: true }
-        });
-        if (order && !order.isPaid) {
-          await prisma.order.update({
-            where: { id: orderId },
-            data: { isPaid: true }
+      // Credit Topup
+      if (sess.metadata?.type === 'CREDIT_TOPUP' && sess.payment_status === 'paid') {
+        const userId = sess.metadata.userId;
+        const amountCzk = Number(sess.metadata.amountCzk);
+        if (userId && amountCzk > 0) {
+          await prisma.user.update({
+            where: { id: userId },
+            data: { creditBalance: { increment: amountCzk } }
           });
-          
-          if (order.customer && order.customer.email && order.customer.emailNotifications) {
-            const emailData = paymentSuccessEmail({
-              userName: order.customer.name,
-              serviceType: order.serviceType,
-              price: order.price || 0,
-              readableId: order.readableId,
-            });
-            sendMail({ to: order.customer.email, ...emailData }).catch(console.error);
-          }
         }
+        return;
       }
 
       // Subscription Customer Update

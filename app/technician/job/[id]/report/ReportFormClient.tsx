@@ -147,7 +147,7 @@ export default function ReportFormClient({ order }: { order: any }) {
 
       const htmlBase64 = `data:text/html;base64,${btoa(unescape(encodeURIComponent(html)))}`;
 
-      const completeRes = await fetch(`/api/orders/${order.readableId}/complete`, {
+      const completeRes = await fetch(`/api/orders/${order.readableId}/save-report`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -160,11 +160,12 @@ export default function ReportFormClient({ order }: { order: any }) {
 
       if (completeRes.ok) {
         router.push(`/technician/job/${order.readableId}`);
+        router.refresh();
       } else {
         const err = await completeRes.json();
-        alert(err.message || 'Chyba při odesílání.');
+        alert(err.message || 'Chyba při ukládání zprávy.');
       }
-    } catch { alert('Chyba.'); }
+    } catch { alert('Chyba při komunikaci se serverem.'); }
     finally { setIsSubmitting(false); }
   };
 

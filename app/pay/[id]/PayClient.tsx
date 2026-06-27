@@ -1,6 +1,6 @@
 'use client';
 
-import { DollarSign, FileText, CheckCircle2, ShieldCheck, MapPin, Search } from 'lucide-react';
+import { DollarSign, FileText, CheckCircle2, ShieldCheck, MapPin, Search, Download } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { motion } from 'motion/react';
 import Link from 'next/link';
@@ -22,39 +22,51 @@ export function PayClient({ order }: { order: any }) {
   if (order.isPaid) {
     return (
       <div className="min-h-dvh bg-black flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-[#1A1A1A] border border-green-500/20 rounded-2xl p-8 text-center text-white">
-           <div className="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
-             <CheckCircle2 className="w-8 h-8 text-green-500" />
-           </div>
-           <h1 className="text-2xl font-bold text-green-500 mb-2">Zaplaceno</h1>
-           <p className="text-gray-400">Revize #{order.readableId} byla v pořádku uhrazena.</p>
-           <p className="text-sm font-medium text-white mt-4">{order.serviceType}</p>
-        </div>
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="max-w-md w-full bg-[#1A1A1A] border border-green-500/30 rounded-3xl p-8 text-center shadow-[0_0_40px_rgba(34,197,94,0.1)] relative overflow-hidden"
+        >
+          <div className="absolute top-0 left-0 right-0 h-1 bg-green-500" />
+          <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
+            <CheckCircle2 className="w-10 h-10 text-green-500" />
+          </div>
+          <h1 className="text-2xl font-bold text-white mb-2">Faktura uhrazena</h1>
+          <p className="text-gray-400 mb-8">
+            Děkujeme. Platba za revizi byla úspěšně přijata. Vaše revizní dokumenty jsou nyní k dispozici.
+          </p>
+          <div className="space-y-3">
+            {order.reportFile && (
+              <a 
+                href={`/api/orders/${order.readableId}/download`}
+                download
+                className="w-full py-3.5 bg-green-500 text-black font-bold rounded-xl hover:bg-green-400 transition-colors flex items-center justify-center gap-2"
+              >
+                <Download className="w-5 h-5" />
+                Stáhnout revizní zprávu
+              </a>
+            )}
+            {order.invoiceFile && (
+              <a 
+                href={`/api/orders/${order.readableId}/download?type=invoice`}
+                download
+                className="w-full py-3.5 bg-white/5 border border-white/10 text-white font-bold rounded-xl hover:bg-white/10 transition-colors flex items-center justify-center gap-2"
+              >
+                <Download className="w-5 h-5" />
+                Stáhnout fakturu
+              </a>
+            )}
+            <Link 
+              href="/dashboard"
+              className="block w-full py-3 text-sm text-gray-400 hover:text-white transition-colors mt-4"
+            >
+              Zpět do aplikace
+            </Link>
+          </div>
+        </motion.div>
       </div>
     );
   }
-
-  // Generate generic SPAYD string
-  // Format: SPD*1.0*ACC:CZxx*AM:1000.00*CC:CZK*X-VS:12345678*MSG:Revize
-  // Using a fallback IBAN if not configured in the system.
-  const fallbackIban = 'CZ0000000000000000000000';
-  const amountStr = Number(order.price).toFixed(2);
-  const vs = order.readableId;
-  const spayd = `SPD*1.0*ACC:${fallbackIban}*AM:${amountStr}*CC:CZK*X-VS:${vs}*MSG:Revize ${order.readableId}`;
-
-  const handleCardPayment = async () => {
-    try {
-      const res = await fetch(`/api/orders/${order.readableId}/checkout`, { method: 'POST' });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.url) window.location.href = data.url;
-      } else {
-        alert('Platba kartou online momentálně není definována. Použijte QR kód.');
-      }
-    } catch {
-      alert('Chyba platební brány.');
-    }
-  };
 
   return (
     <div className="min-h-dvh bg-black flex flex-col items-center justify-center p-4">
@@ -70,14 +82,15 @@ export function PayClient({ order }: { order: any }) {
           <div className="p-6 border-b border-white/5">
             <div className="flex justify-between items-center mb-4">
               {(() => {
-                 const isOverdue = order.completedAt ? new Date().getTime() - new Date(order.completedAt).getTime() > 14 * 24 * 60 * 60 * 1000 : false;
+                 const dueDate = order.invoiceDueDate ? new Date(order.invoiceDueDate) : (order.completedAt ? new Date(new Date(order.completedAt).getTime() + 14 * 24 * 60 * 60 * 1000) : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000));
+                 const isOverdue = new Date().getTime() > dueDate.getTime();
                  return isOverdue ? (
                    <span className="px-3 py-1 bg-red-500/10 text-red-500 text-xs font-bold rounded-full uppercase tracking-wider">
                      Po splatnosti
                    </span>
                  ) : (
                    <span className="px-3 py-1 bg-brand-yellow/10 text-brand-yellow text-xs font-bold rounded-full uppercase tracking-wider">
-                     Splatné do 14 dnů
+                     Splatné do {dueDate.toLocaleDateString('cs-CZ')}
                    </span>
                  );
               })()}
@@ -98,33 +111,33 @@ export function PayClient({ order }: { order: any }) {
             </div>
           </div>
 
-          <div className="p-6 md:p-8 grid md:grid-cols-2 gap-8 items-center border-t border-white/5">
+          <div className="p-6 md:p-8 flex flex-col items-center border-t border-white/5 text-center">
             
-            {/* SPAYD QR */}
-            <div className="flex flex-col items-center">
-              <p className="text-sm font-semibold text-gray-400 mb-4 uppercase tracking-wider text-center">Platba přes mobilní banku</p>
-              <div className="bg-white p-3 rounded-xl shadow-xl">
-                <QRCodeSVG value={spayd} size={150} level="M" />
-              </div>
-              <p className="text-xs text-brand-yellow mt-4 flex items-center gap-1.5"><Search className="w-3.5 h-3.5"/> Naskenujte v bankovní aplikaci</p>
-            </div>
-
-            <div className="hidden md:block w-px h-full bg-white/5 mx-auto"></div>
-
-            {/* Alternativy */}
-            <div className="space-y-4">
-              <p className="text-sm font-semibold text-gray-400 uppercase tracking-wider md:text-left text-center">Rychlá on-line platba</p>
-              <button 
-                onClick={handleCardPayment}
+            <p className="text-gray-400 mb-6">
+              Platbu proveďte přímo technikovi podle pokynů na faktuře, kterou vystavil.
+            </p>
+            
+            {order.invoiceFile ? (
+              <a 
+                href={`/api/orders/${order.readableId}/download?type=invoice`}
+                download
                 className="w-full py-3.5 bg-brand-yellow text-black font-bold rounded-xl hover:bg-brand-yellow-hover transition-colors shadow-lg shadow-brand-yellow/10 flex items-center justify-center gap-2"
               >
-                <DollarSign className="w-5 h-5" />
-                Zaplatit kartou online
-              </button>
-              <div className="text-xs text-gray-500 text-center leading-relaxed">
-                Platba kartou pomocí Google Pay, Apple Pay nebo platební brány.
-              </div>
-            </div>
+                <Download className="w-5 h-5" />
+                Stáhnout fakturu k proplacení
+              </a>
+            ) : (
+               <div className="text-gray-500">
+                 Technik zatím nenahrál fakturu.
+               </div>
+            )}
+            
+            <Link 
+              href="/dashboard"
+              className="block w-full py-3 text-sm text-gray-500 hover:text-white transition-colors mt-6"
+            >
+              Zpět do aplikace
+            </Link>
 
           </div>
         </motion.div>

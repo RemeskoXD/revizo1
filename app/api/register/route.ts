@@ -51,6 +51,7 @@ export async function POST(req: Request) {
       phone?: string;
       address?: string;
       ico?: string;
+      bankAccount?: string;
       companyInviteCode?: string;
       licenseDocument?: string;
       expectedTechnicians?: number | null;
@@ -70,6 +71,7 @@ export async function POST(req: Request) {
       phone: rawPhone,
       address: rawAddress,
       ico: rawIco,
+      bankAccount: rawBankAccount,
       companyInviteCode: rawCompanyCode,
       licenseDocument: rawLicense,
       expectedTechnicians,
@@ -106,6 +108,7 @@ export async function POST(req: Request) {
     const phone = rawPhone != null ? String(rawPhone).trim().slice(0, 40) : "";
     const address = rawAddress != null ? String(rawAddress).trim().slice(0, 500) : "";
     const ico = rawIco != null ? String(rawIco).trim().slice(0, 20) : "";
+    const bankAccount = rawBankAccount != null ? String(rawBankAccount).trim().slice(0, 100) : "";
     const companyInviteCode =
       rawCompanyCode != null ? String(rawCompanyCode).trim().slice(0, 80) : "";
 
@@ -220,6 +223,7 @@ export async function POST(req: Request) {
           phone: phone || null,
           address: address || null,
           ico: ico || null,
+          bankAccount: bankAccount || null,
           licenseDocument: licTech!.base64,
           licenseMimeType: licTech!.mime,
           pendingCompanyInviteCode: companyInviteCode || null,
@@ -277,6 +281,7 @@ export async function POST(req: Request) {
           phone: phone || null,
           address: address || null,
           ico: ico || null,
+          bankAccount: bankAccount || null,
           licenseDocument: licTech!.base64,
           licenseMimeType: licTech!.mime,
           pendingCompanyInviteCode: companyInviteCode || null,

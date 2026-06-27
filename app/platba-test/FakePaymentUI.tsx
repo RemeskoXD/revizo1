@@ -44,31 +44,6 @@ export default function FakePaymentUI({
   const portalDoneUrl = `${returnPath}?tab=billing`;
 
   const onSuccess = async () => {
-    if (purpose === 'order') {
-      setBusy(true);
-      try {
-        const urlParams = new URL(window.location.href);
-        const orderId = urlParams.searchParams.get('orderId');
-        if (orderId) {
-          const res = await fetch('/api/billing/complete-fake-order', {
-            method: 'POST',
-            body: JSON.stringify({ orderId }),
-            headers: { 'Content-Type': 'application/json' }
-          });
-          if (!res.ok) {
-            const data = await res.json().catch(() => ({}));
-            alert(data.message || 'Nepodařilo se dokončit platbu objednávky.');
-            return;
-          }
-        }
-        router.replace(successUrl);
-        router.refresh();
-      } finally {
-        setBusy(false);
-      }
-      return;
-    }
-
     if (purpose === 'addon') {
       if (!addon) {
         router.replace(returnPath);

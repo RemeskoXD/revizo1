@@ -8,9 +8,21 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const session = await getServerSession(authOptions);
     if (!session) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
 
-    const { photoId } = await params;
+    const { id, photoId } = await params;
 
-    const photo = await prisma.orderPhoto.findUnique({ where: { id: photoId } });
+    const order = await prisma.order.findUnique({ where: { id } });
+    if (!order) return NextResponse.json({ message: 'Order not found' }, { status: 404 });
+
+    const isCustomer = order.customerId === session.user.id;
+    const isTechnician = order.technicianId === session.user.id;
+    const isCompany = order.companyId === session.user.id;
+    const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPPORT';
+
+    if (!isCustomer && !isTechnician && !isCompany && !isAdmin) {
+      return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+    }
+
+    const photo = await prisma.orderPhoto.findFirst({ where: { id: photoId, orderId: id } });
     if (!photo) return NextResponse.json({ message: 'Not found' }, { status: 404 });
 
     return NextResponse.json({ imageData: photo.imageData });

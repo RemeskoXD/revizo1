@@ -13,6 +13,8 @@ model User {
   email                        String?                  @unique
   password                     String?
   phone                        String?
+  bankAccount                  String?
+  creditBalance                Float                    @default(0)
   role                         String                   @default("CUSTOMER")
   createdAt                    DateTime                 @default(now())
   updatedAt                    DateTime                 @updatedAt
@@ -99,23 +101,23 @@ model User {
 /// Hlídané dokumenty firmy (svářečské průkazy, zdravotní prohlídky, certifikace, …).
 /// Viz docs/business-decisions.md sekce 3.1.
 model CompanyDocument {
-  id          String   @id @default(cuid())
-  ownerId     String
-  title       String   @db.VarChar(255)
-  category    String?  @db.VarChar(80)
-  fileBase64  String?  @db.LongText
-  fileMimeType String? @db.VarChar(120)
-  fileName    String?  @db.VarChar(255)
-  validUntil  DateTime?
+  id            String    @id @default(cuid())
+  ownerId       String
+  title         String    @db.VarChar(255)
+  category      String?   @db.VarChar(80)
+  fileBase64    String?   @db.LongText
+  fileMimeType  String?   @db.VarChar(120)
+  fileName      String?   @db.VarChar(255)
+  validUntil    DateTime?
   /// Volitelná poznámka / popis
-  notes       String?  @db.Text
+  notes         String?   @db.Text
   /// Volitelná osoba, ke které se dokument vztahuje (technik, zaměstnanec, …)
-  subjectName String?  @db.VarChar(160)
+  subjectName   String?   @db.VarChar(160)
   /// Volitelný odkaz na uživatele (např. konkrétního technika v týmu)
-  subjectUserId String? @db.VarChar(60)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  owner       User     @relation("CompanyDocumentsOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  subjectUserId String?   @db.VarChar(60)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  owner         User      @relation("CompanyDocumentsOwner", fields: [ownerId], references: [id], onDelete: Cascade)
 
   @@index([ownerId, validUntil])
   @@index([subjectUserId])
@@ -124,19 +126,19 @@ model CompanyDocument {
 /// Odměna makléři za úspěšně zaregistrovaného zákazníka (referral program).
 /// Viz docs/pricing-rules.md sekce 4b: 20 Kč zpět makléři po první úhradě CUSTOMER.
 model ReferralReward {
-  id          String   @id @default(cuid())
-  realtorId   String
-  customerId  String
-  amountCzk   Int      @default(20)
-  status      String   @default("PENDING")
+  id         String    @id @default(cuid())
+  realtorId  String
+  customerId String
+  amountCzk  Int       @default(20)
+  status     String    @default("PENDING")
   /// Zdroj odměny: REF_LINK = registrace přes ?ref=; PROPERTY_TRANSFER = převod nemovitosti přes invite kód;
   /// MANUAL = vytvořeno administrátorem.
-  source      String   @default("REF_LINK") @db.VarChar(40)
-  createdAt   DateTime @default(now())
-  paidAt      DateTime?
-  notes       String?  @db.Text
-  realtor     User     @relation("RealtorRewards", fields: [realtorId], references: [id], onDelete: Cascade)
-  customer    User     @relation("CustomerRewards", fields: [customerId], references: [id], onDelete: Cascade)
+  source     String    @default("REF_LINK") @db.VarChar(40)
+  createdAt  DateTime  @default(now())
+  paidAt     DateTime?
+  notes      String?   @db.Text
+  realtor    User      @relation("RealtorRewards", fields: [realtorId], references: [id], onDelete: Cascade)
+  customer   User      @relation("CustomerRewards", fields: [customerId], references: [id], onDelete: Cascade)
 
   @@unique([realtorId, customerId, source])
   @@index([realtorId, status])
@@ -148,20 +150,20 @@ model ReferralReward {
 /// Poplatek makléři za převod nemovitosti přes invite kód (200 Kč).
 /// Viz docs/business-decisions.md sekce 2.4. Status: PENDING → PAID → CANCELLED.
 model RealtorTransferFee {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   realtorId       String
   customerId      String
   propertyId      String
-  amountCzk       Int      @default(200)
-  status          String   @default("PENDING")
+  amountCzk       Int       @default(200)
+  status          String    @default("PENDING")
   /// Stripe Invoice / PaymentIntent ID (po úhradě)
-  stripeInvoiceId String?  @db.VarChar(120)
-  createdAt       DateTime @default(now())
+  stripeInvoiceId String?   @db.VarChar(120)
+  createdAt       DateTime  @default(now())
   paidAt          DateTime?
-  notes           String?  @db.Text
-  realtor         User     @relation("RealtorTransferFees", fields: [realtorId], references: [id], onDelete: Cascade)
-  customer        User     @relation("TransferFeeCustomers", fields: [customerId], references: [id], onDelete: Cascade)
-  property        Property @relation("PropertyTransferFees", fields: [propertyId], references: [id], onDelete: Cascade)
+  notes           String?   @db.Text
+  realtor         User      @relation("RealtorTransferFees", fields: [realtorId], references: [id], onDelete: Cascade)
+  customer        User      @relation("TransferFeeCustomers", fields: [customerId], references: [id], onDelete: Cascade)
+  property        Property  @relation("PropertyTransferFees", fields: [propertyId], references: [id], onDelete: Cascade)
 
   @@unique([propertyId])
   @@index([realtorId, status])
@@ -238,54 +240,57 @@ model DocumentTransfer {
 }
 
 model Order {
-  id                  String            @id @default(cuid())
-  readableId          String            @unique
+  id                  String    @id @default(cuid())
+  readableId          String    @unique
   serviceType         String
   propertyType        String
   address             String
   notes               String?
-  status              String            @default("PENDING")
-  createdAt           DateTime          @default(now())
-  updatedAt           DateTime          @updatedAt
+  status              String    @default("PENDING")
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
   customerId          String
   technicianId        String?
   assignedAt          DateTime?
   companyId           String?
-  isPublic            Boolean           @default(false)
-  reportFile          String?           @db.LongText
+  isPublic            Boolean   @default(false)
+  reportFile          String?   @db.LongText
+  invoiceFile         String?   @db.LongText
+  invoiceDueDate      DateTime?
   price               Float?
   preferredDate       DateTime?
   propertyId          String?
-  isDeleted           Boolean           @default(false)
+  isDeleted           Boolean   @default(false)
   revisionCategoryId  String?
   scheduledDate       DateTime?
-  scheduledNote       String?           @db.Text
+  scheduledNote       String?   @db.Text
   confirmedAddress    String?
   revisionResult      String?
-  revisionNotes       String?           @db.Text
+  revisionNotes       String?   @db.Text
   nextRevisionDate    DateTime?
   completedAt         DateTime?
-  cancelToken         String?           @unique
+  cancelToken         String?   @unique
   /// Zákazník zvolil urgentní termín (+ příplatek dle ceníku, typicky URGENT_SURCHARGE).
-  isUrgent            Boolean           @default(false)
+  isUrgent            Boolean   @default(false)
   lastExpiryEmailDays Int?
-  isPaid              Boolean           @default(false)
+  isPaid              Boolean   @default(false)
   /// Admin verified the revision and payment, ready to payout
-  isVerifiedAdmin     Boolean           @default(false)
+  isVerifiedAdmin     Boolean   @default(false)
   servicePackageId    String?
 
-  checklists          ChecklistItem[]
-  defectTasks         DefectTask[]
-  messages            Message[]
-  company             User?             @relation("CompanyOrders", fields: [companyId], references: [id])
-  customer            User              @relation("CustomerOrders", fields: [customerId], references: [id])
-  property            Property?         @relation(fields: [propertyId], references: [id])
-  revisionCategory    RevisionCategory? @relation(fields: [revisionCategoryId], references: [id])
-  technician          User?             @relation("TechnicianOrders", fields: [technicianId], references: [id])
-  photos              OrderPhoto[]
-  review              Review?
-  pricingItems        OrderPricingItem[]
-  servicePackage      ServicePackage?   @relation(fields: [servicePackageId], references: [id])
+  checklists       ChecklistItem[]
+  defectTasks      DefectTask[]
+  messages         Message[]
+  company          User?              @relation("CompanyOrders", fields: [companyId], references: [id])
+  customer         User               @relation("CustomerOrders", fields: [customerId], references: [id])
+  property         Property?          @relation(fields: [propertyId], references: [id])
+  revisionCategory RevisionCategory?  @relation(fields: [revisionCategoryId], references: [id])
+  technician       User?              @relation("TechnicianOrders", fields: [technicianId], references: [id])
+  photos           OrderPhoto[]
+  review           Review?
+  pricingItems     OrderPricingItem[]
+  servicePackage   ServicePackage?    @relation(fields: [servicePackageId], references: [id])
+  PayoutRequest    PayoutRequest[]
 
   @@index([companyId], map: "Order_companyId_fkey")
   @@index([customerId], map: "Order_customerId_fkey")
@@ -295,80 +300,80 @@ model Order {
 }
 
 model ServicePackage {
-  id                   String   @id @default(cuid())
-  name                 String
-  description          String?  @db.Text
-  approximatePrice     Float?
-  isVisibleRodinnyDum  Boolean  @default(true)
-  isVisibleSVJ         Boolean  @default(true)
-  orderIndex           Int      @default(0)
-  isActive             Boolean  @default(true)
-  
-  orders               Order[]
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  id                  String  @id @default(cuid())
+  name                String
+  description         String? @db.Text
+  approximatePrice    Float?
+  isVisibleRodinnyDum Boolean @default(true)
+  isVisibleSVJ        Boolean @default(true)
+  orderIndex          Int     @default(0)
+  isActive            Boolean @default(true)
+
+  orders    Order[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model PricingItem {
-  id          String   @id @default(cuid())
-  code        String   @unique
-  category    String
-  name        String
-  priceCzk    Float
-  unit        String   /// pausal, ks, km, hodina
+  id       String @id @default(cuid())
+  code     String @unique
+  category String
+  name     String
+  priceCzk Float
+  unit     String /// pausal, ks, km, hodina
 
-  orderItems  OrderPricingItem[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  orderItems OrderPricingItem[]
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
 }
 
 model OrderPricingItem {
-  id             String      @id @default(cuid())
-  orderId        String
-  pricingItemId  String
-  quantity       Float       @default(1)
-  unitPriceCzk   Float       /// snapshot of the price at the time of creation
-  totalPriceCzk  Float
+  id            String @id @default(cuid())
+  orderId       String
+  pricingItemId String
+  quantity      Float  @default(1)
+  unitPriceCzk  Float /// snapshot of the price at the time of creation
+  totalPriceCzk Float
 
-  order          Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  pricingItem    PricingItem @relation(fields: [pricingItemId], references: [id], onDelete: Restrict)
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  order       Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  pricingItem PricingItem @relation(fields: [pricingItemId], references: [id], onDelete: Restrict)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 
   @@index([orderId])
   @@index([pricingItemId])
 }
 
 model RevisionCategory {
-  id             String   @id @default(cuid())
-  name           String   @unique
-  group          String
-  intervalMonths Int
-  legalBasis     String?
-  description    String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id              String   @id @default(cuid())
+  name            String   @unique
+  group           String
+  intervalMonths  Int
+  legalBasis      String?
+  description     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
   /// Cílové role (CSV: "CUSTOMER,SVJ,COMPANY_ADMIN"). NULL nebo prázdné = pro všechny.
   /// Viz docs/business-decisions.md sekce 1.2.
-  targetRoles    String?  @db.VarChar(255)
-  orders         Order[]
-  authorizedUsers User[]  @relation("AuthorizedCategories")
+  targetRoles     String?  @db.VarChar(255)
+  orders          Order[]
+  authorizedUsers User[]   @relation("AuthorizedCategories")
 }
 
 model Property {
-  id             String   @id @default(cuid())
+  id             String              @id @default(cuid())
   name           String
   address        String?
   description    String?
   ownerId        String
-  transferToken  String?  @unique
+  transferToken  String?             @unique
   transferStatus String?
   claimedById    String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
   orders         Order[]
-  claimedBy      User?    @relation("PropertyClaimer", fields: [claimedById], references: [id])
-  owner          User     @relation("PropertyOwner", fields: [ownerId], references: [id])
+  claimedBy      User?               @relation("PropertyClaimer", fields: [claimedById], references: [id])
+  owner          User                @relation("PropertyOwner", fields: [ownerId], references: [id])
   transferFee    RealtorTransferFee? @relation("PropertyTransferFees")
 
   @@index([claimedById], map: "Property_claimedById_fkey")
@@ -516,35 +521,39 @@ model EmailLog {
 
 /// Žádost o výplatu od technika (Ticket pro výplatu)
 model PayoutRequest {
-  id             String    @id @default(cuid())
-  technicianId   String
-  technician     User      @relation(fields: [technicianId], references: [id], onDelete: Cascade)
-  amount         Float
-  status         String    @default("PENDING") /// PENDING, PROCESSING, PAID, REJECTED
-  requestedAt    DateTime  @default(now())
-  paidAt         DateTime?
-  notes          String?   @db.Text
-  iban           String?
-  invoiceUrl     String?   @db.LongText
-  amountPaid     Float?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id           String    @id @default(cuid())
+  technicianId String
+  technician   User      @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+  amount       Float
+  status       String    @default("PENDING") /// PENDING, PROCESSING, PAID, REJECTED
+  requestedAt  DateTime  @default(now())
+  paidAt       DateTime?
+  notes        String?   @db.Text
+  iban         String?
+  invoiceUrl   String?   @db.LongText
+  amountPaid   Float?
+  dueDate      DateTime?
+  orderId      String?
+  order        Order?    @relation(fields: [orderId], references: [id])
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@index([technicianId])
+  @@index([orderId])
 }
 
 /// Tiket na support
 model SupportTicket {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation("UserSupportTickets", fields: [userId], references: [id], onDelete: Cascade)
-  subject     String   @db.VarChar(255)
-  category    String   @default("GENERAL")
-  status      String   @default("OPEN") /// OPEN, CLOSED
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation("UserSupportTickets", fields: [userId], references: [id], onDelete: Cascade)
+  subject   String   @db.VarChar(255)
+  category  String   @default("GENERAL")
+  status    String   @default("OPEN") /// OPEN, CLOSED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  messages    SupportTicketMessage[]
+  messages SupportTicketMessage[]
 
   @@index([userId])
   @@index([status])
@@ -552,15 +561,15 @@ model SupportTicket {
 
 /// Zprava v tiketu na support
 model SupportTicketMessage {
-  id            String         @id @default(cuid())
+  id            String        @id @default(cuid())
   ticketId      String
-  ticket        SupportTicket  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticket        SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   senderId      String
-  sender        User           @relation("UserSupportMessages", fields: [senderId], references: [id], onDelete: Cascade)
-  text          String?        @db.Text
-  attachmentUrl String?        @db.LongText
-  fileName      String?        @db.VarChar(255)
-  createdAt     DateTime       @default(now())
+  sender        User          @relation("UserSupportMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  text          String?       @db.Text
+  attachmentUrl String?       @db.LongText
+  fileName      String?       @db.VarChar(255)
+  createdAt     DateTime      @default(now())
 
   @@index([ticketId])
   @@index([senderId])

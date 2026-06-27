@@ -47,7 +47,7 @@ export default function AdminPayoutsClient({ requests: initialRequests }: { requ
   return (
     <div className="space-y-6 max-w-6xl">
       <div>
-        <h1 className="text-2xl font-bold text-white">Výplaty (Tikety od techniků)</h1>
+        <h1 className="text-2xl font-bold text-white">Výplaty (Faktury od techniků)</h1>
         <p className="text-gray-400 text-sm">Zde schvalujete a potvrzujete výplaty technikům.</p>
       </div>
 
@@ -57,16 +57,19 @@ export default function AdminPayoutsClient({ requests: initialRequests }: { requ
             <tr>
               <th className="px-4 py-3">Technik</th>
               <th className="px-4 py-3">Částka / Účet</th>
-              <th className="px-4 py-3">Poznámka</th>
-              <th className="px-4 py-3">Založeno (odpočet)</th>
+              <th className="px-4 py-3">Objednávka</th>
+              <th className="px-4 py-3">Poznámka / Faktura</th>
+              <th className="px-4 py-3">Splatnost (odpočet)</th>
               <th className="px-4 py-3">Stav</th>
               <th className="px-4 py-3 text-right">Akce</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5">
             {requests.map(req => {
-              const daysLeft = calculateDaysLeft(req.createdAt);
-              const isUrgent = req.status === 'PENDING' && daysLeft <= 2;
+              const daysLeft = req.dueDate 
+                ? Math.ceil((new Date(req.dueDate).getTime() - new Date().getTime()) / (1000 * 3600 * 24))
+                : calculateDaysLeft(req.createdAt);
+              const isUrgent = req.status === 'PENDING' && daysLeft <= 2 && daysLeft >= 0;
               const isLate = req.status === 'PENDING' && daysLeft < 0;
 
               return (
@@ -79,24 +82,34 @@ export default function AdminPayoutsClient({ requests: initialRequests }: { requ
                     <div className="font-bold text-brand-yellow font-mono">{req.amount.toLocaleString('cs-CZ')} Kč</div>
                     <div className="text-xs font-mono text-gray-400 mt-1">{req.iban || 'Nespecifikován'}</div>
                   </td>
+                  <td className="px-4 py-3">
+                    {req.order ? (
+                      <div>
+                        <a href={`/admin/orders/${req.order.id}`} className="text-brand-yellow hover:underline">{req.order.readableId}</a>
+                        {req.order.customer?.name && <div className="text-xs text-gray-500 mt-1">{req.order.customer.name}</div>}
+                      </div>
+                    ) : (
+                      <span className="text-gray-500">-</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 max-w-[200px] truncate" title={req.notes}>
                     <div>{req.notes || '-'}</div>
                     {req.invoiceUrl && (
                       <div className="mt-2">
-                        <a href={req.invoiceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:text-blue-300 hover:underline">
+                        <a href={req.invoiceUrl} target="_blank" rel="noopener noreferrer" className="text-xs bg-[#222] hover:bg-[#333] px-2 py-1 rounded text-white border border-white/10 transition-colors">
                           Zobrazit fakturu
                         </a>
                       </div>
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <div>{new Date(req.createdAt).toLocaleDateString('cs-CZ')}</div>
+                    <div>{req.dueDate ? new Date(req.dueDate).toLocaleDateString('cs-CZ') : new Date(req.createdAt).toLocaleDateString('cs-CZ')}</div>
                     {req.status === 'PENDING' && (
                       <div className={cn(
                         "text-xs font-semibold mt-1",
                         isLate ? "text-red-500" : isUrgent ? "text-orange-400" : "text-gray-400"
                       )}>
-                        {isLate ? `Zpoždění: ${Math.abs(daysLeft)} dní` : `Zbývá: ${daysLeft} dní`}
+                        {isLate ? `Po splatnosti: ${Math.abs(daysLeft)} dní` : `Zbývá: ${daysLeft} dní`}
                       </div>
                     )}
                     {req.status === 'PAID' && req.paidAt && (
@@ -163,7 +176,7 @@ export default function AdminPayoutsClient({ requests: initialRequests }: { requ
             {requests.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
-                  Zatím žádné požadavky o výplatu
+                  Zatím žádné nahrané faktury
                 </td>
               </tr>
             )}

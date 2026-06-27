@@ -58,7 +58,7 @@ export default function NewOrderPage() {
   const [serviceTypes, setServiceTypes] = useState<any[]>([]);
   const [urgentSurchargeCzk, setUrgentSurchargeCzk] = useState(2000);
 
-  const [serviceType, setServiceType] = useState('');
+  const [serviceTypeIds, setServiceTypeIds] = useState<string[]>([]);
   const [propertyType, setPropertyType] = useState('byt');
   const [address, setAddress] = useState('');
   const [floor, setFloor] = useState('');
@@ -71,10 +71,11 @@ export default function NewOrderPage() {
   const [preferredDate, setPreferredDate] = useState('');
   const [isFirstRevision, setIsFirstRevision] = useState(false);
   const [urgency, setUrgency] = useState<'normal' | 'urgent'>('normal');
+  const [profileData, setProfileData] = useState<{ordersCount?: number; objectLimitExtraPaid?: number; role?: string} | null>(null);
 
   const getMinDate = () => {
     // Pro vlastní revizi neomezujeme
-    if (serviceType === 'vlastni_revize') return undefined;
+    if (serviceTypeIds.includes('vlastni_revize')) return undefined;
     
     const d = new Date();
     if (urgency === 'normal') {
@@ -89,7 +90,7 @@ export default function NewOrderPage() {
     if (minD && preferredDate && preferredDate < minD) {
       setPreferredDate('');
     }
-  }, [urgency, serviceType]);
+  }, [urgency, serviceTypeIds]);
 
   useEffect(() => {
     fetch('/api/pricing').then(r => r.json()).then(data => {
@@ -117,38 +118,47 @@ export default function NewOrderPage() {
     if (typeof window !== 'undefined') {
       const type = new URLSearchParams(window.location.search).get('serviceType');
       if (type) {
-        setServiceType(type);
+        setServiceTypeIds([type]);
       }
     }
+    
+    fetch('/api/user/profile').then(r => r.json()).then(data => {
+      setProfileData(data);
+      if (data.name) setContactName(data.name);
+      if (data.email) setContactEmail(data.email);
+      if (data.phone) setContactPhone(data.phone);
+      if (data.address) setAddress(data.address);
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
-    if (session?.user) {
+    if (session?.user && !contactName) {
       setContactName(session.user.name || '');
       setContactEmail(session.user.email || '');
     }
-  }, [session]);
+  }, [session, contactName]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => setReportFile(reader.result as string);
-      reader.readAsDataURL(file);
+      const { compressImage, fileToBase64 } = await import('@/lib/client-compress');
+      const compressed = await compressImage(file, { maxSizeMB: 4, maxWidthOrHeight: 3000 });
+      const b64 = await fileToBase64(compressed);
+      setReportFile(b64);
     }
   };
 
-  const selectedService = serviceTypes.find(s => s.id === serviceType);
-  const basePriceOnly = selectedService?.priceValue || 1500;
+  const selectedServices = serviceTypes.filter(s => serviceTypeIds.includes(s.id));
+  const basePriceOnly = selectedServices.reduce((sum, s) => sum + (s.priceValue || 0), 0) || 1500;
   
   let estimatedPrice = basePriceOnly;
-  if (serviceType !== 'vlastni_revize' && urgency === 'urgent') {
+  if (!serviceTypeIds.includes('vlastni_revize') && urgency === 'urgent') {
       estimatedPrice += urgentSurchargeCzk;
   }
-  if (serviceType === 'vlastni_revize') estimatedPrice = 0;
+  if (serviceTypeIds.includes('vlastni_revize') && serviceTypeIds.length === 1) estimatedPrice = 0;
 
   const canProceed = () => {
-    if (currentStep === 1) return !!serviceType;
+    if (currentStep === 1) return serviceTypeIds.length > 0;
     if (currentStep === 2) return address.length >= 5;
     if (currentStep === 3) return contactName.length >= 2 && contactPhone.length >= 6;
     if (currentStep === 4) {
@@ -174,7 +184,7 @@ export default function NewOrderPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          serviceType: selectedService?.label || serviceType,
+          serviceTypeIds,
           propertyType: PROPERTY_TYPES.find(p => p.id === propertyType)?.label || propertyType,
           address,
           notes: [
@@ -186,9 +196,8 @@ export default function NewOrderPage() {
             `Kontakt: ${contactName}, tel: ${contactPhone}, e-mail: ${contactEmail}`,
           ].filter(Boolean).join('\n'),
           preferredDate: preferredDate || null,
-          serviceTypeId: serviceType,
-          isUrgent: serviceType !== 'vlastni_revize' && urgency === 'urgent',
-          reportFile: serviceType === 'vlastni_revize' ? reportFile : null,
+          isUrgent: !serviceTypeIds.includes('vlastni_revize') && urgency === 'urgent',
+          reportFile: serviceTypeIds.includes('vlastni_revize') ? reportFile : null,
           revisionCategoryId: selectedCategoryId || null,
         }),
       });
@@ -198,7 +207,17 @@ export default function NewOrderPage() {
         if (data.url) {
           window.location.href = data.url;
         }
-      } else alert('Došlo k chybě při odesílání objednávky.');
+      } else if (res.status === 402) {
+        const data = await res.json();
+        if (data.checkoutPath) {
+          window.location.href = data.checkoutPath;
+        } else {
+          alert(data.message || 'Pro dokončení objednávky je vyžadována platba.');
+        }
+      } else {
+        const data = await res.json();
+        alert(data.message || 'Došlo k chybě při odesílání objednávky.');
+      }
     } catch {
       alert('Došlo k chybě při odesílání objednávky.');
     } finally {
@@ -239,6 +258,11 @@ export default function NewOrderPage() {
       </div>
 
       {/* Progress */}
+      {profileData?.role === 'CUSTOMER' && (profileData?.ordersCount || 0) >= (1 + (profileData?.objectLimitExtraPaid || 0)) && (
+        <div className="mb-6 p-4 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-400 text-sm">
+          <strong>Upozornění:</strong> Vaše první revize byla zdarma. Vytvořením další revize vám bude účtován roční příplatek <strong>100 Kč / rok</strong> za evidenci dalšího objektu. V dalším kroku budete přesměrováni na platební bránu.
+        </div>
+      )}
       <div className="table-scroll -mx-3 mb-8 px-3 pb-2 sm:mx-0 sm:mb-10 sm:px-0">
         <div className="relative flex w-full min-w-[320px] max-w-full items-center justify-between sm:min-w-[500px]">
           <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-[#1A1A1A] -z-10" />
@@ -267,12 +291,12 @@ export default function NewOrderPage() {
                 {serviceTypes.map(type => (
                   <label key={type.id} className={cn(
                     "relative flex flex-col p-4 cursor-pointer rounded-xl border-2 transition-all hover:bg-white/5",
-                    serviceType === type.id ? "border-brand-yellow bg-brand-yellow/5" : "border-white/10"
+                    serviceTypeIds.includes(type.id) ? "border-brand-yellow bg-brand-yellow/5" : "border-white/10"
                   )}>
-                    <input type="radio" value={type.id} checked={serviceType === type.id} onChange={() => setServiceType(type.id)} className="sr-only" />
+                    <input type="checkbox" value={type.id} checked={serviceTypeIds.includes(type.id)} onChange={() => setServiceTypeIds(prev => prev.includes(type.id) ? prev.filter(id => id !== type.id) : [...prev, type.id])} className="sr-only" />
                     <div className="flex justify-between items-start mb-1">
-                      <span className={cn("font-semibold text-sm", serviceType === type.id ? "text-brand-yellow" : "text-white")}>{type.label}</span>
-                      {serviceType === type.id && <Check className="w-4 h-4 text-brand-yellow shrink-0" />}
+                      <span className={cn("font-semibold text-sm", serviceTypeIds.includes(type.id) ? "text-brand-yellow" : "text-white")}>{type.label}</span>
+                      {serviceTypeIds.includes(type.id) && <Check className="w-4 h-4 text-brand-yellow shrink-0" />}
                     </div>
                     <p className="text-xs text-gray-500 mb-2">{type.desc}</p>
                     <span className="text-xs font-mono text-gray-600 mt-auto">{type.price}</span>
@@ -338,7 +362,7 @@ export default function NewOrderPage() {
                 </div>
               </label>
 
-              {serviceType === 'vlastni_revize' && (
+              {serviceTypeIds.includes('vlastni_revize') && (
                 <div>
                   <label className="block text-sm font-medium text-gray-400 mb-1.5">Nahrát dokument revize (PDF, JPG)</label>
                   <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={handleFileChange}
@@ -391,7 +415,7 @@ export default function NewOrderPage() {
           {/* Step 4: Scheduling */}
           {currentStep === 4 && (
             <motion.div key="s4" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }} className="space-y-5">
-              {serviceType === 'vlastni_revize' ? (
+              {serviceTypeIds.includes('vlastni_revize') ? (
                 <>
                   <h3 className="text-xl font-semibold text-white">Platnost vaší revize</h3>
                   <p className="text-sm text-gray-400">Zadejte datum, do kdy je revize platná. Včas vás upozorníme na konec platnosti.</p>
@@ -475,14 +499,14 @@ export default function NewOrderPage() {
 
               <div className="bg-[#111] rounded-xl p-6 space-y-4 border border-white/5">
                 {[
-                  { label: 'Typ revize', value: selectedService?.label || serviceType },
+                  { label: 'Typ revize', value: selectedServices.map(s => s.label).join(', ') || serviceTypeIds.join(', ') },
                   { label: 'Typ objektu', value: PROPERTY_TYPES.find(p => p.id === propertyType)?.label },
                   { label: 'Adresa', value: address },
                   floor ? { label: 'Podlaží', value: floor } : null,
                   area ? { label: 'Plocha', value: `${area} m²` } : null,
                   { label: 'Kontaktní osoba', value: `${contactName}, ${contactPhone}` },
-                  { label: serviceType === 'vlastni_revize' ? 'Platnost do' : 'Preferovaný termín (orientační)', value: preferredDate ? new Date(preferredDate).toLocaleDateString('cs-CZ') : 'Dle domluvy' },
-                  serviceType !== 'vlastni_revize'
+                  { label: serviceTypeIds.includes('vlastni_revize') ? 'Platnost do' : 'Preferovaný termín (orientační)', value: preferredDate ? new Date(preferredDate).toLocaleDateString('cs-CZ') : 'Dle domluvy' },
+                  !serviceTypeIds.includes('vlastni_revize')
                     ? {
                         label: 'Typ termínu',
                         value:
@@ -498,7 +522,7 @@ export default function NewOrderPage() {
                     <span className="min-w-0 break-words text-right text-sm font-medium text-white">{item!.value}</span>
                   </div>
                 ))}
-                {serviceType !== 'vlastni_revize' && (
+                {!serviceTypeIds.includes('vlastni_revize') && (
                   <div className="space-y-2 border-t border-brand-yellow/20 pt-4">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">Základní cena (dle typu revize)</span>

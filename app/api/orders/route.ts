@@ -103,48 +103,16 @@ export async function POST(req: Request) {
       );
     }
 
-    // License check – první revize spouští platební bránu, pokud licence neaktivní.
-    // Viz docs/business-decisions.md sekce 2.2 + 2.3.
-    const meForLicense = await prisma.user.findUnique({
+    // License/Order check: Customer has 1 free revision, next ones require addon
+    const userForLimit = await prisma.user.findUnique({
       where: { id: session.user.id },
-      select: { role: true, licenseValidUntil: true, requiresSubscriptionCheckout: true },
+      select: { role: true, objectLimitExtraPaid: true }
     });
-    if (meForLicense) {
-      const licenseStatus = getLicenseStatus({
-        role: meForLicense.role,
-        licenseValidUntil: meForLicense.licenseValidUntil,
-        requiresSubscriptionCheckout: meForLicense.requiresSubscriptionCheckout,
-      });
-      if (!licenseStatus.active) {
-        return NextResponse.json(
-          {
-            message: licenseStatus.message,
-            code: "LICENSE_REQUIRED",
-            state: licenseStatus.state,
-            checkoutPath: "/dashboard/settings?tab=billing",
-          },
-          { status: 402 },
-        );
-      }
-    }
 
-    const body = await readJsonBody<{
-      serviceType?: string;
-      /** Interní kód typu služby (např. elektro_byt) – pro výpočet ceny */
-      serviceTypeId?: string | null;
-      propertyType?: string;
-      address?: string;
-      notes?: string | null;
-      reportFile?: string | null;
-      preferredDate?: string | null;
-      revisionCategoryId?: string | null;
-      /** Urgentní termín = příplatek nad základní cenu */
-      isUrgent?: boolean;
-    }>(req, 96_384);
+    const body = await readJsonBody<any>(req, 96_384);
 
     let {
-      serviceType,
-      serviceTypeId,
+      serviceTypeIds,
       propertyType,
       address,
       notes,
@@ -153,115 +121,128 @@ export async function POST(req: Request) {
       revisionCategoryId,
     } = body;
 
-    if (!serviceType || !propertyType || !address) {
+    if (!serviceTypeIds || !Array.isArray(serviceTypeIds) || serviceTypeIds.length === 0 || !address) {
       return NextResponse.json({ message: "Chybí povinné údaje" }, { status: 400 });
     }
 
-    serviceType = String(serviceType).slice(0, 120);
-    propertyType = String(propertyType).slice(0, 120);
+    if (userForLimit && userForLimit.role === 'CUSTOMER') {
+      const customerOrdersCount = await prisma.order.count({
+        where: { customerId: session.user.id }
+      });
+      const extraPaid = userForLimit.objectLimitExtraPaid || 0;
+      const allowedRevisions = 1 + extraPaid;
+      const requestedRevisions = serviceTypeIds.length;
+
+      // If they are creating more revisions than allowed
+      if (customerOrdersCount + requestedRevisions > allowedRevisions) {
+        return NextResponse.json(
+          {
+            message: "Další revize je za příplatek 100 Kč / rok.",
+            code: "LICENSE_REQUIRED",
+            checkoutPath: "/api/stripe/checkout/addon?kind=CUSTOMER_EXTRA_OBJECT",
+            state: "EXPIRED"
+          },
+          { status: 402 }
+        );
+      }
+    }
+
+    propertyType = propertyType ? String(propertyType).slice(0, 120) : "Nespecifikováno";
     address = String(address).slice(0, 500);
     notes = notes != null ? String(notes).slice(0, 4000) : undefined;
     reportFile = reportFile != null ? String(reportFile).slice(0, 500) : undefined;
     revisionCategoryId = revisionCategoryId != null ? String(revisionCategoryId).slice(0, 80) : undefined;
-    const serviceTypeIdNorm =
-      serviceTypeId != null && String(serviceTypeId).trim() !== ""
-        ? String(serviceTypeId).slice(0, 120)
-        : null;
 
-    const isVlastni = serviceTypeIdNorm === "vlastni_revize";
-
-    const idSuffix = crypto.randomBytes(3).toString("hex").toUpperCase();
-    const readableId = `ORD-${new Date().getFullYear()}-${idSuffix}`;
-
-    const isUrgent = body.isUrgent === true;
-    const cancelToken = crypto.randomBytes(24).toString('hex');
-    
-    // Look up the package
-    let servicePackageId: string | null = null;
-    let approximatePrice = 0;
-    
-    if (!isVlastni && serviceTypeIdNorm) {
-      const pkg = await prisma.servicePackage.findUnique({
-        where: { id: serviceTypeIdNorm }
-      });
-      if (pkg) {
-        servicePackageId = pkg.id;
-        approximatePrice = pkg.approximatePrice || 0;
-      }
-    }
-
-    const orderData: any = {
-      readableId,
-      customerId: session.user.id,
-      serviceType, // We still save the name
-      servicePackageId,
-      propertyType,
-      address,
-      notes,
-      price: isVlastni ? 0 : null, // Price is finalized later by technician
-      isUrgent: !isVlastni && isUrgent,
-      status: isVlastni ? "COMPLETED" : "PENDING",
-      reportFile: reportFile || null,
-      preferredDate: preferredDate ? new Date(preferredDate) : null,
-      revisionCategoryId: revisionCategoryId || null,
-      cancelToken,
-    };
-
-    if (!isVlastni) {
-      // Find the customer to check for referral priority
-      const customer = await prisma.user.findUnique({
-        where: { id: session.user.id },
-        select: { referredByRealtorId: true }
-      });
-      
-      let priorityUser = null;
-      
-      if (customer?.referredByRealtorId) {
-        const referrer = await prisma.user.findUnique({
-          where: { id: customer.referredByRealtorId }
-        });
-        if (referrer && (referrer.role === 'TECHNICIAN' || referrer.role === 'COMPANY_ADMIN')) {
-          priorityUser = referrer;
-        }
-      }
-      
-      if (!priorityUser) {
-        // Fallback: Find the highest priority technician or company
-        priorityUser = await prisma.user.findFirst({
-          where: {
-            role: { in: ['TECHNICIAN', 'COMPANY_ADMIN'] },
-          },
-          orderBy: {
-            priority: 'desc',
-          },
-        });
-      }
-
-      if (priorityUser) {
-        if (priorityUser.role === 'TECHNICIAN') {
-          orderData.technicianId = priorityUser.id;
-          if (priorityUser.companyId) {
-            orderData.companyId = priorityUser.companyId;
-          }
-        } else if (priorityUser.role === 'COMPANY_ADMIN') {
-          orderData.companyId = priorityUser.id;
-        }
-        orderData.assignedAt = new Date();
-      } else {
-        orderData.isPublic = true;
-      }
-    }
-
-    const order = await prisma.order.create({
-      data: orderData
+    const customer = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { email: true, name: true, referredByRealtorId: true, emailNotifications: true }
     });
 
-    if (!isVlastni) {
-      const customer = await prisma.user.findUnique({
-        where: { id: session.user.id },
-        select: { email: true, emailNotifications: true },
+    const createdOrders = [];
+
+    for (const stId of serviceTypeIds) {
+      const isVlastni = stId === "vlastni_revize";
+      const idSuffix = crypto.randomBytes(3).toString("hex").toUpperCase();
+      const readableId = `ORD-${new Date().getFullYear()}-${idSuffix}`;
+      const isUrgent = body.isUrgent === true;
+      const cancelToken = crypto.randomBytes(24).toString('hex');
+      
+      let servicePackageId: string | null = null;
+      let serviceTypeLabel = stId;
+      
+      if (!isVlastni && stId) {
+        const pkg = await prisma.servicePackage.findUnique({
+          where: { id: stId }
+        });
+        if (pkg) {
+          servicePackageId = pkg.id;
+          serviceTypeLabel = pkg.name;
+        }
+      } else if (isVlastni) {
+        serviceTypeLabel = "Vlastní revize";
+      }
+
+      const orderData: any = {
+        readableId,
+        customerId: session.user.id,
+        serviceType: serviceTypeLabel,
+        servicePackageId,
+        propertyType,
+        address,
+        notes,
+        price: isVlastni ? 0 : null,
+        isUrgent: !isVlastni && isUrgent,
+        status: isVlastni ? "COMPLETED" : "PENDING",
+        reportFile: reportFile || null,
+        preferredDate: preferredDate ? new Date(preferredDate) : null,
+        revisionCategoryId: revisionCategoryId || null,
+        cancelToken,
+      };
+
+      if (!isVlastni) {
+        let priorityUser = null;
+        
+        if (customer?.referredByRealtorId) {
+          const referrer = await prisma.user.findUnique({
+            where: { id: customer.referredByRealtorId }
+          });
+          if (referrer && (referrer.role === 'TECHNICIAN' || referrer.role === 'COMPANY_ADMIN')) {
+            priorityUser = referrer;
+          }
+        }
+        
+        if (!priorityUser && servicePackageId) {
+          priorityUser = await prisma.user.findFirst({
+            where: {
+              role: { in: ['TECHNICIAN', 'COMPANY_ADMIN'] },
+            },
+            orderBy: {
+              priority: 'desc',
+            },
+          });
+        }
+
+        if (priorityUser) {
+          if (priorityUser.role === 'TECHNICIAN') {
+            orderData.technicianId = priorityUser.id;
+            if (priorityUser.companyId) {
+              orderData.companyId = priorityUser.companyId;
+            }
+          } else if (priorityUser.role === 'COMPANY_ADMIN') {
+            orderData.companyId = priorityUser.id;
+          }
+          orderData.assignedAt = new Date();
+        } else {
+          orderData.isPublic = true;
+        }
+      }
+
+      const order = await prisma.order.create({
+        data: orderData
       });
-      if (customer?.email && customer.emailNotifications) {
+      createdOrders.push(order);
+
+      if (!isVlastni && customer?.email && customer.emailNotifications) {
         const emailData = orderConfirmationEmail({
           readableId: order.readableId,
           serviceType: order.serviceType,
@@ -274,11 +255,9 @@ export async function POST(req: Request) {
         });
         sendMail({ to: customer.email, ...emailData }).catch(console.error);
       }
-
-      return NextResponse.json({ ...order, url: undefined }, { status: 201 });
     }
 
-    return NextResponse.json(order, { status: 201 });
+    return NextResponse.json({ orders: createdOrders }, { status: 201 });
   } catch (error) {
     if (error instanceof PayloadTooLargeError) {
       return NextResponse.json({ message: "Požadavek je příliš velký" }, { status: 413 });

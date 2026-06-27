@@ -33,36 +33,32 @@ export function PhotoSection({ orderId, isTechnician }: PhotoSectionProps) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 10 * 1024 * 1024) {
-      alert('Maximální velikost fotky je 10 MB.');
-      return;
-    }
-
     setUploading(true);
     try {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = async () => {
-        const res = await fetch(`/api/orders/${orderId}/photos`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            imageData: reader.result as string,
-            caption: file.name.replace(/\.[^/.]+$/, ''),
-          }),
-        });
-        if (res.ok) {
-          const photo = await res.json();
-          setPhotos(prev => [photo, ...prev]);
-        } else {
-          alert('Chyba při nahrávání fotky.');
-        }
-        setUploading(false);
-      };
-      reader.onerror = () => { alert('Chyba při čtení souboru.'); setUploading(false); };
-    } catch { alert('Chyba.'); setUploading(false); }
-
-    if (fileRef.current) fileRef.current.value = '';
+      const { compressImage, fileToBase64 } = await import('@/lib/client-compress');
+      const compressed = await compressImage(file);
+      const b64 = await fileToBase64(compressed);
+      
+      const res = await fetch(`/api/orders/${orderId}/photos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageData: b64,
+          caption: file.name.replace(/\.[^/.]+$/, ''),
+        }),
+      });
+      if (res.ok) {
+        const photo = await res.json();
+        setPhotos(prev => [photo, ...prev]);
+      } else {
+        alert('Chyba při nahrávání fotky.');
+      }
+    } catch { 
+      alert('Chyba při zpracování fotky.'); 
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
   };
 
   const viewPhoto = async (photoId: string) => {

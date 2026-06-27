@@ -10,6 +10,8 @@ export default async function AdminAccountDeletionsPage() {
   if (!['ADMIN', 'SUPPORT'].includes(session.user.role || '')) redirect('/admin');
 
   const rows = await prisma.accountDeletionRequest.findMany({
+    take: 100,
+    orderBy: { createdAt: 'desc' },
     where: { status: 'PENDING' },
     include: {
       user: {
@@ -22,7 +24,6 @@ export default async function AdminAccountDeletionsPage() {
         },
       },
     },
-    orderBy: { createdAt: 'asc' },
   });
 
   const serialized = rows.map((r) => ({

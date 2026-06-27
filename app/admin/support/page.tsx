@@ -11,10 +11,11 @@ export default async function AdminSupportPage() {
   }
 
   const tickets = await prisma.supportTicket.findMany({
+    take: 100,
+    orderBy: { createdAt: 'desc' },
     include: {
       user: { select: { id: true, name: true, email: true, role: true } }
-    },
-    orderBy: { createdAt: 'desc' },
+    }
   });
 
   return <AdminSupportClient tickets={tickets} currentUser={session.user} />;

@@ -29,6 +29,9 @@ export default function SettingsClient({
   const [firstName, setFirstName] = useState(user.name?.split(' ')[0] || '');
   const [lastName, setLastName] = useState(user.name?.split(' ').slice(1).join(' ') || '');
   const [phone, setPhone] = useState(user.phone || '');
+  const [bankAccount, setBankAccount] = useState((user as any).bankAccount || '');
+  const [ico, setIco] = useState((user as any).ico || '');
+  const [address, setAddress] = useState((user as any).address || '');
   const [emailNotifs, setEmailNotifs] = useState((user as any).emailNotifications !== false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
@@ -101,7 +104,7 @@ export default function SettingsClient({
       const res = await fetch('/api/user/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ firstName, lastName, phone, emailNotifications: emailNotifs }),
+        body: JSON.stringify({ firstName, lastName, phone, bankAccount, ico, address, emailNotifications: emailNotifs }),
       });
       
       if (res.ok) {
@@ -311,11 +314,34 @@ export default function SettingsClient({
                             className="w-full bg-[#111] border border-white/10 rounded-lg p-2.5 text-white focus:border-brand-yellow outline-none" 
                           />
                       </div>
-                  </div>
-
-                  <div className="space-y-2 opacity-40 pointer-events-none select-none">
-                      <label className="text-sm font-medium text-gray-400">Fakturační adresa</label>
-                      <input type="text" defaultValue="" disabled placeholder="Již brzy" className="w-full bg-[#111] border border-white/10 rounded-lg p-2.5 text-gray-500 cursor-not-allowed outline-none" />
+                      <div className="space-y-2">
+                          <label className="text-sm font-medium text-gray-400">IČO</label>
+                          <input 
+                            type="text" 
+                            value={ico} 
+                            onChange={(e) => setIco(e.target.value)}
+                            className="w-full bg-[#111] border border-white/10 rounded-lg p-2.5 text-white focus:border-brand-yellow outline-none" 
+                          />
+                      </div>
+                      <div className="space-y-2 md:col-span-2">
+                          <label className="text-sm font-medium text-gray-400">Adresa (sídlo/fakturační)</label>
+                          <input 
+                            type="text" 
+                            value={address} 
+                            onChange={(e) => setAddress(e.target.value)}
+                            className="w-full bg-[#111] border border-white/10 rounded-lg p-2.5 text-white focus:border-brand-yellow outline-none" 
+                          />
+                      </div>
+                      <div className="space-y-2 md:col-span-2">
+                          <label className="text-sm font-medium text-gray-400">Bankovní účet (pro výplaty)</label>
+                          <input 
+                            type="text" 
+                            value={bankAccount} 
+                            onChange={(e) => setBankAccount(e.target.value)}
+                            className="w-full bg-[#111] border border-white/10 rounded-lg p-2.5 text-white focus:border-brand-yellow outline-none" 
+                            placeholder="např. 123456789/0100"
+                          />
+                      </div>
                   </div>
 
                   <div className="pt-4 border-t border-white/10">
@@ -452,6 +478,55 @@ export default function SettingsClient({
                         : 'Předplatné zajišťuje bezpečná online platební brána. Po úhradě se platnost licence prodlouží automaticky.'}
                     </p>
                   </div>
+
+                  {(user.role === 'TECHNICIAN' || user.role === 'COMPANY_ADMIN') && (
+                    <div className="rounded-xl border border-white/10 bg-[#111] p-5 space-y-4">
+                      <div>
+                        <h3 className="text-white font-medium mb-1">Váš kreditní zůstatek</h3>
+                        <p className="text-sm text-gray-400">Kredit se používá k úhradě provize za dokončené zakázky platformy. 1 kredit = 1 Kč.</p>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-3xl font-bold text-brand-yellow">
+                          {(user as any).creditBalance?.toLocaleString('cs-CZ') || '0'} Kč
+                        </span>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const amount = prompt('Kolik Kč si přejete dobít? (minimum 100 Kč)', '500');
+                            if (!amount) return;
+                            const parsed = parseInt(amount, 10);
+                            if (isNaN(parsed) || parsed < 100) {
+                              alert('Zadejte platnou částku, minimálně 100 Kč.');
+                              return;
+                            }
+                            setStripeLoading('checkout');
+                            try {
+                              const res = await fetch('/api/stripe/checkout/credit', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ amount: parsed, returnPath: pathname }),
+                              });
+                              const data = await res.json();
+                              if (res.ok && data.url) {
+                                window.location.href = data.url;
+                              } else {
+                                alert(data.message || 'Chyba při inicializaci platby.');
+                              }
+                            } catch {
+                              alert('Došlo k chybě.');
+                            } finally {
+                              setStripeLoading(null);
+                            }
+                          }}
+                          disabled={stripeLoading !== null}
+                          className="inline-flex items-center justify-center gap-2 rounded-lg bg-white text-black px-4 py-2 text-sm font-semibold hover:bg-gray-200 transition-colors disabled:opacity-50"
+                        >
+                          {stripeLoading === 'checkout' ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+                          Dobít kredit
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* DEV mode warning removed to not leak implementation details */}
 

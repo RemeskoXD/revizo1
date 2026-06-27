@@ -12,6 +12,7 @@ export default async function AdminRolesPage() {
   }
 
   const roleRequests = await prisma.roleRequest.findMany({
+    take: 100,
     include: { user: true },
     orderBy: { createdAt: 'desc' },
   });

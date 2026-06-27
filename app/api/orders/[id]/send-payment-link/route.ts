@@ -19,6 +19,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     });
 
     if (!order) return NextResponse.json({ message: 'Order not found' }, { status: 404 });
+    if (session.user.role === 'TECHNICIAN' && order.technicianId !== session.user.id) {
+      return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+    }
+    if (session.user.role === 'COMPANY_ADMIN' && order.companyId !== session.user.id) {
+      return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+    }
     if (!order.price || order.price <= 0) return NextResponse.json({ message: 'Order has no price' }, { status: 400 });
     if (order.isPaid) return NextResponse.json({ message: 'Order is already paid' }, { status: 400 });
 

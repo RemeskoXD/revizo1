@@ -167,10 +167,14 @@ function RegisterForm() {
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [ico, setIco] = useState("");
+  const [bankAccount, setBankAccount] = useState("");
   const [companyInviteCode, setCompanyInviteCode] = useState("");
   const [expectedTechnicians, setExpectedTechnicians] = useState("");
   const [licenseFileName, setLicenseFileName] = useState("");
   const [licenseDataUrl, setLicenseDataUrl] = useState("");
+
+  const [mathAnswer, setMathAnswer] = useState("");
+  const [honeypot, setHoneypot] = useState("");
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -199,17 +203,24 @@ function RegisterForm() {
       setLicenseFileName("");
       return;
     }
-    if (f.size > 4 * 1024 * 1024) {
-      setError("Soubor je příliš velký (max. 4 MB).");
-      return;
-    }
-    setError("");
-    setLicenseFileName(f.name);
+    
     try {
-      const url = await readFileAsDataUrl(f);
+      const { compressImage, fileToBase64 } = await import('@/lib/client-compress');
+      const compressed = await compressImage(f);
+      
+      if (compressed.size > 4 * 1024 * 1024) {
+        setError("Soubor je po kompresi stále příliš velký (max. 4 MB).");
+        return;
+      }
+      
+      setError("");
+      setLicenseFileName(compressed.name);
+      
+      const url = await fileToBase64(compressed);
       setLicenseDataUrl(url);
-    } catch {
-      setError("Soubor se nepodařilo načíst.");
+    } catch (err) {
+      console.error(err);
+      setError("Soubor se nepodařilo načíst a zpracovat.");
     }
   };
 
@@ -219,6 +230,19 @@ function RegisterForm() {
     setError("");
 
     try {
+      if (honeypot.trim() !== "") {
+        // Záchyt pro boty
+        setError("Byla detekována podezřelá aktivita.");
+        setLoading(false);
+        return;
+      }
+      
+      if (mathAnswer.trim() !== "8") {
+        setError("Odpověď na bezpečnostní otázku je nesprávná.");
+        setLoading(false);
+        return;
+      }
+
       if ((role === "TECHNICIAN" || role === "COMPANY_ADMIN") && !licenseDataUrl.trim()) {
         setError("Nahrajte soubor s oprávněním (PDF nebo obrázek).");
         setLoading(false);
@@ -248,6 +272,7 @@ function RegisterForm() {
           phone,
           address,
           ico: ico.trim() || undefined,
+          bankAccount: bankAccount.trim() || undefined,
           companyInviteCode: companyInviteCode.trim() || undefined,
           licenseDocument: licenseDataUrl,
         };
@@ -259,6 +284,7 @@ function RegisterForm() {
           phone,
           address,
           ico: ico.trim() || undefined,
+          bankAccount: bankAccount.trim() || undefined,
           companyInviteCode: companyInviteCode.trim() || undefined,
           licenseDocument: licenseDataUrl,
           expectedTechnicians: exp === "" ? null : parseInt(exp, 10),
@@ -532,6 +558,16 @@ function RegisterForm() {
                         />
                       </div>
                       <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">Číslo bankovního účtu pro výplaty (nepovinné)</label>
+                        <input
+                          type="text"
+                          value={bankAccount}
+                          onChange={(e) => setBankAccount(e.target.value)}
+                          className="w-full bg-[#111111] border border-white/10 rounded-xl py-3 px-4 text-white placeholder-gray-500 focus:outline-none focus:border-brand-yellow/50 transition-colors"
+                          placeholder="např. 123456789/0100"
+                        />
+                      </div>
+                      <div>
                         <label className="block text-sm font-medium text-gray-300 mb-1">
                           Kód firmy (nepovinné)
                         </label>
@@ -611,6 +647,31 @@ function RegisterForm() {
                       <p className="text-xs text-gray-600 mt-1">Max. 4 MB. Účet bude aktivní až po schválení.</p>
                     </div>
                   )}
+
+                  {/* Honeypot pro boty */}
+                  <div className="hidden" aria-hidden="true">
+                    <label>Nenechávejte toto pole vyplněné</label>
+                    <input 
+                      type="text" 
+                      tabIndex={-1} 
+                      autoComplete="off" 
+                      value={honeypot} 
+                      onChange={e => setHoneypot(e.target.value)} 
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Bezpečnostní otázka: Kolik je 3 + 5?</label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={mathAnswer}
+                      onChange={(e) => setMathAnswer(e.target.value)}
+                      className="w-full bg-[#111111] border border-white/10 rounded-xl py-3 px-4 text-white placeholder-gray-500 focus:outline-none focus:border-brand-yellow/50 transition-colors"
+                      placeholder="Zadejte výsledek jako číslo"
+                      required
+                    />
+                  </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-1">Heslo</label>

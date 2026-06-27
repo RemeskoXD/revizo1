@@ -24,6 +24,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       return NextResponse.json({ message: 'Order not found or unauthorized' }, { status: 404 });
     }
 
+    if (order.price != null && order.price > 0) {
+      return NextResponse.json({ message: 'Tuto zakázku vyřizuje technik platformy, stav nelze ručně měnit.' }, { status: 403 });
+    }
+
     const updated = await prisma.order.update({
       where: { id: orderId },
       data: { status }

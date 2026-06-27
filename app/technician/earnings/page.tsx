@@ -59,18 +59,13 @@ export default async function EarningsPage() {
   const totalEarnings = monthlyData.reduce((sum, m) => sum + m.earnings, 0);
   const totalCount = monthlyData.reduce((sum, m) => sum + m.count, 0);
 
-  const payoutRequests = await prisma.payoutRequest.findMany({
-    where: { technicianId: session.user.id },
-    orderBy: { createdAt: 'desc' },
-  });
-
   return (
     <EarningsClient 
       monthlyData={monthlyData} 
       totalEarnings={totalEarnings} 
       totalCount={totalCount}
       commissionRate={commissionRate * 100}
-      payoutRequests={payoutRequests}
+      technician={user}
     />
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Filter, MoreHorizontal, MapPin, Calendar, User, ArrowRight, Trash2, Edit2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -8,12 +8,43 @@ import { motion } from 'motion/react';
 
 export default function AdminOrdersClient({ initialOrders, technicians, companies, userRole }: { initialOrders: any[], technicians: any[], companies: any[], userRole: string }) {
   const [orders, setOrders] = useState(initialOrders);
+  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
+  const limit = 50;
+
+  const [search, setSearch] = useState('');
+  
   const [editingOrder, setEditingOrder] = useState<string | null>(null);
   const [editStatus, setEditStatus] = useState<string>('');
   const [editTechnician, setEditTechnician] = useState<string>('');
   const [editCompany, setEditCompany] = useState<string>('');
   const [editIsVerified, setEditIsVerified] = useState<boolean>(false);
   const router = useRouter();
+
+  useEffect(() => {
+    const fetchOrders = async () => {
+      setIsLoading(true);
+      try {
+        const res = await fetch(`/api/admin/orders?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setOrders(data.orders);
+          setTotalCount(data.total);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    const timeout = setTimeout(() => {
+      fetchOrders();
+    }, 300);
+    
+    return () => clearTimeout(timeout);
+  }, [page, search]);
 
   const handleSaveStatus = async (orderId: string) => {
     try {
@@ -64,9 +95,29 @@ export default function AdminOrdersClient({ initialOrders, technicians, companie
   };
 
   return (
-    <div className="overflow-hidden rounded-xl border border-white/5 bg-[#111]">
-      <div className="table-scroll -mx-3 px-3 sm:mx-0 sm:px-0">
-          <table className="w-full min-w-[720px] text-left text-sm">
+    <div className="space-y-6">
+      {/* Filters */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div className="grid flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-xl border border-white/5 bg-[#111] p-3 sm:p-4 sm:col-span-2 lg:col-span-2">
+            <label className="mb-1.5 block text-xs font-medium text-gray-500">Hledat</label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="ID, adresa, e-mail, jméno…"
+                className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] py-2 pl-10 pr-4 text-sm text-white placeholder-gray-500 transition-colors focus:border-white/30 focus:outline-none"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-xl border border-white/5 bg-[#111]">
+        <div className="table-scroll -mx-3 px-3 sm:mx-0 sm:px-0">
+            <table className="w-full min-w-[720px] text-left text-sm">
               <thead className="bg-white/5 text-gray-400 uppercase text-xs font-semibold">
                   <tr>
                       <th className="px-3 py-3 sm:px-5 sm:py-4">ID</th>
@@ -219,6 +270,31 @@ export default function AdminOrdersClient({ initialOrders, technicians, companie
               </tbody>
           </table>
       </div>
+      
+      {/* Pagination Controls */}
+      <div className="flex items-center justify-between border-t border-white/5 p-4 bg-[#111]">
+        <div className="text-sm text-gray-400">
+          Zobrazeno {orders.length} z {totalCount} objednávek
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page === 1 || isLoading}
+            className="px-3 py-1 text-sm bg-white/5 rounded hover:bg-white/10 disabled:opacity-50"
+          >
+            Předchozí
+          </button>
+          <span className="text-sm text-white px-2">Strana {page}</span>
+          <button
+            onClick={() => setPage((p) => p + 1)}
+            disabled={page * limit >= totalCount || isLoading}
+            className="px-3 py-1 text-sm bg-white/5 rounded hover:bg-white/10 disabled:opacity-50"
+          >
+            Další
+          </button>
+        </div>
+      </div>
     </div>
+  </div>
   );
 }

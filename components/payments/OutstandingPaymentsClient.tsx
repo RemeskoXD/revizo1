@@ -12,7 +12,7 @@ export function OutstandingPaymentsClient({ orders }: { orders: any[] }) {
       <div>
         <h1 className="text-2xl font-bold text-white mb-2">Vystavené platby</h1>
         <p className="text-gray-400">
-          Zde vidíte všechny vystavené platby k vašim revizím. Platby je nutné uhradit nejpozději do 14 dnů od provedení revize.
+          Zde vidíte všechny vystavené platby k vašim revizím. Platby prosím uhraďte do uvedeného data splatnosti.
         </p>
       </div>
 
@@ -32,7 +32,8 @@ export function OutstandingPaymentsClient({ orders }: { orders: any[] }) {
               </h2>
               <div className="grid gap-4">
                 {unpaidOrders.map(order => {
-                  const isOverdue = order.completedAt ? new Date().getTime() - new Date(order.completedAt).getTime() > 14 * 24 * 60 * 60 * 1000 : false;
+                  const dueDate = order.invoiceDueDate ? new Date(order.invoiceDueDate) : (order.completedAt ? new Date(new Date(order.completedAt).getTime() + 14 * 24 * 60 * 60 * 1000) : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000));
+                  const isOverdue = new Date().getTime() > dueDate.getTime();
                   return (
                   <div key={order.id} className={`bg-[#1A1A1A] border rounded-xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 ${isOverdue ? 'border-red-500/30 shadow-[0_0_15px_rgba(239,68,68,0.1)]' : 'border-brand-yellow/20'}`}>
                     <div>
@@ -44,7 +45,7 @@ export function OutstandingPaymentsClient({ orders }: { orders: any[] }) {
                           </span>
                         ) : (
                           <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-brand-yellow/10 text-brand-yellow uppercase tracking-wider">
-                            Splatné do 14 dnů
+                            Splatné do {dueDate.toLocaleDateString('cs-CZ')}
                           </span>
                         )}
                       </div>

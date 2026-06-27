@@ -37,7 +37,7 @@ export async function PATCH(req: Request) {
     }
 
     const updated = await prisma.defectTask.update({
-      where: { id: taskId },
+      where: { id: taskId, userId: session.user.id },
       data: { status },
     });
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Save, Settings, Shield, Mail, User, Link as LinkIcon, Check, X, Copy, Users, Clock, AlertCircle } from 'lucide-react';
+import { Save, Settings, Shield, Mail, User, Link as LinkIcon, Check, X, Copy, Users, Clock, AlertCircle, Database, Download } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useRouter } from 'next/navigation';
 
@@ -43,6 +43,44 @@ export default function AdminSettingsClient({ user, teamMembers, systemConfig = 
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [isApproving, setIsApproving] = useState(false);
   const router = useRouter();
+
+  const [backupPassword, setBackupPassword] = useState('');
+  const [isDownloadingBackup, setIsDownloadingBackup] = useState(false);
+
+  const handleBackupDownload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!backupPassword) return;
+    
+    setIsDownloadingBackup(true);
+    try {
+      const res = await fetch('/api/admin/backup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: backupPassword })
+      });
+      
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `backup-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        setBackupPassword('');
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Chyba při stahování zálohy.');
+      }
+    } catch (error) {
+      console.error(error);
+      alert('Došlo k chybě při stahování.');
+    } finally {
+      setIsDownloadingBackup(false);
+    }
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -387,6 +425,41 @@ export default function AdminSettingsClient({ user, teamMembers, systemConfig = 
               ))}
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Database Backup Section */}
+      <div className="bg-[#1A1A1A] border border-white/5 rounded-xl overflow-hidden mt-6">
+        <div className="p-6 border-b border-white/5 flex items-center gap-3">
+          <div className="w-10 h-10 bg-purple-500/10 rounded-lg flex items-center justify-center">
+            <Database className="w-5 h-5 text-purple-500" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-white">Záloha databáze</h2>
+            <p className="text-sm text-gray-400">Stažení JSON exportu hlavních tabulek. Chráněno super-heslem ze serveru.</p>
+          </div>
+        </div>
+        <div className="p-6">
+          <form onSubmit={handleBackupDownload} className="flex flex-col sm:flex-row items-start sm:items-end gap-4">
+            <div className="flex-1 w-full">
+              <label className="text-sm font-medium text-gray-400 mb-2 block">Heslo pro zálohování (BACKUP_PASSWORD)</label>
+              <input
+                type="password"
+                required
+                value={backupPassword}
+                onChange={(e) => setBackupPassword(e.target.value)}
+                className="w-full px-4 py-2 bg-[#111] border border-white/10 rounded-lg text-white focus:border-brand-yellow focus:ring-1 focus:ring-brand-yellow outline-none"
+                placeholder="Zadejte tajné heslo"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={isDownloadingBackup || !backupPassword}
+              className="flex items-center gap-2 px-6 py-2 bg-purple-500/20 text-purple-400 border border-purple-500/30 text-sm font-bold rounded-lg hover:bg-purple-500/30 transition-colors disabled:opacity-50 whitespace-nowrap"
+            >
+              {isDownloadingBackup ? 'Stahuji...' : <><Download className="w-4 h-4" /> Stáhnout JSON zálohu</>}
+            </button>
+          </form>
         </div>
       </div>
 

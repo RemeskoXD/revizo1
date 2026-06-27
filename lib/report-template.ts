@@ -18,6 +18,7 @@ export type ReportData = {
   defects: { description: string; severity: 'low' | 'medium' | 'high'; fixed: boolean }[];
   notes: string;
   conclusion: string;
+  photos?: { imageData: string; caption: string }[];
 };
 
 const RESULT_LABELS = {

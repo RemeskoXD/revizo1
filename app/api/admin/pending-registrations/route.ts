@@ -16,6 +16,7 @@ export async function GET() {
         accountStatus: 'PENDING_APPROVAL',
         role: { in: ['TECHNICIAN', 'COMPANY_ADMIN'] },
       },
+      take: 100,
       orderBy: { createdAt: 'asc' },
       select: {
         id: true,

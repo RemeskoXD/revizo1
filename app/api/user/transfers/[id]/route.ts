@@ -36,21 +36,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
 
     if (action === 'ACCEPT') {
-      // Update transfer status
-      await prisma.documentTransfer.update({
-        where: { id: transfer.id },
-        data: { status: 'ACCEPTED' },
-      });
-
-      // Update order customerId
-      await prisma.order.update({
-        where: { readableId: transfer.documentId },
-        data: { customerId: session.user.id },
-      });
+      await prisma.$transaction([
+        prisma.documentTransfer.update({
+          where: { id: transfer.id, status: 'PENDING' },
+          data: { status: 'ACCEPTED' },
+        }),
+        prisma.order.update({
+          where: { readableId: transfer.documentId },
+          data: { customerId: session.user.id },
+        })
+      ]);
     } else {
-      // Reject transfer
       await prisma.documentTransfer.update({
-        where: { id: transfer.id },
+        where: { id: transfer.id, status: 'PENDING' },
         data: { status: 'REJECTED' },
       });
     }
