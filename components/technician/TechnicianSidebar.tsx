@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { LayoutDashboard, ClipboardList, MessageSquare, User, DollarSign, X, ShieldCheck } from 'lucide-react';
+import { LayoutDashboard, ClipboardList, MessageSquare, User, DollarSign, X, ShieldCheck, FileText } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { cn } from '@/lib/utils';
 import { useSidebarWidth } from '@/hooks/useSidebarWidth';
