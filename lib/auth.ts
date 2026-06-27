@@ -92,10 +92,13 @@ export const authOptions: NextAuthOptions = {
         try {
           const statusRow = await prisma.user.findUnique({
             where: { id: user.id },
-            select: { bannedAt: true, revisionAuthValidUntil: true, role: true },
+            select: { bannedAt: true, revisionAuthValidUntil: true, role: true, emailVerified: true, emailVerificationToken: true },
           });
           if (statusRow?.bannedAt) {
             throw new Error("Účet byl zablokován. Kontaktujte podporu.");
+          }
+          if (!statusRow?.emailVerified && statusRow?.emailVerificationToken) {
+            throw new Error("unverified_email");
           }
           if (
             statusRow &&

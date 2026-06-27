@@ -40,23 +40,38 @@ const ALLOWED_KINDS: ReadonlySet<AddonKind> = new Set<AddonKind>([
  *   - CUSTOMER_EXTRA_OBJECT → User.objectLimitExtraPaid = quantity
  */
 export async function POST(request: Request) {
+  return handleRequest(request, true);
+}
+
+export async function GET(request: Request) {
+  return handleRequest(request, false);
+}
+
+async function handleRequest(request: Request, isPost: boolean) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ message: 'Neautorizováno' }, { status: 401 });
     }
 
-    let body: { kind?: unknown; quantity?: unknown; returnPath?: unknown };
-    try {
-      body = await readJsonBody<{ kind?: unknown; quantity?: unknown; returnPath?: unknown }>(
-        request,
-        4096,
-      );
-    } catch (e) {
-      if (e instanceof PayloadTooLargeError) {
-        return NextResponse.json({ message: 'Požadavek je příliš velký' }, { status: 413 });
+    let body: { kind?: unknown; quantity?: unknown; returnPath?: unknown } = {};
+    if (isPost) {
+      try {
+        body = await readJsonBody<{ kind?: unknown; quantity?: unknown; returnPath?: unknown }>(
+          request,
+          4096,
+        );
+      } catch (e) {
+        if (e instanceof PayloadTooLargeError) {
+          return NextResponse.json({ message: 'Požadavek je příliš velký' }, { status: 413 });
+        }
+        throw e;
       }
-      throw e;
+    } else {
+      const url = new URL(request.url);
+      body.kind = url.searchParams.get('kind') || undefined;
+      body.quantity = url.searchParams.get('qty') || undefined;
+      body.returnPath = url.searchParams.get('returnPath') || undefined;
     }
 
     const kind = typeof body.kind === 'string' ? (body.kind as AddonKind) : null;
@@ -114,7 +129,12 @@ export async function POST(request: Request) {
         addon: kind,
       });
       if (kind === 'CUSTOMER_EXTRA_OBJECT') params.set('qty', String(quantity));
-      return NextResponse.json({ url: `${base}/platba-test?${params.toString()}`, fake: true });
+      const url = `${base}/platba-test?${params.toString()}`;
+      if (isPost) {
+        return NextResponse.json({ url, fake: true });
+      } else {
+        return NextResponse.redirect(url);
+      }
     }
 
     if (!isStripePaymentsConfigured()) {
@@ -180,7 +200,11 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json({ url: checkoutSession.url });
+    if (isPost) {
+      return NextResponse.json({ url: checkoutSession.url });
+    } else {
+      return NextResponse.redirect(checkoutSession.url);
+    }
   } catch (e: any) {
     console.error('Stripe addon checkout error:', e);
     return NextResponse.json(

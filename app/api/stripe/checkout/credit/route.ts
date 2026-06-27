@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getStripe } from '@/lib/stripe-client';
+import { getAppBaseUrl } from '@/lib/stripe-config';
 
 export async function POST(req: Request) {
   try {
@@ -17,7 +18,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: 'Neplatná částka. Minimum je 100 Kč.' }, { status: 400 });
     }
 
-    const returnUrl = new URL(body.returnPath || '/dashboard/settings?tab=billing', req.url);
+    const base = getAppBaseUrl();
+    const returnUrl = new URL(body.returnPath || '/dashboard/settings?tab=billing', base);
     const successUrl = new URL(returnUrl.toString());
     successUrl.searchParams.set('stripe', 'success_credit');
 

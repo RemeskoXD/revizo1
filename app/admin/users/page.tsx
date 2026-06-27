@@ -32,6 +32,9 @@ export default async function AdminUsersPage() {
     label: c.name?.trim() || c.email || c.id,
   }));
 
+  const serializedUsers = JSON.parse(JSON.stringify(users));
+  const serializedCompanies = JSON.parse(JSON.stringify(companies));
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -44,8 +47,8 @@ export default async function AdminUsersPage() {
       </div>
 
       <AdminUsersClient
-        initialUsers={users}
-        companies={companies}
+        initialUsers={serializedUsers}
+        companies={serializedCompanies}
         userRole={session.user.role}
         currentUserId={session.user.id}
       />

@@ -124,6 +124,25 @@ export default function AdminUsersClient({
   const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'CUSTOMER' });
   const [isCreating, setIsCreating] = useState(false);
 
+  const [confirmModal, setConfirmModal] = useState<{
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  } | null>(null);
+
+  const [alertModal, setAlertModal] = useState<{
+    title: string;
+    message: string;
+  } | null>(null);
+
+  const showAlert = (title: string, message: string) => {
+    setAlertModal({ title, message });
+  };
+
+  const showConfirm = (title: string, message: string, onConfirm: () => void) => {
+    setConfirmModal({ title, message, onConfirm });
+  };
+
   const canModerate = userRole === 'ADMIN' || userRole === 'SUPPORT';
 
   useEffect(() => {
@@ -173,11 +192,11 @@ export default function AdminUsersClient({
         setNewUser({ name: '', email: '', password: '', role: 'CUSTOMER' });
       } else {
         const data = await res.json();
-        alert(data.message || 'Došlo k chybě při vytváření uživatele.');
+        showAlert('Chyba', data.message || 'Došlo k chybě při vytváření uživatele.');
       }
     } catch (error) {
       console.error(error);
-      alert('Došlo k chybě při vytváření uživatele.');
+      showAlert('Chyba', 'Došlo k chybě při vytváření uživatele.');
     } finally {
       setIsCreating(false);
     }
@@ -204,32 +223,32 @@ export default function AdminUsersClient({
         setUsers(users.map(u => u.id === userId ? { ...u, priority: editPriority, role: editRole } : u));
         setEditingUser(null);
       } else {
-        alert('Došlo k chybě při ukládání změn.');
+        showAlert('Chyba', 'Došlo k chybě při ukládání změn.');
       }
     } catch (error) {
       console.error(error);
-      alert('Došlo k chybě při ukládání změn.');
+      showAlert('Chyba', 'Došlo k chybě při ukládání změn.');
     }
   };
 
   const handleDeleteUser = async (userId: string) => {
-    if (!confirm('Opravdu chcete smazat tohoto uživatele? Tato akce je nevratná.')) return;
-    
-    try {
-      const res = await fetch(`/api/admin/users/${userId}`, {
-        method: 'DELETE',
-      });
+    showConfirm('Smazat uživatele', 'Opravdu chcete smazat tohoto uživatele? Tato akce je nevratná.', async () => {
+      try {
+        const res = await fetch(`/api/admin/users/${userId}`, {
+          method: 'DELETE',
+        });
 
-      if (res.ok) {
-        setUsers(users.filter(u => u.id !== userId));
-      } else {
-        const data = await res.json();
-        alert(data.message || 'Došlo k chybě při mazání uživatele.');
+        if (res.ok) {
+          setUsers(users.filter(u => u.id !== userId));
+        } else {
+          const data = await res.json();
+          showAlert('Upozornění', data.message || 'Došlo k chybě při mazání uživatele.');
+        }
+      } catch (error) {
+        console.error(error);
+        showAlert('Chyba', 'Došlo k chybě při mazání uživatele.');
       }
-    } catch (error) {
-      console.error(error);
-      alert('Došlo k chybě při mazání uživatele.');
-    }
+    });
   };
 
   const openRevisionModal = (u: UserWithCompany) => {
@@ -263,7 +282,7 @@ export default function AdminUsersClient({
         );
         setRevisionModalUserId(null);
       } else {
-        alert((data as { message?: string }).message || 'Chyba při ukládání.');
+        showAlert('Chyba', (data as { message?: string }).message || 'Chyba při ukládání.');
       }
     } finally {
       setRevisionSaving(false);
@@ -292,11 +311,11 @@ export default function AdminUsersClient({
               : '',
         });
       } else {
-        alert(data.message || 'Nepodařilo se načíst limity objektů.');
+        showAlert('Chyba', data.message || 'Nepodařilo se načíst limity objektů.');
         setObjectLimitsModal(null);
       }
     } catch {
-      alert('Nepodařilo se načíst limity objektů.');
+      showAlert('Chyba', 'Nepodařilo se načíst limity objektů.');
       setObjectLimitsModal(null);
     }
   };
@@ -323,10 +342,10 @@ export default function AdminUsersClient({
       if (res.ok) {
         setObjectLimitsModal(null);
       } else {
-        alert(data.message || 'Nepodařilo se uložit změny.');
+        showAlert('Chyba', data.message || 'Nepodařilo se uložit změny.');
       }
     } catch {
-      alert('Nepodařilo se uložit změny.');
+      showAlert('Chyba', 'Nepodařilo se uložit změny.');
     } finally {
       setObjectLimitsState((s) => ({ ...s, saving: false }));
     }
@@ -343,43 +362,42 @@ export default function AdminUsersClient({
   };
 
   const handleToggleBan = async (userId: string, banned: boolean) => {
-    if (
-      !confirm(
-        banned
-          ? 'Zablokovat tohoto uživatele? Nebude se moci přihlásit a aktivní relace bude ukončena.'
-          : 'Odblokovat tohoto uživatele?'
-      )
-    ) {
-      return;
-    }
-    setBanLoadingId(userId);
-    try {
-      const res = await fetch(`/api/admin/users/${userId}/ban`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ banned }),
-      });
-      const data = (await res.json().catch(() => ({}))) as { message?: string; bannedAt?: string | null };
-      if (res.ok) {
-        setUsers((prev) =>
-          prev.map((u) =>
-            u.id === userId
-              ? {
-                  ...u,
-                  bannedAt: data.bannedAt != null ? new Date(data.bannedAt) : null,
-                }
-              : u
-          )
-        );
-      } else {
-        alert(data.message || 'Chyba při změně stavu účtu.');
+    showConfirm(
+      banned ? 'Zablokovat uživatele' : 'Odblokovat uživatele',
+      banned
+        ? 'Zablokovat tohoto uživatele? Nebude se moci přihlásit a aktivní relace bude ukončena.'
+        : 'Odblokovat tohoto uživatele?',
+      async () => {
+        setBanLoadingId(userId);
+        try {
+          const res = await fetch(`/api/admin/users/${userId}/ban`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ banned }),
+          });
+          const data = (await res.json().catch(() => ({}))) as { message?: string; bannedAt?: string | null };
+          if (res.ok) {
+            setUsers((prev) =>
+              prev.map((u) =>
+                u.id === userId
+                  ? {
+                      ...u,
+                      bannedAt: data.bannedAt != null ? new Date(data.bannedAt) : null,
+                    }
+                  : u
+              )
+            );
+          } else {
+            showAlert('Chyba', data.message || 'Chyba při změně stavu účtu.');
+          }
+        } catch (e) {
+          console.error(e);
+          showAlert('Chyba', 'Chyba při změně stavu účtu.');
+        } finally {
+          setBanLoadingId(null);
+        }
       }
-    } catch (e) {
-      console.error(e);
-      alert('Chyba při změně stavu účtu.');
-    } finally {
-      setBanLoadingId(null);
-    }
+    );
   };
 
   return (
@@ -621,15 +639,17 @@ export default function AdminUsersClient({
                                     {canModerate && user.emailVerified === null && (
                                       <button
                                         type="button"
-                                        onClick={async () => {
-                                          if (!confirm('Opravdu chcete ručně ověřit e-mail tohoto uživatele?')) return;
-                                          try {
-                                            const res = await fetch(`/api/admin/users/${user.id}/verify-email`, { method: 'POST' });
-                                            if (res.ok) window.location.reload();
-                                            else alert('Chyba při ověřování');
-                                          } catch (e) {
-                                            console.error(e);
-                                          }
+                                        onClick={() => {
+                                          showConfirm('Ověřit e-mail', 'Opravdu chcete ručně ověřit e-mail tohoto uživatele?', async () => {
+                                            try {
+                                              const res = await fetch(`/api/admin/users/${user.id}/verify-email`, { method: 'POST' });
+                                              if (res.ok) window.location.reload();
+                                              else showAlert('Chyba', 'Chyba při ověřování');
+                                            } catch (e) {
+                                              console.error(e);
+                                              showAlert('Chyba', 'Chyba při ověřování');
+                                            }
+                                          });
                                         }}
                                         className="rounded-lg px-2 py-1.5 text-xs font-semibold text-blue-400 hover:bg-blue-500/10 transition-colors"
                                       >
@@ -990,6 +1010,62 @@ export default function AdminUsersClient({
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* Confirm Modal */}
+      {confirmModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#111] p-6 shadow-2xl"
+          >
+            <h3 className="text-lg font-semibold text-white">{confirmModal.title}</h3>
+            <p className="mt-3 text-sm text-gray-400 leading-relaxed">{confirmModal.message}</p>
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setConfirmModal(null)}
+                className="flex-1 rounded-lg bg-white/5 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/10"
+              >
+                Zrušit
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  confirmModal.onConfirm();
+                  setConfirmModal(null);
+                }}
+                className="flex-1 rounded-lg bg-brand-yellow px-4 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-brand-yellow-hover shadow-lg shadow-brand-yellow/10"
+              >
+                Potvrdit
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Alert Modal */}
+      {alertModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#111] p-6 shadow-2xl"
+          >
+            <h3 className="text-lg font-semibold text-white">{alertModal.title}</h3>
+            <p className="mt-3 text-sm text-gray-400 leading-relaxed">{alertModal.message}</p>
+            <div className="mt-6">
+              <button
+                type="button"
+                onClick={() => setAlertModal(null)}
+                className="w-full rounded-lg bg-brand-yellow px-4 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-brand-yellow-hover shadow-lg shadow-brand-yellow/10"
+              >
+                Rozumím
+              </button>
+            </div>
+          </motion.div>
         </div>
       )}
     </div>

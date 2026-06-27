@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import {
   Check, ChevronRight, Home, Zap, FileText, Calendar, User, Phone,
-  MapPin, Info, ArrowLeft
+  MapPin, Info, ArrowLeft, AlertTriangle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatPriceCzk } from '@/lib/order-pricing';
@@ -72,6 +72,7 @@ export default function NewOrderPage() {
   const [isFirstRevision, setIsFirstRevision] = useState(false);
   const [urgency, setUrgency] = useState<'normal' | 'urgent'>('normal');
   const [profileData, setProfileData] = useState<{ordersCount?: number; objectLimitExtraPaid?: number; role?: string} | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const getMinDate = () => {
     // Pro vlastní revizi neomezujeme
@@ -212,14 +213,14 @@ export default function NewOrderPage() {
         if (data.checkoutPath) {
           window.location.href = data.checkoutPath;
         } else {
-          alert(data.message || 'Pro dokončení objednávky je vyžadována platba.');
+          setError(data.message || 'Pro dokončení objednávky je vyžadována platba.');
         }
       } else {
         const data = await res.json();
-        alert(data.message || 'Došlo k chybě při odesílání objednávky.');
+        setError(data.message || 'Došlo k chybě při odesílání objednávky.');
       }
     } catch {
-      alert('Došlo k chybě při odesílání objednávky.');
+      setError('Došlo k chybě při odesílání objednávky.');
     } finally {
       setIsSubmitting(false);
     }
@@ -564,6 +565,13 @@ export default function NewOrderPage() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {error && (
+          <div className="mt-6 flex items-start gap-3 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+            <AlertTriangle className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
+            <p className="text-sm text-red-400 font-medium">{error}</p>
+          </div>
+        )}
 
         {/* Navigation */}
         <div className="mt-6 flex flex-col-reverse gap-3 border-t border-white/10 pt-6 sm:mt-8 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:pt-8">

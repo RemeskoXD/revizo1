@@ -59,6 +59,7 @@ export default function JobDetailClient({ order, currentUser, addressHistory = [
 
   // Chat toggle
   const [chatOpen, setChatOpen] = useState(false);
+  const [unsavedPricing, setUnsavedPricing] = useState(false);
 
   // Voice dictation
   const [isListening, setIsListening] = useState(false);
@@ -132,6 +133,7 @@ export default function JobDetailClient({ order, currentUser, addressHistory = [
   };
 
   const handleComplete = async () => {
+    if (unsavedPricing) { alert('Máte neuložené položky v rozpočtu. Uložte je prosím nejdříve.'); return; }
     if (!file && !order.reportFile) { alert('Nahrajte revizní zprávu (PDF) nebo ji vytvořte online.'); return; }
     if (!safeForUse && revisionResult === 'PASS') {
       alert('Potvrďte, že zařízení je schopné bezpečného provozu.'); return;
@@ -354,11 +356,21 @@ export default function JobDetailClient({ order, currentUser, addressHistory = [
             </div>
           </div>
 
+          {order.technician && (
+            <div className="bg-[#1A1A1A] border border-white/5 rounded-xl p-4 flex justify-between items-center">
+              <span className="text-sm text-gray-400">Můj aktuální kredit:</span>
+              <span className="font-bold text-white bg-white/5 px-3 py-1 rounded-full">
+                {(order.technician.creditBalance || 0).toLocaleString('cs-CZ')} Kč
+              </span>
+            </div>
+          )}
+
           <OrderPricingManager 
             orderId={order.id} 
             readableId={order.readableId} 
             initialItems={order.pricingItems || []}
             readOnly={!isAssigned || status === 'COMPLETED'}
+            onUnsavedChanges={setUnsavedPricing}
           />
 
           {/* Completion Section */}

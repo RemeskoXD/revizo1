@@ -56,6 +56,8 @@ model User {
   companyTechSubscriptionId    String?                  @db.VarChar(120)
   /// REALTY/PRODUCT_MANAGER: ID makléře, který přivedl tohoto uživatele (typicky CUSTOMER) přes ?ref=<inviteCode>.
   referredByRealtorId          String?                  @db.VarChar(60)
+  emailVerificationCode        String?
+  emailVerificationToken       String?
   referredByRealtor            User?                    @relation("RealtorReferrals", fields: [referredByRealtorId], references: [id], onDelete: SetNull)
   referrals                    User[]                   @relation("RealtorReferrals")
   /// Reference na odměny získané jako makléř.

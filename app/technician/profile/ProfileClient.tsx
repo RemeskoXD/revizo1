@@ -107,6 +107,9 @@ export default function ProfileClient({ user }: { user: any }) {
               <ShieldCheck className="w-4 h-4 text-brand-yellow" />
               <span className="text-sm text-brand-yellow font-medium">Revizní technik</span>
             </div>
+            <div className="mt-2 text-sm text-gray-400 bg-white/5 inline-block px-3 py-1 rounded-full border border-white/10">
+              Můj kredit: <span className="text-white font-bold">{(user.creditBalance || 0).toLocaleString('cs-CZ')} Kč</span>
+            </div>
           </div>
         </div>
 

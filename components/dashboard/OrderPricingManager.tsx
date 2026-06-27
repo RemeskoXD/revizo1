@@ -27,12 +27,14 @@ export function OrderPricingManager({
   orderId, 
   readableId, 
   initialItems = [], 
-  readOnly = false 
+  readOnly = false,
+  onUnsavedChanges
 }: { 
   orderId: string, 
   readableId: string, 
   initialItems?: OrderPricingItem[], 
-  readOnly?: boolean 
+  readOnly?: boolean,
+  onUnsavedChanges?: (hasUnsaved: boolean) => void
 }) {
   const [inventory, setInventory] = useState<PricingItem[]>([]);
   const [items, setItems] = useState<OrderPricingItem[]>(initialItems);
@@ -42,6 +44,14 @@ export function OrderPricingManager({
   // For the "add new item" form
   const [selectedInventoryId, setSelectedInventoryId] = useState('');
   const [quantity, setQuantity] = useState(1);
+
+  // Zjištění neuložených změn
+  useEffect(() => {
+    if (onUnsavedChanges) {
+      const hasChanges = JSON.stringify(items.map(i => ({ id: i.pricingItemId, q: i.quantity }))) !== JSON.stringify(initialItems.map(i => ({ id: i.pricingItemId, q: i.quantity })));
+      onUnsavedChanges(hasChanges);
+    }
+  }, [items, initialItems, onUnsavedChanges]);
 
   useEffect(() => {
     if (!readOnly) {

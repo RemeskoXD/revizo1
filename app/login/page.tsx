@@ -34,7 +34,11 @@ function LoginForm() {
       });
 
       if (res?.error) {
-        setError(res.error);
+        if (res.error === "unverified_email") {
+          router.push(`/verify-email?email=${encodeURIComponent(email)}`);
+        } else {
+          setError(res.error);
+        }
       } else {
         router.refresh();
         router.push(callbackUrl);

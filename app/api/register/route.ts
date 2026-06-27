@@ -151,6 +151,9 @@ export async function POST(req: Request) {
       }
 
       const trialUntil = trialEndFromRegistration(new Date());
+      const verifyToken = randomBytes(32).toString("hex");
+      const verifyCode = Math.floor(100000 + Math.random() * 900000).toString();
+
       const user = await createUserWithSubscriptionColumnFallback({
         data: {
           name: nameTrim,
@@ -162,10 +165,20 @@ export async function POST(req: Request) {
           address: address || null,
           licenseValidUntil: trialUntil,
           requiresSubscriptionCheckout: false,
+          emailVerificationToken: verifyToken,
+          emailVerificationCode: verifyCode,
           ...(['CUSTOMER', 'SVJ', 'REALTY'].includes(role) && referredByRealtorId ? { referredByRealtorId } : {}),
         },
         select: { id: true, email: true, role: true },
       });
+
+      const verifyLink = `${process.env.APP_URL || process.env.NEXTAUTH_URL}/verify-email?token=${verifyToken}`;
+      await import("@/lib/mail").then(m => m.sendMail({
+        to: emailNorm,
+        subject: "Ověření e-mailové adresy",
+        text: `Váš ověřovací kód je: ${verifyCode}\nNebo klikněte na odkaz: ${verifyLink}`,
+        html: `<p>Váš ověřovací kód je: <strong>${verifyCode}</strong></p><p>Nebo klikněte na odkaz: <a href="${verifyLink}">${verifyLink}</a></p>`
+      }).catch(console.error));
 
       let postRegisterRedirect: string | null = null;
       if (isFakePaymentGatewayEnabled()) {
@@ -213,6 +226,9 @@ export async function POST(req: Request) {
       }
 
       const trialUntil = trialEndFromRegistration(new Date());
+      const verifyToken = randomBytes(32).toString("hex");
+      const verifyCode = Math.floor(100000 + Math.random() * 900000).toString();
+
       const user = await createUserWithSubscriptionColumnFallback({
         data: {
           name: nameTrim,
@@ -229,9 +245,19 @@ export async function POST(req: Request) {
           pendingCompanyInviteCode: companyInviteCode || null,
           licenseValidUntil: trialUntil,
           requiresSubscriptionCheckout: false,
+          emailVerificationToken: verifyToken,
+          emailVerificationCode: verifyCode,
         },
         select: { id: true, email: true, role: true },
       });
+
+      const verifyLink = `${process.env.APP_URL || process.env.NEXTAUTH_URL}/verify-email?token=${verifyToken}`;
+      await import("@/lib/mail").then(m => m.sendMail({
+        to: emailNorm,
+        subject: "Ověření e-mailové adresy",
+        text: `Váš ověřovací kód je: ${verifyCode}\nNebo klikněte na odkaz: ${verifyLink}`,
+        html: `<p>Váš ověřovací kód je: <strong>${verifyCode}</strong></p><p>Nebo klikněte na odkaz: <a href="${verifyLink}">${verifyLink}</a></p>`
+      }).catch(console.error));
 
       if (companyId) {
         await prisma.companyJoinRequest.create({
@@ -271,6 +297,9 @@ export async function POST(req: Request) {
       }
 
       const trialUntil = trialEndFromRegistration(new Date());
+      const verifyToken = randomBytes(32).toString("hex");
+      const verifyCode = Math.floor(100000 + Math.random() * 900000).toString();
+
       const user = await createUserWithSubscriptionColumnFallback({
         data: {
           name: nameTrim,
@@ -288,9 +317,19 @@ export async function POST(req: Request) {
           expectedTechnicians: exp,
           licenseValidUntil: trialUntil,
           requiresSubscriptionCheckout: false,
+          emailVerificationToken: verifyToken,
+          emailVerificationCode: verifyCode,
         },
         select: { id: true, email: true, role: true },
       });
+
+      const verifyLink = `${process.env.APP_URL || process.env.NEXTAUTH_URL}/verify-email?token=${verifyToken}`;
+      await import("@/lib/mail").then(m => m.sendMail({
+        to: emailNorm,
+        subject: "Ověření e-mailové adresy",
+        text: `Váš ověřovací kód je: ${verifyCode}\nNebo klikněte na odkaz: ${verifyLink}`,
+        html: `<p>Váš ověřovací kód je: <strong>${verifyCode}</strong></p><p>Nebo klikněte na odkaz: <a href="${verifyLink}">${verifyLink}</a></p>`
+      }).catch(console.error));
 
       return NextResponse.json(
         {
@@ -311,6 +350,9 @@ export async function POST(req: Request) {
     const inviteForCompany =
       role === "COMPANY_ADMIN" ? randomBytes(5).toString("hex").slice(0, 10).toUpperCase() : null;
 
+    const verifyToken = randomBytes(32).toString("hex");
+    const verifyCode = Math.floor(100000 + Math.random() * 900000).toString();
+
     const user = await prisma.user.create({
       data: {
         name: nameTrim,
@@ -319,6 +361,8 @@ export async function POST(req: Request) {
         role: role || "CUSTOMER",
         inviteCode: inviteForCompany,
         accountStatus: "ACTIVE",
+        emailVerificationToken: verifyToken,
+        emailVerificationCode: verifyCode,
       },
       select: {
         id: true,
@@ -326,6 +370,14 @@ export async function POST(req: Request) {
         role: true,
       },
     });
+
+    const verifyLink = `${process.env.APP_URL || process.env.NEXTAUTH_URL}/verify-email?token=${verifyToken}`;
+    await import("@/lib/mail").then(m => m.sendMail({
+      to: emailNorm,
+      subject: "Ověření e-mailové adresy",
+      text: `Váš ověřovací kód je: ${verifyCode}\nNebo klikněte na odkaz: ${verifyLink}`,
+      html: `<p>Váš ověřovací kód je: <strong>${verifyCode}</strong></p><p>Nebo klikněte na odkaz: <a href="${verifyLink}">${verifyLink}</a></p>`
+    }).catch(console.error));
 
     if (role === "TECHNICIAN" && companyId) {
       await prisma.companyJoinRequest.create({
