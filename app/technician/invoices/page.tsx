@@ -13,8 +13,7 @@ export default async function InvoicesPage() {
   const invoices = await prisma.order.findMany({
     where: {
       technicianId: session.user.id,
-      status: 'COMPLETED',
-      invoiceFile: { not: null }
+      status: 'COMPLETED'
     },
     select: {
       id: true,

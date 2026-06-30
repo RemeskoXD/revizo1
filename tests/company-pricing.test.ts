@@ -5,7 +5,7 @@ import {
   computeYearlyCostCzk,
   getCompanyTechBillingStatus,
   TECH_SEAT_MONTHLY_CZK,
-  TECH_FREE_PER_N,
+  TECH_FREE_TECHS,
 } from '../lib/company-pricing';
 
 describe('computeBillableTechs', () => {
@@ -13,28 +13,20 @@ describe('computeBillableTechs', () => {
     expect(computeBillableTechs(0)).toBe(0);
   });
 
-  it('1 technik = 1 placený', () => {
-    expect(computeBillableTechs(1)).toBe(1);
+  it('1 technik = 0 placených (zdarma)', () => {
+    expect(computeBillableTechs(1)).toBe(0);
   });
 
-  it('9 techniků = 9 placených', () => {
-    expect(computeBillableTechs(9)).toBe(9);
+  it('3 technici = 0 placených (zdarma)', () => {
+    expect(computeBillableTechs(3)).toBe(0);
   });
 
-  it('10 techniků = 9 placených (1 zdarma)', () => {
-    expect(computeBillableTechs(10)).toBe(9);
+  it('4 technici = 1 placený', () => {
+    expect(computeBillableTechs(4)).toBe(1);
   });
 
-  it('15 techniků = 14 placených (1 zdarma)', () => {
-    expect(computeBillableTechs(15)).toBe(14);
-  });
-
-  it('20 techniků = 18 placených (2 zdarma)', () => {
-    expect(computeBillableTechs(20)).toBe(18);
-  });
-
-  it('100 techniků = 90 placených (10 zdarma)', () => {
-    expect(computeBillableTechs(100)).toBe(90);
+  it('10 techniků = 7 placených (3 zdarma)', () => {
+    expect(computeBillableTechs(10)).toBe(7);
   });
 
   it('záporný počet vrátí 0', () => {
@@ -46,36 +38,34 @@ describe('computeBillableTechs', () => {
   });
 
   it('desetinný počet zaokrouhlí dolů', () => {
-    expect(computeBillableTechs(15.7)).toBe(14);
+    expect(computeBillableTechs(4.7)).toBe(1);
   });
 });
 
 describe('computeMonthlyCostCzk', () => {
   it('odpovídá počtu billable seats × 200', () => {
     expect(computeMonthlyCostCzk(0)).toBe(0);
-    expect(computeMonthlyCostCzk(1)).toBe(200);
-    expect(computeMonthlyCostCzk(9)).toBe(1800);
-    expect(computeMonthlyCostCzk(10)).toBe(1800);
-    expect(computeMonthlyCostCzk(15)).toBe(2800);
-    expect(computeMonthlyCostCzk(20)).toBe(3600);
+    expect(computeMonthlyCostCzk(3)).toBe(0);
+    expect(computeMonthlyCostCzk(4)).toBe(200);
+    expect(computeMonthlyCostCzk(10)).toBe(1400);
   });
 });
 
 describe('computeYearlyCostCzk', () => {
   it('je 12× měsíční', () => {
-    expect(computeYearlyCostCzk(10)).toBe(12 * 1800);
+    expect(computeYearlyCostCzk(10)).toBe(12 * 1400);
   });
 });
 
 describe('getCompanyTechBillingStatus', () => {
-  it('vrátí kompletní status pro 15 techniků s aktivním subscription', () => {
-    const s = getCompanyTechBillingStatus({ techCount: 15, subscriptionActive: true });
+  it('vrátí kompletní status pro 10 techniků s aktivním subscription', () => {
+    const s = getCompanyTechBillingStatus({ techCount: 10, subscriptionActive: true });
     expect(s).toEqual({
-      techCount: 15,
-      billable: 14,
-      freeTechs: 1,
-      monthlyCzk: 2800,
-      yearlyCzk: 33600,
+      techCount: 10,
+      billable: 7,
+      freeTechs: 3,
+      monthlyCzk: 1400,
+      yearlyCzk: 16800,
       subscriptionActive: true,
     });
   });
@@ -89,11 +79,11 @@ describe('getCompanyTechBillingStatus', () => {
   });
 });
 
-describe('konstanty odpovídají diagramu', () => {
+describe('konstanty odpovídají zadání', () => {
   it('TECH_SEAT_MONTHLY_CZK = 200', () => {
     expect(TECH_SEAT_MONTHLY_CZK).toBe(200);
   });
-  it('TECH_FREE_PER_N = 10', () => {
-    expect(TECH_FREE_PER_N).toBe(10);
+  it('TECH_FREE_TECHS = 3', () => {
+    expect(TECH_FREE_TECHS).toBe(3);
   });
 });

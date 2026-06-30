@@ -43,7 +43,6 @@ function getPackagesWithPrices(plans: typeof SUBSCRIPTION_PLANS): Package[] {
       icon: <User className="w-7 h-7" />,
       description: "Pro majitele rodinných domů",
       benefits: [
-        "1 objekt v základu (každý další za 100 Kč / rok)",
         "Přehled všech vašich revizí na jednom místě",
         "Automatické hlídání termínů a upozornění",
         "Snadné objednání nové revize online",
@@ -61,7 +60,6 @@ function getPackagesWithPrices(plans: typeof SUBSCRIPTION_PLANS): Package[] {
       icon: <Wrench className="w-7 h-7" />,
       description: "Pro certifikované revizní techniky",
       benefits: [
-        "Zdarma navždy",
         "Přijímejte objednávky na revize",
         "Správa vlastního kalendáře",
         "Generování revizních zpráv",
@@ -78,8 +76,6 @@ function getPackagesWithPrices(plans: typeof SUBSCRIPTION_PLANS): Package[] {
       icon: <Building2 className="w-7 h-7" />,
       description: "Manažer revizních techniků (FO i PO)",
       benefits: [
-        "Manažerský účet a 3 technici zdarma",
-        "Každý další technik: 200 Kč / měsíc",
         "Správa týmu techniků",
         "Přehled všech zakázek firmy",
         "Přidělování objednávek",
@@ -96,14 +92,13 @@ function getPackagesWithPrices(plans: typeof SUBSCRIPTION_PLANS): Package[] {
       icon: <Home className="w-7 h-7" />,
       description: "Pro správce bytových domů a SVJ",
       benefits: [
-        "3 objekty v základu (každých dalších 10 objektů za 600 Kč / rok)",
         "Správa revizí pro více nemovitostí",
         "Pozvánky pro nájemníky a vlastníky",
         "Společné revizní repozitáře",
-        "Upozornění na propadlé revize",
+        "Upozornění na končí platnost revize",
       ],
       color: "from-emerald-500 to-green-400",
-      objectsNote: "3 objekty v základu · balíček 10 dalších objektů 600 Kč / rok",
+      objectsNote: "3 objekty v základu, každý další 600Kč/rok, nad 10 individuální nabídka",
     },
     {
       id: "realty",
@@ -113,10 +108,7 @@ function getPackagesWithPrices(plans: typeof SUBSCRIPTION_PLANS): Package[] {
       icon: <Percent className="w-7 h-7" />,
       description: "Pro realitní makléře a kanceláře",
       benefits: [
-        "Aplikace zdarma pro makléře",
-        "Převod nemovitosti s revizemi na klienta (200 Kč pro klienta)",
-        "Provize 20 Kč z každého převodu (i při ročním prodloužení)",
-        "Výplata provize od 1000 Kč",
+        "Převod nemovitosti s revizemi na klienta",
         "Správa revizí prodávaných nemovitostí",
       ],
       color: "from-pink-500 to-rose-400",
@@ -393,7 +385,7 @@ function RegisterForm() {
 
                   <p className="mb-2 text-sm font-medium text-white">
                     {pkg.yearlyPriceCzk === 0 ? (
-                      <span className="text-brand-yellow">Zdarma</span>
+                      <span className="text-brand-yellow">Registrace zdarma</span>
                     ) : (
                       <>
                         {pkg.yearlyPriceCzk.toLocaleString("cs-CZ")} Kč / rok

@@ -15,6 +15,7 @@ import {
   Ban,
   Calendar,
   Building,
+  ShieldCheck,
 } from 'lucide-react';
 import type { User } from '@prisma/client';
 import { motion } from 'motion/react';
@@ -24,6 +25,7 @@ import { isRevisionAuthExpired, isRevisionAuthRole } from '@/lib/revision-auth-c
 
 type UserWithCompany = User & {
   company: { id: string; name: string | null; email: string | null } | null;
+  authorizedCategories?: { id: string; name: string }[];
 };
 
 const ROLE_FILTER_VALUES = [
@@ -68,11 +70,13 @@ function formatLicenseCell(value: Date | string | null | undefined) {
 export default function AdminUsersClient({
   initialUsers,
   companies,
+  revisionCategories,
   userRole,
   currentUserId,
 }: {
   initialUsers: UserWithCompany[];
   companies: { id: string; label: string }[];
+  revisionCategories?: { id: string; name: string }[];
   userRole: string;
   currentUserId: string;
 }) {
@@ -92,6 +96,14 @@ export default function AdminUsersClient({
   const [revisionModalUserId, setRevisionModalUserId] = useState<string | null>(null);
   const [revisionModalDate, setRevisionModalDate] = useState('');
   const [revisionSaving, setRevisionSaving] = useState(false);
+
+  const [technicianModal, setTechnicianModal] = useState<null | {
+    userId: string;
+    credit: number;
+    categories: string[];
+    user: UserWithCompany;
+  }>(null);
+  const [techSaving, setTechSaving] = useState(false);
 
   const [objectLimitsModal, setObjectLimitsModal] = useState<null | {
     userId: string;
@@ -286,6 +298,45 @@ export default function AdminUsersClient({
       }
     } finally {
       setRevisionSaving(false);
+    }
+  };
+
+  const openTechnicianModal = (u: UserWithCompany) => {
+    setTechnicianModal({
+      userId: u.id,
+      credit: u.creditBalance || 0,
+      categories: u.authorizedCategories?.map(c => c.id) || [],
+      user: u
+    });
+  };
+
+  const saveTechnicianModal = async () => {
+    if (!technicianModal) return;
+    setTechSaving(true);
+    try {
+      const res = await fetch(`/api/admin/users/${technicianModal.userId}/technician-details`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          creditBalance: technicianModal.credit,
+          authorizedCategories: technicianModal.categories
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setUsers((prev) =>
+          prev.map((u) =>
+            u.id === technicianModal.userId
+              ? { ...u, creditBalance: data.creditBalance, authorizedCategories: data.authorizedCategories }
+              : u
+          )
+        );
+        setTechnicianModal(null);
+      } else {
+        showAlert('Chyba', data.message || 'Chyba při ukládání.');
+      }
+    } finally {
+      setTechSaving(false);
     }
   };
 
@@ -681,6 +732,16 @@ export default function AdminUsersClient({
                                         <Building className="w-4 h-4" />
                                       </button>
                                     )}
+                                    {userRole === 'ADMIN' && user.role === 'TECHNICIAN' && (
+                                      <button
+                                        type="button"
+                                        onClick={() => openTechnicianModal(user)}
+                                        title="Detail technika (kredit, oprávnění)"
+                                        className="p-2 text-brand-yellow hover:text-white hover:bg-brand-yellow/10 rounded-lg transition-colors"
+                                      >
+                                        <ShieldCheck className="w-4 h-4" />
+                                      </button>
+                                    )}
                                     {userRole === 'ADMIN' && (
                                       <>
                                         <button onClick={() => { setEditingUser(user.id); setEditPriority(user.priority); setEditRole(user.role); }} className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
@@ -765,6 +826,81 @@ export default function AdminUsersClient({
             >
               Zavřít
             </button>
+          </div>
+        </div>
+      )}
+
+      {technicianModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 backdrop-blur-sm sm:p-4">
+          <div className="max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-2xl border border-white/10 bg-[#111] p-5 sm:p-6">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-semibold text-white">Detail technika</h3>
+                <p className="mt-1 text-sm text-gray-400">
+                  {technicianModal.user.email}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTechnicianModal(null)}
+                className="text-gray-400 hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="mt-6 space-y-5">
+              <div>
+                <label className="block text-sm font-medium text-gray-300">
+                  Kredit pro poptávky (Kč)
+                </label>
+                <input
+                  type="number"
+                  value={technicianModal.credit}
+                  onChange={(e) => setTechnicianModal(s => s ? { ...s, credit: parseFloat(e.target.value) || 0 } : s)}
+                  className="mt-1 w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3 py-2 text-white"
+                />
+                <p className="mt-1 text-xs text-gray-500">Můžete ručně přidat nebo odebrat kredit z peněženky technika.</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Oprávnění k provádění revizí (Kategorie)
+                </label>
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-2 rounded-lg border border-white/5 bg-[#161616] p-3">
+                  {revisionCategories?.map(cat => (
+                    <label key={cat.id} className="flex items-center gap-3 cursor-pointer p-1 hover:bg-white/5 rounded">
+                      <input
+                        type="checkbox"
+                        checked={technicianModal.categories.includes(cat.id)}
+                        onChange={(e) => {
+                          const newCategories = e.target.checked
+                            ? [...technicianModal.categories, cat.id]
+                            : technicianModal.categories.filter(id => id !== cat.id);
+                          setTechnicianModal(s => s ? { ...s, categories: newCategories } : s);
+                        }}
+                        className="rounded border-gray-600 text-brand-yellow focus:ring-brand-yellow/30 bg-[#1A1A1A]"
+                      />
+                      <span className="text-sm text-white">{cat.name}</span>
+                    </label>
+                  ))}
+                  {(!revisionCategories || revisionCategories.length === 0) && (
+                    <p className="text-xs text-gray-500 italic">Žádné kategorie v databázi.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => void saveTechnicianModal()}
+                disabled={techSaving}
+                className="rounded-lg bg-brand-yellow px-4 py-2 text-sm font-semibold text-black hover:bg-brand-yellow-hover disabled:opacity-50"
+              >
+                {techSaving ? 'Ukládám…' : 'Uložit změny'}
+              </button>
+            </div>
           </div>
         </div>
       )}

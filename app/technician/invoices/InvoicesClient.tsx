@@ -133,18 +133,20 @@ export default function InvoicesClient({ invoices, technician }: any) {
                   <td className="p-4 text-right">
                     <div className="flex justify-end items-center gap-2">
                       <div className="flex bg-[#1A1A1A] rounded-lg border border-white/5 p-1">
-                        <Link 
-                          href={`/api/orders/${invoice.readableId}/download?type=invoice`}
-                          target="_blank"
-                          title="Stáhnout fakturu"
-                          className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded transition-colors"
-                        >
-                          <Download className="w-4 h-4" />
-                        </Link>
+                        {invoice.invoiceFile ? (
+                          <Link 
+                            href={`/api/orders/${invoice.readableId}/download?type=invoice`}
+                            target="_blank"
+                            title="Stáhnout nahranou fakturu"
+                            className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded transition-colors"
+                          >
+                            <Download className="w-4 h-4" />
+                          </Link>
+                        ) : null}
                         <Link 
                           href={`/technician/job/${invoice.readableId}/invoice`}
                           target="_blank"
-                          title="Zobrazit / Tisknout"
+                          title={invoice.invoiceFile ? "Zobrazit nahranou fakturu / Tisknout" : "Zobrazit vygenerovanou fakturu / Tisknout"}
                           className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded transition-colors"
                         >
                           <Printer className="w-4 h-4" />

@@ -15,6 +15,7 @@ export default async function TechnicianProfilePage() {
     where: { id: session.user.id },
     include: {
       company: true,
+      authorizedCategories: true,
     }
   });
 

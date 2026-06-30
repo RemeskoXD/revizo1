@@ -15,11 +15,13 @@ export function parseRevisionAuthValidUntilDate(isoDate: string): Date | null {
 /** Zda platnost oprávnění k revizím vypršela (pouze technik/firma; null = dosud neomezeno / legacy). */
 export function isRevisionAuthExpired(
   role: string,
-  revisionAuthValidUntil: Date | null | undefined
+  revisionAuthValidUntil: Date | string | null | undefined
 ): boolean {
   if (!REVISION_AUTH_ROLES.has(role)) return false;
   if (revisionAuthValidUntil == null) return false;
-  return revisionAuthValidUntil.getTime() < Date.now();
+  const d = typeof revisionAuthValidUntil === 'string' ? new Date(revisionAuthValidUntil) : revisionAuthValidUntil;
+  if (Number.isNaN(d.getTime())) return false;
+  return d.getTime() < Date.now();
 }
 
 export function isRevisionAuthRole(role: string): boolean {

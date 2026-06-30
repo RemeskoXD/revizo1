@@ -216,6 +216,26 @@ export default function ProfileClient({ user }: { user: any }) {
         </div>
       </div>
 
+      <div className="bg-[#1A1A1A] border border-white/5 rounded-xl overflow-hidden mt-6">
+        <div className="p-6 border-b border-white/5">
+          <h2 className="text-xl font-bold text-white">Moje oprávnění (Kategorie revizí)</h2>
+          <p className="text-gray-400 mt-1 text-sm">Níže jsou vypsány kategorie revizí, pro které máte platné oprávnění.</p>
+        </div>
+        <div className="p-6">
+          {user.authorizedCategories && user.authorizedCategories.length > 0 ? (
+            <ul className="list-disc list-inside space-y-1 text-gray-300">
+              {user.authorizedCategories.map((cat: any) => (
+                <li key={cat.id}>{cat.name}</li>
+              ))}
+            </ul>
+          ) : (
+            <div className="text-amber-400/90 bg-amber-500/10 p-4 rounded-lg border border-amber-500/20 text-sm">
+              Zatím nemáte přiřazena žádná oprávnění k revizím. Kontaktujte prosím administrátora.
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Join Company Section */}
       {!user.company && (
         <div className="bg-[#1A1A1A] border border-white/5 rounded-xl overflow-hidden mt-6">

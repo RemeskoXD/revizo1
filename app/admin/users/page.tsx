@@ -11,12 +11,13 @@ export default async function AdminUsersPage() {
     redirect('/login');
   }
 
-  const [users, companyAdmins] = await Promise.all([
+  const [users, companyAdmins, revisionCategories] = await Promise.all([
     prisma.user.findMany({
       orderBy: { createdAt: 'desc' },
       take: 50,
       include: {
         company: { select: { id: true, name: true, email: true } },
+        authorizedCategories: { select: { id: true, name: true } },
       },
     }),
     prisma.user.findMany({
@@ -25,6 +26,9 @@ export default async function AdminUsersPage() {
       orderBy: [{ name: 'asc' }, { email: 'asc' }],
       select: { id: true, name: true, email: true },
     }),
+    prisma.revisionCategory.findMany({
+      orderBy: { name: 'asc' }
+    })
   ]);
 
   const companies = companyAdmins.map((c) => ({
@@ -34,6 +38,7 @@ export default async function AdminUsersPage() {
 
   const serializedUsers = JSON.parse(JSON.stringify(users));
   const serializedCompanies = JSON.parse(JSON.stringify(companies));
+  const serializedCategories = JSON.parse(JSON.stringify(revisionCategories));
 
   return (
     <div className="space-y-6">
@@ -49,6 +54,7 @@ export default async function AdminUsersPage() {
       <AdminUsersClient
         initialUsers={serializedUsers}
         companies={serializedCompanies}
+        revisionCategories={serializedCategories}
         userRole={session.user.role}
         currentUserId={session.user.id}
       />

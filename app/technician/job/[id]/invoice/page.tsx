@@ -34,6 +34,11 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
     redirect('/dashboard');
   }
 
+  // Přiorita faktury od technika: Pokud ji nahrál, přesměrujeme rovnou na její stažení/zobrazení
+  if (order.invoiceFile) {
+    redirect(`/api/orders/${order.readableId}/download?type=invoice`);
+  }
+
   const biller = order.technician || order.company;
 
   return (

@@ -410,7 +410,7 @@ export default function OrderDetailClient({ order, currentUser, technicians = []
                       <FileText className="h-6 w-6" />
                     </div>
                     <div className="min-w-0">
-                      <p className="font-medium text-white">Faktura</p>
+                      <p className="font-medium text-white">Faktura (Od technika)</p>
                       <p className="text-xs text-gray-500">Dokument</p>
                     </div>
                   </div>
@@ -422,9 +422,28 @@ export default function OrderDetailClient({ order, currentUser, technicians = []
                     <Download className="h-4 w-4" /> Stáhnout
                   </a>
                 </div>
+              ) : (order.status === 'COMPLETED' && order.price && order.price > 0) ? (
+                <div className="flex flex-col gap-3 rounded-lg border border-white/10 bg-[#111] p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="shrink-0 rounded-lg bg-brand-yellow/10 p-2 text-brand-yellow">
+                      <FileText className="h-6 w-6" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-medium text-white">Faktura</p>
+                      <p className="text-xs text-gray-500">Automaticky vygenerováno</p>
+                    </div>
+                  </div>
+                  <a 
+                    href={`/technician/job/${order.readableId}/invoice`} 
+                    target="_blank"
+                    className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-white/5 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/10 sm:self-center"
+                  >
+                    <Download className="h-4 w-4" /> Zobrazit a Stáhnout
+                  </a>
+                </div>
               ) : null}
               {/* @ts-ignore */}
-              {!order.reportFile && !order.invoiceFile && (
+              {!order.reportFile && !order.invoiceFile && order.status !== 'COMPLETED' && (
                 <div className="flex items-center justify-center py-8 border border-dashed border-white/10 rounded-lg text-gray-500">
                     <p>Zatím nebyly nahrány žádné dokumenty.</p>
                 </div>

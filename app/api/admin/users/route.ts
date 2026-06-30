@@ -56,6 +56,7 @@ export async function GET(req: Request) {
         take: limit,
         include: {
           company: { select: { id: true, name: true, email: true } },
+          authorizedCategories: { select: { id: true, name: true } },
         },
       }),
       prisma.user.count({ where })
