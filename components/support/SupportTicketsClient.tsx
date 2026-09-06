@@ -365,16 +365,80 @@ function TicketDetailClient({ id, onBack, currentUser }: { id: string, onBack: (
 export function AdminSupportClient({ tickets: initialTickets, currentUser }: { tickets: any[], currentUser: any }) {
   const [tickets, setTickets] = useState(initialTickets);
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<'ALL' | 'CANCELLATIONS' | 'OPEN' | 'CLOSED'>('ALL');
 
   if (selectedTicketId) {
     return <TicketDetailClient id={selectedTicketId} onBack={() => setSelectedTicketId(null)} currentUser={currentUser} />;
   }
 
+  const openCancellationsCount = tickets.filter(
+    t => (t.category === 'ORDER_CANCELLATION' || t.subject?.toLowerCase().includes('storno')) && t.status === 'OPEN'
+  ).length;
+
+  const filteredTickets = tickets.filter(t => {
+    const isCancel = t.category === 'ORDER_CANCELLATION' || t.subject?.toLowerCase().includes('storno');
+    if (filter === 'CANCELLATIONS') return isCancel;
+    if (filter === 'OPEN') return t.status === 'OPEN';
+    if (filter === 'CLOSED') return t.status === 'CLOSED';
+    return true;
+  });
+
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
-      <div>
-        <h1 className="text-2xl font-bold font-sans text-white">Zákaznická podpora</h1>
-        <p className="text-gray-400 text-sm">Tikety od všech uživatelů.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold font-sans text-white">Zákaznická podpora</h1>
+          <p className="text-gray-400 text-sm">Tikety od všech uživatelů a žádosti o storno zakázek.</p>
+        </div>
+
+        {/* Filter tabs */}
+        <div className="flex items-center gap-1.5 bg-[#111] p-1 rounded-xl border border-white/10 text-xs font-medium self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={() => setFilter('ALL')}
+            className={cn(
+              "px-3 py-1.5 rounded-lg transition-all",
+              filter === 'ALL' ? "bg-white/10 text-white font-semibold" : "text-gray-400 hover:text-white"
+            )}
+          >
+            Vše ({tickets.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilter('CANCELLATIONS')}
+            className={cn(
+              "px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5",
+              filter === 'CANCELLATIONS' ? "bg-red-500/20 text-red-300 font-semibold border border-red-500/30" : "text-red-400 hover:text-red-300"
+            )}
+          >
+            <span>Storna</span>
+            {openCancellationsCount > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full bg-red-500 text-white font-bold text-[10px]">
+                {openCancellationsCount}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilter('OPEN')}
+            className={cn(
+              "px-3 py-1.5 rounded-lg transition-all",
+              filter === 'OPEN' ? "bg-white/10 text-white font-semibold" : "text-gray-400 hover:text-white"
+            )}
+          >
+            Otevřené
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilter('CLOSED')}
+            className={cn(
+              "px-3 py-1.5 rounded-lg transition-all",
+              filter === 'CLOSED' ? "bg-white/10 text-white font-semibold" : "text-gray-400 hover:text-white"
+            )}
+          >
+            Uzavřené
+          </button>
+        </div>
       </div>
 
       <div className="bg-[#1A1A1A] border border-white/5 rounded-xl overflow-hidden">
@@ -388,37 +452,52 @@ export function AdminSupportClient({ tickets: initialTickets, currentUser }: { t
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5">
-            {tickets.map(ticket => (
-              <tr 
-                key={ticket.id} 
-                onClick={() => setSelectedTicketId(ticket.id)}
-                className="hover:bg-white/[0.02] transition-colors cursor-pointer"
-              >
-                <td className="px-4 py-4">
-                  <div className="font-semibold text-white">{ticket.user?.name}</div>
-                  <div className="text-xs text-gray-500">{ticket.user?.email} • {ticket.user?.role}</div>
-                </td>
-                <td className="px-4 py-4">
-                  <div className="font-semibold text-gray-200">{ticket.subject}</div>
-                  <div className="text-xs text-brand-yellow mt-1">{ticket.category}</div>
-                </td>
-                <td className="px-4 py-4">
-                  <span className={cn(
-                    "text-xs font-bold px-2 py-1 rounded-md",
-                    ticket.status === 'OPEN' ? "bg-green-500/10 text-green-400" : "bg-gray-500/10 text-gray-400"
-                  )}>
-                    {ticket.status}
-                  </span>
-                </td>
-                <td className="px-4 py-4">
-                  {new Date(ticket.createdAt).toLocaleDateString('cs-CZ')}
-                </td>
-              </tr>
-            ))}
-            {tickets.length === 0 && (
+            {filteredTickets.map(ticket => {
+              const isCancellation = ticket.category === 'ORDER_CANCELLATION' || ticket.subject?.toLowerCase().includes('storno');
+              return (
+                <tr 
+                  key={ticket.id} 
+                  onClick={() => setSelectedTicketId(ticket.id)}
+                  className={cn(
+                    "transition-colors cursor-pointer",
+                    isCancellation
+                      ? "bg-red-500/[0.04] hover:bg-red-500/[0.08]"
+                      : "hover:bg-white/[0.02]"
+                  )}
+                >
+                  <td className="px-4 py-4">
+                    <div className="font-semibold text-white">{ticket.user?.name || 'Neznámý'}</div>
+                    <div className="text-xs text-gray-500">{ticket.user?.email} • {ticket.user?.role}</div>
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-gray-200">{ticket.subject}</span>
+                      {isCancellation && (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400 border border-red-500/30">
+                          Storno zakázky
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-brand-yellow mt-1">{ticket.category}</div>
+                  </td>
+                  <td className="px-4 py-4">
+                    <span className={cn(
+                      "text-xs font-bold px-2 py-1 rounded-md",
+                      ticket.status === 'OPEN' ? "bg-green-500/10 text-green-400" : "bg-gray-500/10 text-gray-400"
+                    )}>
+                      {ticket.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-4">
+                    {new Date(ticket.createdAt).toLocaleDateString('cs-CZ')}
+                  </td>
+                </tr>
+              );
+            })}
+            {filteredTickets.length === 0 && (
               <tr>
                 <td colSpan={4} className="px-4 py-8 text-center text-gray-500">
-                  Zatím nebyly vytvořeny žádné tikety.
+                  Nebyly nalezeny žádné odpovídající tikety.
                 </td>
               </tr>
             )}

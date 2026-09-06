@@ -71,8 +71,34 @@ export default function NewOrderPage() {
   const [preferredDate, setPreferredDate] = useState('');
   const [isFirstRevision, setIsFirstRevision] = useState(false);
   const [urgency, setUrgency] = useState<'normal' | 'urgent'>('normal');
-  const [profileData, setProfileData] = useState<{ordersCount?: number; objectLimitExtraPaid?: number; role?: string} | null>(null);
+  const [profileData, setProfileData] = useState<{
+    ordersCount?: number;
+    objectLimitExtraPaid?: number;
+    role?: string;
+    existingAddresses?: string[];
+    uniqueAddressesCount?: number;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const normalizeAddr = (addr: string) =>
+    addr.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[,\.\-\/]+/g, ' ').replace(/\s+/g, ' ').trim();
+
+  const isAddressExisting = () => {
+    if (!address.trim() || !profileData?.existingAddresses) return false;
+    const cleanCurrent = normalizeAddr(address);
+    return profileData.existingAddresses.some(
+      ea => normalizeAddr(ea) === cleanCurrent
+    );
+  };
+
+  const isCustomerNewObjectOverLimit = () => {
+    if (profileData?.role !== 'CUSTOMER') return false;
+    if (!address.trim() || address.trim().length < 5) return false;
+    if (isAddressExisting()) return false;
+    const allowed = 1 + (profileData?.objectLimitExtraPaid || 0);
+    const currentCount = profileData?.uniqueAddressesCount ?? (profileData?.existingAddresses?.length || 0);
+    return currentCount >= allowed;
+  };
 
   const getMinDate = () => {
     // Pro vlastní revizi neomezujeme
@@ -258,12 +284,6 @@ export default function NewOrderPage() {
         <SubscriptionPricingBanner />
       </div>
 
-      {/* Progress */}
-      {profileData?.role === 'CUSTOMER' && (profileData?.ordersCount || 0) >= (1 + (profileData?.objectLimitExtraPaid || 0)) && (
-        <div className="mb-6 p-4 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-400 text-sm">
-          <strong>Upozornění:</strong> Vaše první revize byla zdarma. Vytvořením další revize vám bude účtován roční příplatek <strong>100 Kč / rok</strong> za evidenci dalšího objektu. V dalším kroku budete přesměrováni na platební bránu.
-        </div>
-      )}
       <div className="table-scroll -mx-3 mb-8 px-3 pb-2 sm:mx-0 sm:mb-10 sm:px-0">
         <div className="relative flex w-full min-w-[320px] max-w-full items-center justify-between sm:min-w-[500px]">
           <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-[#1A1A1A] -z-10" />
@@ -326,6 +346,36 @@ export default function NewOrderPage() {
                 </div>
               </div>
 
+              {profileData?.existingAddresses && profileData.existingAddresses.length > 0 && (
+                <div className="space-y-2">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400">
+                    Vaše již evidované adresy (bez poplatku za objekt)
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {profileData.existingAddresses.map((ea) => {
+                      const isSelected = address.trim().toLowerCase() === ea.trim().toLowerCase();
+                      return (
+                        <button
+                          key={ea}
+                          type="button"
+                          onClick={() => setAddress(ea)}
+                          className={cn(
+                            "px-3 py-2 rounded-xl text-xs font-medium border text-left transition-all flex items-center gap-1.5",
+                            isSelected
+                              ? "border-brand-yellow bg-brand-yellow/15 text-brand-yellow shadow-sm"
+                              : "border-white/10 bg-[#111] text-gray-300 hover:border-white/20 hover:text-white"
+                          )}
+                        >
+                          <MapPin className="w-3.5 h-3.5 shrink-0" />
+                          <span className="truncate max-w-[260px]">{ea}</span>
+                          {isSelected && <Check className="w-3.5 h-3.5 text-brand-yellow shrink-0 ml-1" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-gray-400 mb-1.5">Adresa objektu *</label>
                 <div className="relative">
@@ -333,6 +383,24 @@ export default function NewOrderPage() {
                   <input type="text" value={address} onChange={e => setAddress(e.target.value)} placeholder="Ulice č.p., Město, PSČ"
                     className="w-full bg-[#111] border border-white/10 rounded-lg py-3 pl-10 pr-4 text-white focus:border-brand-yellow focus:ring-1 focus:ring-brand-yellow outline-none transition-all" />
                 </div>
+                {isAddressExisting() && (
+                  <div className="mt-2 flex items-center gap-2 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 rounded-lg">
+                    <Check className="w-4 h-4 shrink-0" />
+                    <span>Tato adresa je již ve vaší evidenci. Objednání další revize pro tento objekt je bez poplatku za objekt.</span>
+                  </div>
+                )}
+                {isCustomerNewObjectOverLimit() && (
+                  <div className="mt-2 flex items-start gap-2.5 text-xs text-amber-300 bg-amber-500/10 border border-amber-500/20 p-3 rounded-lg">
+                    <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
+                    <div>
+                      <p className="font-semibold text-amber-300">Zadáváte novou nemovitost / adresu</p>
+                      <p className="text-amber-300/80 mt-0.5">
+                        V základním zákaznickém účtu máte evidenci 1 objektu zdarma.
+                        Za evidenci dalšího objektu je roční poplatek <strong>100 Kč / rok</strong>. Po odeslání objednávky budete přesměrováni na platební bránu pro úhradu tohoto ročního poplatku.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">

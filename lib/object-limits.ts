@@ -139,3 +139,19 @@ export function getObjectLimitStatus(
 
 /** Pomocný typ – povolené role (pro pozdější rozšiřování). */
 export type LimitedRole = Extract<Role, 'CUSTOMER' | 'SVJ' | 'COMPANY_ADMIN'>;
+
+/**
+ * Normalizuje text adresy pro porovnání objektů.
+ * Odstraňuje diakritiku, nadbytečné mezery, převádí na lowercase, sjednocuje interpunkci.
+ */
+export function normalizeAddress(addr: string | null | undefined): string {
+  if (!addr) return '';
+  return addr
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[,\.\-\/]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}

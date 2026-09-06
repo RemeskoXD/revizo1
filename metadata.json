@@ -1,5 +1,6 @@
 {
   "name": "Remix: REVIZONE APLIKACE",
   "description": "Komplexní systém pro správu revizí",
-  "requestFramePermissions": []
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

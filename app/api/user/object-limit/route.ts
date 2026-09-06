@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import {
   getObjectLimitStatus,
   getRoleBaseLimit,
+  normalizeAddress,
 } from '@/lib/object-limits';
 import { getObjectAddons } from '@/lib/pricing-db';
 
@@ -41,11 +42,18 @@ export async function GET() {
 
   let count = 0;
   if (user.role === 'CUSTOMER') {
-    const uniqueAddresses = await prisma.order.groupBy({
-      by: ['address'],
+    const customerOrders = await prisma.order.findMany({
       where: { customerId: session.user.id, isDeleted: false },
+      select: { address: true },
     });
-    count = uniqueAddresses.length;
+    const normSet = new Set<string>();
+    for (const ord of customerOrders) {
+      if (ord.address) {
+        const norm = normalizeAddress(ord.address);
+        if (norm) normSet.add(norm);
+      }
+    }
+    count = normSet.size;
   } else {
     count = await prisma.property.count({ where: { ownerId: session.user.id } });
   }

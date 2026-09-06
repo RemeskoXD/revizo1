@@ -11,6 +11,7 @@ import { getPricingDatabase } from "@/lib/pricing-db";
 import { getStripe } from "@/lib/stripe-client";
 import { getAppBaseUrl, isFakePaymentGatewayEnabled } from "@/lib/stripe-config";
 import { getLicenseStatus } from "@/lib/access-control";
+import { normalizeAddress } from "@/lib/object-limits";
 
 export async function GET(req: Request) {
   try {
@@ -126,15 +127,22 @@ export async function POST(req: Request) {
     }
 
     if (userForLimit && userForLimit.role === 'CUSTOMER') {
-      const uniqueAddresses = await prisma.order.groupBy({
-        by: ['address'],
-        where: { customerId: session.user.id, isDeleted: false }
+      const customerOrders = await prisma.order.findMany({
+        where: { customerId: session.user.id, isDeleted: false },
+        select: { address: true },
       });
       
-      const existingAddresses = uniqueAddresses.map(u => u.address);
-      const isNewAddress = !existingAddresses.includes(String(address).slice(0, 500));
+      const normalizedIncoming = normalizeAddress(String(address));
+      const existingNormalizedSet = new Set<string>();
+      for (const ord of customerOrders) {
+        if (ord.address) {
+          const norm = normalizeAddress(ord.address);
+          if (norm) existingNormalizedSet.add(norm);
+        }
+      }
       
-      const customerObjectsCount = existingAddresses.length;
+      const isNewAddress = !existingNormalizedSet.has(normalizedIncoming);
+      const customerObjectsCount = existingNormalizedSet.size;
       const extraPaid = userForLimit.objectLimitExtraPaid || 0;
       const allowedObjects = 1 + extraPaid;
       const requestedNewObjects = isNewAddress ? 1 : 0;

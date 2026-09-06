@@ -15,7 +15,9 @@ import {
   User,
   ShieldCheck,
   Building,
-  Lightbulb
+  Lightbulb,
+  X,
+  AlertTriangle
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -32,7 +34,46 @@ import { formatPriceCzk } from '@/lib/order-pricing';
 export default function OrderDetailClient({ order, currentUser, technicians = [] }: { order: Order, currentUser: any, technicians?: any[] }) {
   const [selectedTechId, setSelectedTechId] = useState('');
   const [isAssigning, setIsAssigning] = useState(false);
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [isSubmittingCancel, setIsSubmittingCancel] = useState(false);
+  const [cancelMessage, setCancelMessage] = useState<string | null>(null);
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const router = useRouter();
+
+  const hasTechnicianAssigned = Boolean(order.technicianId || order.status === 'IN_PROGRESS');
+  const canCancel = currentUser.id === order.customerId && !['COMPLETED', 'CANCELLED'].includes(order.status);
+
+  const handleCancelOrder = async () => {
+    if (hasTechnicianAssigned && cancelReason.trim().length < 5) {
+      setCancelError('Uveďte prosím důvod storna (alespoň 5 znaků).');
+      return;
+    }
+    setIsSubmittingCancel(true);
+    setCancelError(null);
+    setCancelMessage(null);
+    try {
+      const res = await fetch(`/api/orders/${order.readableId}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: cancelReason.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setCancelError(data.message || 'Chyba při zpracování storna.');
+      } else {
+        setCancelMessage(data.message);
+        setTimeout(() => {
+          setIsCancelModalOpen(false);
+          router.refresh();
+        }, 2200);
+      }
+    } catch (e) {
+      setCancelError('Chyba komunikace se serverem.');
+    } finally {
+      setIsSubmittingCancel(false);
+    }
+  };
 
   const handleAssign = async () => {
     if (!selectedTechId) return;
@@ -139,6 +180,20 @@ export default function OrderDetailClient({ order, currentUser, technicians = []
               <span className="px-4 py-2 bg-green-500/10 text-green-500 text-sm font-semibold rounded-lg border border-green-500/20">
                 Zaplaceno
               </span>
+            )}
+
+            {canCancel && (
+              <button
+                type="button"
+                onClick={() => {
+                  setCancelError(null);
+                  setCancelMessage(null);
+                  setIsCancelModalOpen(true);
+                }}
+                className="rounded-xl border border-red-500/30 bg-red-500/10 px-3.5 py-2 text-xs font-semibold text-red-400 transition-all hover:bg-red-500/20 active:scale-95"
+              >
+                Stornovat objednávku
+              </button>
             )}
         </div>
       </div>
@@ -466,6 +521,93 @@ export default function OrderDetailClient({ order, currentUser, technicians = []
             />
         </div>
       </div>
+
+      {/* Cancel Order Modal */}
+      {isCancelModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in">
+          <div className="relative w-full max-w-lg rounded-2xl border border-white/10 bg-[#161616] p-6 shadow-2xl">
+            <button
+              type="button"
+              onClick={() => setIsCancelModalOpen(false)}
+              className="absolute right-4 top-4 rounded-lg p-1.5 text-gray-400 hover:bg-white/5 hover:text-white"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-500/10 border border-red-500/20 text-red-400">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">Stornovat objednávku #{order.readableId}</h3>
+                <p className="text-xs text-gray-400">
+                  {hasTechnicianAssigned ? 'Žádost o storno s přiřazeným technikem' : 'Okamžité storno bez poplatku'}
+                </p>
+              </div>
+            </div>
+
+            {cancelMessage ? (
+              <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400 text-sm">
+                {cancelMessage}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {hasTechnicianAssigned ? (
+                  <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3.5 text-xs text-amber-300">
+                    K této zakázce je již přiřazen technik. Váš požadavek bude předán zákaznické podpoře, která ověří stav u technika a kontaktuje vás.
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-300">
+                    Opravdu si přejete tuto objednávku stornovat? K zakázce zatím nebyl přiřazen technik, storno proběhne okamžitě a bez poplatku.
+                  </p>
+                )}
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">
+                    Důvod storna {hasTechnicianAssigned ? '*' : '(nepovinné)'}
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={cancelReason}
+                    onChange={(e) => setCancelReason(e.target.value)}
+                    placeholder={hasTechnicianAssigned ? 'Uveďte prosím důvod pro zákaznickou podporu (např. změna termínu, oprava již proběhla)...' : 'Můžete nám napsat důvod zrušení...'}
+                    className="w-full rounded-xl border border-white/10 bg-[#111] p-3 text-sm text-white placeholder-gray-500 focus:border-brand-yellow focus:outline-none"
+                  />
+                </div>
+
+                {cancelError && (
+                  <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs">
+                    {cancelError}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-end gap-2.5 pt-2">
+                  <button
+                    type="button"
+                    disabled={isSubmittingCancel}
+                    onClick={() => setIsCancelModalOpen(false)}
+                    className="rounded-xl border border-white/10 px-4 py-2.5 text-xs font-semibold text-gray-300 hover:bg-white/5 disabled:opacity-50"
+                  >
+                    Zpět
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSubmittingCancel}
+                    onClick={handleCancelOrder}
+                    className="rounded-xl bg-red-500 hover:bg-red-600 px-4 py-2.5 text-xs font-semibold text-white transition-all active:scale-95 disabled:opacity-50"
+                  >
+                    {isSubmittingCancel
+                      ? 'Odesílám...'
+                      : hasTechnicianAssigned
+                      ? 'Odeslat žádost o storno'
+                      : 'Potvrdit storno'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

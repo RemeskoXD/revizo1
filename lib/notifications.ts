@@ -279,27 +279,59 @@ export async function sendOrderStatusEmail(orderId: string, newStatus: string) {
     const order = await prisma.order.findUnique({
       where: { id: orderId },
       include: {
-        customer: { select: { name: true, email: true, emailNotifications: true } },
-        technician: { select: { name: true } },
+        customer: { select: { id: true, name: true, email: true, emailNotifications: true } },
+        technician: { select: { id: true, name: true, email: true, emailNotifications: true } },
       },
     });
-    if (!order?.customer?.email || !order.customer.emailNotifications) return;
+    if (!order) return;
 
-    const emailData = orderStatusEmail({
-      readableId: order.readableId,
-      serviceType: order.serviceType,
-      address: order.address,
-      newStatus,
-      technicianName: order.technician?.name,
-      scheduledDate: order.scheduledDate?.toISOString(),
-      customerName: order.customer.name,
-    });
+    if (order.customer?.email && order.customer.emailNotifications) {
+      const emailData = orderStatusEmail({
+        readableId: order.readableId,
+        serviceType: order.serviceType,
+        address: order.address,
+        newStatus,
+        technicianName: order.technician?.name,
+        scheduledDate: order.scheduledDate?.toISOString(),
+        customerName: order.customer.name,
+      });
 
-    await sendMail({
-      to: order.customer.email,
-      ...emailData,
-      meta: { type: 'ORDER_STATUS', orderId: order.id, userId: order.customerId },
-    });
+      await sendMail({
+        to: order.customer.email,
+        ...emailData,
+        meta: { type: 'ORDER_STATUS', orderId: order.id, userId: order.customerId },
+      });
+    }
+
+    // Notifikace technika při stornování zakázky
+    if (newStatus === 'CANCELLED' && order.technician) {
+      if (order.technician.email && order.technician.emailNotifications) {
+        const techEmailData = orderStatusEmail({
+          readableId: order.readableId,
+          serviceType: order.serviceType,
+          address: order.address,
+          newStatus: 'CANCELLED',
+          technicianName: order.technician.name,
+          scheduledDate: order.scheduledDate?.toISOString(),
+          customerName: order.technician.name,
+        });
+
+        await sendMail({
+          to: order.technician.email,
+          subject: `❌ Storno zakázky #${order.readableId} – Revizone`,
+          html: techEmailData.html,
+          meta: { type: 'ORDER_STATUS', orderId: order.id, userId: order.technician.id },
+        });
+      }
+
+      await createNotification({
+        userId: order.technician.id,
+        type: 'ORDER_STATUS_CHANGED',
+        title: 'Zakázka stornována',
+        message: `Zakázka #${order.readableId} (${order.serviceType}) na adrese ${order.address} byla stornována.`,
+        link: `/technician/job/${order.readableId}`,
+      });
+    }
   } catch (error) {
     console.error('Failed to send order status email:', error);
   }

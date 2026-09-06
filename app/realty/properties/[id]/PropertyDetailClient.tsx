@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion } from 'motion/react';
-import { ArrowLeft, Plus, FileText, Calendar, MapPin, Clock, Home, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Plus, FileText, Calendar, MapPin, Clock, Home, ChevronRight, FileUp } from 'lucide-react';
 import Link from 'next/link';
 
 type Order = {
@@ -178,13 +178,22 @@ export default function PropertyDetailClient({ property }: { property: Property 
               {orders.length}
             </span>
           </h2>
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center gap-2 px-5 py-2.5 bg-brand-yellow text-black font-semibold rounded-xl hover:bg-brand-yellow-hover transition-all shadow-lg shadow-brand-yellow/20 active:scale-95"
-          >
-            <Plus className="w-5 h-5" />
-            Nová revize
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Link
+              href={`/realty/new-order?serviceType=vlastni_revize&propertyId=${property.id}`}
+              className="flex items-center gap-2 px-4 py-2.5 bg-white/5 hover:bg-white/10 text-white font-medium rounded-xl border border-white/10 transition-all text-xs sm:text-sm"
+            >
+              <FileUp className="w-4 h-4 text-brand-yellow" />
+              Nahrát revizi
+            </Link>
+            <Link
+              href={`/realty/new-order?propertyId=${property.id}`}
+              className="flex items-center gap-2 px-4 py-2.5 bg-brand-yellow text-black font-semibold rounded-xl hover:bg-brand-yellow-hover transition-all shadow-lg shadow-brand-yellow/20 active:scale-95 text-xs sm:text-sm"
+            >
+              <Plus className="w-4 h-4" />
+              Objednat novou revizi
+            </Link>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -266,14 +275,23 @@ export default function PropertyDetailClient({ property }: { property: Property 
                 <FileText className="w-10 h-10 text-gray-500" />
               </div>
               <h3 className="text-xl font-bold text-white mb-2">Žádné revize</h3>
-              <p className="text-gray-400 text-sm max-w-md mb-8">Tato nemovitost zatím nemá žádné revize. Vytvořte první objednávku revize pro tuto nemovitost.</p>
-              <button
-                onClick={() => setIsAddModalOpen(true)}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-brand-yellow text-black font-bold rounded-xl hover:bg-brand-yellow-hover transition-all shadow-lg shadow-brand-yellow/20 active:scale-95"
-              >
-                <Plus className="w-5 h-5" />
-                Vytvořit první revizi
-              </button>
+              <p className="text-gray-400 text-sm max-w-md mb-8">Tato nemovitost zatím nemá evidované revize. Můžete objednat novou revizi u technika, nebo zdarma nahrát stávající protokol pro hlídání termínů.</p>
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <Link
+                  href={`/realty/new-order?serviceType=vlastni_revize&propertyId=${property.id}`}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/5 hover:bg-white/10 text-white font-semibold rounded-xl border border-white/10 transition-all text-sm"
+                >
+                  <FileUp className="w-4 h-4 text-brand-yellow" />
+                  Nahrát stávající revizi
+                </Link>
+                <Link
+                  href={`/realty/new-order?propertyId=${property.id}`}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-yellow text-black font-bold rounded-xl hover:bg-brand-yellow-hover transition-all shadow-lg shadow-brand-yellow/20 active:scale-95 text-sm"
+                >
+                  <Plus className="w-4 h-4" />
+                  Objednat novou revizi
+                </Link>
+              </div>
             </div>
           )}
         </div>

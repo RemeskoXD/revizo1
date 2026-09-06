@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { readJsonBody, PayloadTooLargeError } from '@/lib/json-body';
 import { rateLimit } from '@/lib/rate-limit';
+import { normalizeAddress } from '@/lib/object-limits';
 
 export async function GET(req: Request) {
   try {
@@ -16,11 +17,39 @@ export async function GET(req: Request) {
       select: { name: true, email: true, phone: true, address: true, ico: true, bankAccount: true, role: true, objectLimitExtraPaid: true }
     });
     
-    const ordersCount = await prisma.order.count({
-      where: { customerId: session.user.id }
-    });
+    const [ordersCount, customerOrders] = await Promise.all([
+      prisma.order.count({
+        where: { customerId: session.user.id }
+      }),
+      prisma.order.findMany({
+        where: { customerId: session.user.id, isDeleted: false },
+        select: { address: true },
+        orderBy: { createdAt: 'desc' }
+      })
+    ]);
+
+    // Build unique clean addresses
+    const addressMap = new Map<string, string>(); // normalized -> original trimmed
+    if (user?.address && user.address.trim().length > 3) {
+      addressMap.set(normalizeAddress(user.address), user.address.trim());
+    }
+    for (const ord of customerOrders) {
+      if (ord.address && ord.address.trim().length > 3) {
+        const norm = normalizeAddress(ord.address);
+        if (!addressMap.has(norm)) {
+          addressMap.set(norm, ord.address.trim());
+        }
+      }
+    }
+    const existingAddresses = Array.from(addressMap.values());
+    const uniqueAddressesCount = addressMap.size;
     
-    return NextResponse.json({ ...user, ordersCount }, { status: 200 });
+    return NextResponse.json({
+      ...user,
+      ordersCount,
+      existingAddresses,
+      uniqueAddressesCount
+    }, { status: 200 });
   } catch (error) {
     return NextResponse.json({ message: 'Internal server error' }, { status: 500 });
   }

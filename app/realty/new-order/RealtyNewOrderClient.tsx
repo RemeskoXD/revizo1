@@ -112,9 +112,18 @@ export default function RealtyNewOrderClient({ properties }: { properties: Prope
     fetch('/api/revisions').then(r => r.json()).then(setRevisionCategories).catch(() => {});
 
     if (typeof window !== 'undefined') {
-      const type = new URLSearchParams(window.location.search).get('serviceType');
+      const sp = new URLSearchParams(window.location.search);
+      const type = sp.get('serviceType');
       if (type) {
         setServiceType(type);
+      }
+      const propId = sp.get('propertyId');
+      if (propId) {
+        const found = properties.find(p => p.id === propId);
+        if (found) {
+          setSelectedProperty(found.id);
+          setAddress(found.address || found.name);
+        }
       }
     }
   }, []);
