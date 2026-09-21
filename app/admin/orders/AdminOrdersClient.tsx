@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, Filter, MoreHorizontal, MapPin, Calendar, User, ArrowRight, Trash2, Edit2 } from 'lucide-react';
+import { Search, Filter, MoreHorizontal, MapPin, Calendar, User, ArrowRight, Trash2, Edit2, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'motion/react';
@@ -91,6 +91,28 @@ export default function AdminOrdersClient({ initialOrders, technicians, companie
     } catch (error) {
       console.error(error);
       alert('Došlo k chybě při mazání objednávky.');
+    }
+  };
+
+  const handleCancelOrder = async (orderId: string, readableId: string) => {
+    if (!confirm(`Opravdu chcete stornovat zakázku #${readableId}? Zákazník i technik obdrží notifikaci o zrušení.`)) return;
+
+    try {
+      const res = await fetch(`/api/admin/orders/${orderId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'CANCELLED' }),
+      });
+
+      if (res.ok) {
+        setOrders(orders.map(o => o.id === orderId ? { ...o, status: 'CANCELLED' } : o));
+        router.refresh();
+      } else {
+        alert('Došlo k chybě při stornování zakázky.');
+      }
+    } catch (error) {
+      console.error(error);
+      alert('Došlo k chybě při stornování zakázky.');
     }
   };
 
@@ -250,6 +272,16 @@ export default function AdminOrdersClient({ initialOrders, technicians, companie
                                 </div>
                               ) : (
                                 <div className="flex items-center justify-end gap-2">
+                                  {['ADMIN', 'SUPPORT'].includes(userRole) && order.status !== 'CANCELLED' && order.status !== 'COMPLETED' && (
+                                    <button 
+                                      type="button"
+                                      onClick={() => handleCancelOrder(order.id, order.readableId)} 
+                                      title="Okamžité storno zakázky (1 klik)" 
+                                      className="p-2 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 rounded-lg transition-colors inline-block"
+                                    >
+                                      <XCircle className="w-4 h-4" />
+                                    </button>
+                                  )}
                                   <button onClick={() => { setEditingOrder(order.id); setEditStatus(order.status); setEditTechnician(order.technicianId || ''); setEditCompany(order.companyId || ''); setEditIsVerified(order.isVerifiedAdmin || false); }} className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors inline-block">
                                       <Edit2 className="w-4 h-4" />
                                   </button>

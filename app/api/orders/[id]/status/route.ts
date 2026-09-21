@@ -15,21 +15,117 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const { id: orderId } = await params;
     const { status } = await req.json();
 
-    const order = await prisma.order.findUnique({
-      where: { id: orderId },
+    const order = await prisma.order.findFirst({
+      where: {
+        OR: [
+          { id: orderId },
+          { readableId: orderId }
+        ]
+      },
       include: { property: true }
     });
 
-    if (!order || !order.property || order.property.ownerId !== session.user.id) {
-      return NextResponse.json({ message: 'Order not found or unauthorized' }, { status: 404 });
+    const isVlastni =
+      order?.price === 0 ||
+      Boolean(order?.serviceType && (
+        order.serviceType.toLowerCase().includes('vlastní') ||
+        order.serviceType.toLowerCase().includes('vlastni')
+      ));
+
+    const hasPermission =
+      session.user.role === 'ADMIN' ||
+      order?.customerId === session.user.id ||
+      order?.property?.ownerId === session.user.id ||
+      order?.property?.claimedById === session.user.id;
+
+    if (!order || !hasPermission) {
+      return NextResponse.json({ message: 'Objednávka nenalezena nebo nemáte oprávnění' }, { status: 404 });
+    }
+
+    if (status === 'CANCELLED') {
+      if (order.status === 'CANCELLED') {
+        return NextResponse.json({ message: 'Tato zakázka již byla zrušena.' }, { status: 400 });
+      }
+      // Dokončenou zakázku od technika nelze stornovat, ale vlastní revizi z trezoru zrušit/smazat lze
+      if (order.status === 'COMPLETED' && !isVlastni && (order.price != null && order.price > 0)) {
+        return NextResponse.json({ message: 'Dokončenou zakázku od technika již nelze stornovat.' }, { status: 400 });
+      }
+
+      // Pokud má zakázka přiřazeného technika a uživatel není administrátor, vytvoří se tiket na podporu
+      const hasTechnicianAssigned = session.user.role !== 'ADMIN' && Boolean(order.technicianId || order.status === 'IN_PROGRESS' || order.status === 'SCHEDULED');
+      if (hasTechnicianAssigned) {
+        const userId = session.user.id;
+        const ticket = await prisma.supportTicket.create({
+          data: {
+            userId,
+            subject: `Žádost o storno zakázky #${order.readableId}`,
+            category: 'ORDER_CANCELLATION',
+            status: 'OPEN',
+            messages: {
+              create: {
+                senderId: userId,
+                text: `Uživatel požádal o zrušení zakázky s již přiřazeným technikem.\n\nČíslo zakázky: #${order.readableId}\nStav: ${order.status}\nAdresa: ${order.address}`,
+              },
+            },
+          },
+        });
+
+        await prisma.activityLog.create({
+          data: {
+            userId,
+            action: 'ORDER_CANCEL_REQUESTED',
+            details: `Žádost o storno zakázky #${order.readableId} s přiřazeným technikem předána podpoře (tiket ${ticket.id}).`,
+            targetId: order.id,
+          },
+        });
+
+        return NextResponse.json({
+          requiresSupport: true,
+          ticketId: ticket.id,
+          message: 'K zakázce je již přiřazen technik. Váš požadavek na storno byl předán zákaznické podpoře, která vás bude kontaktovat.',
+        });
+      }
+
+      const updated = await prisma.order.update({
+        where: { id: order.id },
+        data: {
+          status: 'CANCELLED',
+          isPublic: false,
+        }
+      });
+
+      try {
+        await prisma.activityLog.create({
+          data: {
+            userId: session.user.id,
+            action: 'ORDER_CANCELLED',
+            details: JSON.stringify({
+              orderId: order.id,
+              readableId: order.readableId,
+              cancelledByRole: session.user.role,
+            }),
+            targetId: order.id
+          }
+        });
+      } catch (logErr) {
+        console.error('Activity log error:', logErr);
+      }
+
+      try {
+        sendOrderStatusEmail(order.id, 'CANCELLED').catch(console.error);
+      } catch (emailErr) {
+        console.error('Email status error:', emailErr);
+      }
+
+      return NextResponse.json(updated);
     }
 
     if (order.price != null && order.price > 0) {
-      return NextResponse.json({ message: 'Tuto zakázku vyřizuje technik platformy, stav nelze ručně měnit.' }, { status: 403 });
+      return NextResponse.json({ message: 'Tuto zakázku vyřizuje certifikovaný technik. Stav můžete změnit pouze na "Zrušeno" v případě storna.' }, { status: 403 });
     }
 
     const updated = await prisma.order.update({
-      where: { id: orderId },
+      where: { id: order.id },
       data: { status }
     });
 

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { sendOrderStatusEmail } from '@/lib/notifications';
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -57,11 +58,28 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       data: dataToUpdate,
     });
 
+    if (status === 'CANCELLED') {
+      sendOrderStatusEmail(updatedOrder.id, 'CANCELLED').catch(console.error);
+
+      try {
+        await prisma.supportTicket.updateMany({
+          where: {
+            category: 'ORDER_CANCELLATION',
+            subject: { contains: updatedOrder.readableId },
+            status: 'OPEN',
+          },
+          data: { status: 'RESOLVED' },
+        });
+      } catch {
+        // ignore
+      }
+    }
+
     await prisma.activityLog.create({
       data: {
         userId: session.user.id,
-        action: 'UPDATED_ORDER',
-        details: `Upravena objednávka ${updatedOrder.readableId}`,
+        action: status === 'CANCELLED' ? 'ADMIN_ORDER_CANCELLED' : 'UPDATED_ORDER',
+        details: status === 'CANCELLED' ? `Administrátor stornoval objednávku ${updatedOrder.readableId}` : `Upravena objednávka ${updatedOrder.readableId}`,
         targetId: id
       }
     });

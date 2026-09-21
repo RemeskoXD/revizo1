@@ -110,7 +110,8 @@ export async function POST(req: Request) {
       select: { role: true, objectLimitExtraPaid: true }
     });
 
-    const body = await readJsonBody<any>(req, 96_384);
+    // Allow up to 20MB for uploaded reports (PDF / images encoded in base64)
+    const body = await readJsonBody<any>(req, 20_000_000);
 
     let {
       serviceTypeIds,
@@ -163,7 +164,7 @@ export async function POST(req: Request) {
     propertyType = propertyType ? String(propertyType).slice(0, 120) : "Nespecifikováno";
     address = String(address).slice(0, 500);
     notes = notes != null ? String(notes).slice(0, 4000) : undefined;
-    reportFile = reportFile != null ? String(reportFile).slice(0, 500) : undefined;
+    reportFile = reportFile != null && typeof reportFile === 'string' ? reportFile : undefined;
     revisionCategoryId = revisionCategoryId != null ? String(revisionCategoryId).slice(0, 80) : undefined;
 
     const customer = await prisma.user.findUnique({
@@ -172,6 +173,24 @@ export async function POST(req: Request) {
     });
 
     const createdOrders = [];
+    const isMultiPackage = serviceTypeIds.length > 1;
+    const packageGroupId = isMultiPackage
+      ? `BAL-${new Date().getFullYear()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`
+      : null;
+
+    const DEFAULT_APPROX_PRICES: Record<string, number> = {
+      elektro_byt: 2500,
+      elektro_dum: 3500,
+      elektro_spolecne: 4000,
+      plyn: 1800,
+      hromosvod: 3000,
+      kominy: 1200,
+      hasici_pristroje: 500,
+      pozarni: 3500,
+      vytahy: 5000,
+      tlakove: 2500,
+      komplexni: 5000,
+    };
 
     for (const stId of serviceTypeIds) {
       const isVlastni = stId === "vlastni_revize";
@@ -182,6 +201,7 @@ export async function POST(req: Request) {
       
       let servicePackageId: string | null = null;
       let serviceTypeLabel = stId;
+      let approxPrice: number | null = null;
       
       if (!isVlastni && stId) {
         const pkg = await prisma.servicePackage.findUnique({
@@ -190,22 +210,37 @@ export async function POST(req: Request) {
         if (pkg) {
           servicePackageId = pkg.id;
           serviceTypeLabel = pkg.name;
+          approxPrice = pkg.approximatePrice || null;
+        } else if (DEFAULT_APPROX_PRICES[stId]) {
+          approxPrice = DEFAULT_APPROX_PRICES[stId];
         }
       } else if (isVlastni) {
-        serviceTypeLabel = "Vlastní revize";
+        serviceTypeLabel = body.customServiceName
+          ? `Vlastní revize: ${body.customServiceName}`
+          : (body.serviceTypeLabel || "Vlastní revize");
+        approxPrice = 0;
       }
+
+      const packageNote = packageGroupId
+        ? `[Sdružená objednávka balíčku #${packageGroupId} – celkem ${serviceTypeIds.length} revizí]\n`
+        : '';
+      const finalNotes = isVlastni
+        ? (notes || null)
+        : (`${packageNote}${notes || ''}`.trim() || null);
 
       const orderData: any = {
         readableId,
         customerId: session.user.id,
+        propertyId: body.propertyId || null,
         serviceType: serviceTypeLabel,
         servicePackageId,
         propertyType,
         address,
-        notes,
-        price: isVlastni ? 0 : null,
+        notes: finalNotes,
+        price: isVlastni ? 0 : approxPrice,
         isUrgent: !isVlastni && isUrgent,
         status: isVlastni ? "COMPLETED" : "PENDING",
+        completedAt: isVlastni ? new Date() : null,
         reportFile: reportFile || null,
         preferredDate: preferredDate ? new Date(preferredDate) : null,
         revisionCategoryId: revisionCategoryId || null,
@@ -260,7 +295,7 @@ export async function POST(req: Request) {
           readableId: order.readableId,
           serviceType: order.serviceType,
           address: order.address,
-          price: null,
+          price: order.price,
           preferredDate: order.preferredDate?.toISOString() || null,
           isUrgent: order.isUrgent,
           cancelToken,
@@ -270,7 +305,7 @@ export async function POST(req: Request) {
       }
     }
 
-    return NextResponse.json({ orders: createdOrders }, { status: 201 });
+    return NextResponse.json({ orders: createdOrders, packageGroupId }, { status: 201 });
   } catch (error) {
     if (error instanceof PayloadTooLargeError) {
       return NextResponse.json({ message: "Požadavek je příliš velký" }, { status: 413 });

@@ -37,7 +37,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const order = await prisma.order.findFirst({
       where: { OR: [{ id }, { readableId: id }] },
       include: {
-        property: { select: { ownerId: true } },
+        property: { select: { ownerId: true, claimedById: true } },
+        customer: { select: { id: true, email: true } },
       },
     });
 
@@ -46,76 +47,122 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
 
     const session = await getServerSession(authOptions);
+    const isAdmin = session?.user?.role === 'ADMIN' || session?.user?.role === 'SUPPORT';
     const isOwner =
       session &&
       (order.customerId === session.user.id ||
         order.property?.ownerId === session.user.id ||
-        session.user.role === 'ADMIN');
+        order.property?.claimedById === session.user.id ||
+        Boolean(session.user.email && order.customer?.email && session.user.email.toLowerCase() === order.customer.email.toLowerCase()) ||
+        isAdmin);
     const isValidToken = token && order.cancelToken === token;
 
     if (!isOwner && !isValidToken) {
       return NextResponse.json({ message: 'Neautorizovaný přístup' }, { status: 403 });
     }
 
-    if (['COMPLETED', 'CANCELLED'].includes(order.status)) {
-      return NextResponse.json(
-        {
-          message:
-            order.status === 'COMPLETED'
-              ? 'Dokončenou objednávku nelze zrušit'
-              : 'Objednávka je již zrušena',
-        },
-        { status: 400 }
-      );
+    const isVlastni =
+      order.price === 0 ||
+      Boolean(order.serviceType && (
+        order.serviceType.toLowerCase().includes('vlastní') ||
+        order.serviceType.toLowerCase().includes('vlastni')
+      ));
+
+    if (order.status === 'CANCELLED') {
+      return NextResponse.json({ message: 'Objednávka je již zrušena' }, { status: 400 });
     }
 
-    // Dvoufázové storno: má-li zakázka přiřazeného technika nebo probíhá, vytvoří se tiket na podporu
-    const hasTechnicianAssigned = Boolean(order.technicianId || order.status === 'IN_PROGRESS');
+    if (order.status === 'COMPLETED' && !isVlastni && (order.price != null && order.price > 0)) {
+      return NextResponse.json({ message: 'Dokončenou objednávku od technika nelze zrušit' }, { status: 400 });
+    }
+
+    // Dvoufázové storno:
+    // Pokud si technik zakázku již převzal (technicianId nebo IN_PROGRESS / SCHEDULED) a neruší to admin,
+    // vytvoří se tiket na zákaznickou podporu.
+    const hasTechnicianAssigned = !isAdmin && Boolean(order.technicianId || order.status === 'IN_PROGRESS' || order.status === 'SCHEDULED');
 
     if (hasTechnicianAssigned) {
-      if (!reason || reason.trim().length < 5) {
-        return NextResponse.json(
-          { message: 'K zakázce je již přiřazen technik. Uveďte prosím důvod storna (min. 5 znaků).' },
-          { status: 400 }
-        );
-      }
+      const effectiveReason = reason && reason.trim().length > 0
+        ? reason.trim()
+        : 'Zákazník požádal o storno zakázky v aplikaci po převzetí technikem.';
 
       const userId = session?.user?.id || order.customerId;
-      await prisma.supportTicket.create({
-        data: {
-          userId,
-          subject: `Žádost o storno zakázky #${order.readableId}`,
+
+      // Zkontrolujeme, zda již neexistuje otevřený tiket pro storno této zakázky
+      const existingTicket = await prisma.supportTicket.findFirst({
+        where: {
           category: 'ORDER_CANCELLATION',
+          subject: { contains: order.readableId },
           status: 'OPEN',
-          messages: {
-            create: {
-              senderId: userId,
-              text: `Zákazník požádal o storno zakázky s již přiřazeným technikem.\n\nČíslo zakázky: #${order.readableId}\nDůvod: ${reason.trim()}\nStav zakázky: ${order.status}\nAdresa: ${order.address}\nTermín: ${order.preferredDate ? new Date(order.preferredDate).toLocaleDateString('cs-CZ') : 'Nespecifikován'}`,
-            },
-          },
         },
       });
 
+      let ticketId: string;
+      if (existingTicket) {
+        ticketId = existingTicket.id;
+        await prisma.supportTicketMessage.create({
+          data: {
+            ticketId: existingTicket.id,
+            senderId: userId,
+            text: `Zákazník opětovně požádal o storno zakázky s přiřazeným technikem.\n\nČíslo zakázky: #${order.readableId}\nDůvod/poznámka: ${effectiveReason}`,
+          },
+        });
+      } else {
+        const ticket = await prisma.supportTicket.create({
+          data: {
+            userId,
+            subject: `Žádost o storno zakázky #${order.readableId}`,
+            category: 'ORDER_CANCELLATION',
+            status: 'OPEN',
+            messages: {
+              create: {
+                senderId: userId,
+                text: `Zákazník požádal o storno zakázky s již přiřazeným technikem.\n\nČíslo zakázky: #${order.readableId}\nDůvod / poznámka: ${effectiveReason}\nStav zakázky: ${order.status}\nAdresa: ${order.address}\nTermín: ${order.preferredDate ? new Date(order.preferredDate).toLocaleDateString('cs-CZ') : 'Nespecifikován'}`,
+              },
+            },
+          },
+        });
+        ticketId = ticket.id;
+      }
+
       await prisma.activityLog.create({
         data: {
-          userId: session?.user?.id || order.customerId,
+          userId,
           action: 'ORDER_CANCEL_REQUESTED',
-          details: `Žádost o storno zakázky #${order.readableId} s přiřazeným technikem byla předána podpoře. Důvod: ${reason.trim().slice(0, 150)}`,
+          details: `Žádost o storno zakázky #${order.readableId} s přiřazeným technikem předána podpoře (tiket ${ticketId}). Důvod: ${effectiveReason.slice(0, 150)}`,
           targetId: order.id,
         },
       });
 
       return NextResponse.json({
         requiresSupport: true,
-        message: 'K zakázce je již přiřazen technik. Váš požadavek na storno byl předán zákaznické podpoře, která vás bude neprodleně kontaktovat.',
+        ticketId,
+        message: 'K zakázce je již přiřazen technik. Váš požadavek na storno byl předán zákaznické podpoře (tiket byl vytvořen), která vás bude neprodleně kontaktovat a vyřídí storno s technikem.',
       });
     }
 
-    // Pokud technik ještě není přiřazen a zakázka neprobíhá, stornuje se ihned
+    // Pokud technik ještě není přiřazen nebo stornuje admin, zakázka se stornuje ihned a bezplatně na 1 klik
     await prisma.order.update({
       where: { id: order.id },
-      data: { status: 'CANCELLED' },
+      data: {
+        status: 'CANCELLED',
+        isPublic: false,
+      },
     });
+
+    // Uzavřít případné tikety žádající o storno této zakázky
+    try {
+      await prisma.supportTicket.updateMany({
+        where: {
+          category: 'ORDER_CANCELLATION',
+          subject: { contains: order.readableId },
+          status: 'OPEN',
+        },
+        data: { status: 'RESOLVED' },
+      });
+    } catch {
+      // ignorovat případnou chybu při uzavírání tiketu
+    }
 
     sendOrderStatusEmail(order.id, 'CANCELLED').catch(console.error);
 
@@ -123,7 +170,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       data: {
         userId: session?.user?.id || order.customerId,
         action: 'ORDER_CANCELLED',
-        details: `Objednávka #${order.readableId} zrušena ${isValidToken ? 'přes odkaz' : 'klientem'}`,
+        details: `Objednávka #${order.readableId} zrušena ${isAdmin ? 'administrátorem' : isValidToken ? 'přes odkaz' : 'klientem'}`,
         targetId: order.id,
       },
     });

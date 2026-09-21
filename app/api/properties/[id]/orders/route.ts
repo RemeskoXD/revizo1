@@ -11,6 +11,7 @@ import { orderConfirmationEmail } from "@/lib/email-templates";
 import { getPricingDatabase } from "@/lib/pricing-db";
 import { getStripe } from "@/lib/stripe-client";
 import { getAppBaseUrl, isFakePaymentGatewayEnabled } from "@/lib/stripe-config";
+import { BASE_BY_SERVICE_ID } from "@/lib/order-pricing";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -72,7 +73,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       revisionCategoryId?: string | null;
       isUrgent?: boolean;
       address?: string | null;
-    }>(req, 96_384);
+      customServiceName?: string | null;
+      serviceTypeLabel?: string | null;
+    }>(req, 20_000_000);
 
     let {
       serviceType,
@@ -94,7 +97,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     propertyType = propertyType != null ? String(propertyType).slice(0, 120) : 'Bytový dům';
     notes = notes != null ? String(notes).slice(0, 4000) : undefined;
     address = address != null ? String(address).trim().slice(0, 500) : property.address || property.name;
-    reportFile = reportFile != null ? String(reportFile).slice(0, 500) : undefined;
+    reportFile = reportFile != null && typeof reportFile === 'string' ? reportFile : undefined;
     revisionCategoryId = revisionCategoryId != null ? String(revisionCategoryId).slice(0, 80) : undefined;
     const serviceTypeIdNorm =
       serviceTypeId != null && String(serviceTypeId).trim() !== ""
@@ -107,33 +110,54 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const readableId = `ORD-${new Date().getFullYear()}-${idSuffix}`;
     const cancelToken = crypto.randomBytes(24).toString('hex');
 
-    const pricingDb = await getPricingDatabase();
-    
+    let servicePackageId: string | null = null;
+    let serviceTypeLabel = serviceType;
     let basePriceValue = 1500;
-    const foundService = pricingDb.services.find(s => s.id === (serviceTypeIdNorm || 'unknown'));
-    if (foundService) {
-      basePriceValue = foundService.priceValue;
+
+    if (isVlastni) {
+      serviceTypeLabel = body.customServiceName
+        ? `Vlastní revize: ${body.customServiceName}`
+        : (body.serviceTypeLabel || "Vlastní revize");
+      basePriceValue = 0;
+    } else if (serviceTypeIdNorm) {
+      // 1. Check database ServicePackage first
+      const pkg = await prisma.servicePackage.findUnique({
+        where: { id: serviceTypeIdNorm }
+      });
+      if (pkg) {
+        servicePackageId = pkg.id;
+        serviceTypeLabel = pkg.name;
+        basePriceValue = pkg.approximatePrice || 1500;
+      } else if (BASE_BY_SERVICE_ID[serviceTypeIdNorm]) {
+        basePriceValue = BASE_BY_SERVICE_ID[serviceTypeIdNorm];
+      } else {
+        const pricingDb = await getPricingDatabase();
+        const found = pricingDb.services.find(s => s.id === serviceTypeIdNorm);
+        if (found) {
+          basePriceValue = found.priceValue;
+        }
+      }
     }
 
-    let price = basePriceValue;
+    let price = isVlastni ? 0 : basePriceValue;
     if (!isVlastni && isUrgent === true) {
+      const pricingDb = await getPricingDatabase();
       price += pricingDb.urgentSurcharge;
-    }
-    if (isVlastni) {
-      price = 0;
     }
 
     const orderData: any = {
       readableId,
       customerId: session.user.id,
       propertyId: property.id,
-      serviceType,
+      serviceType: serviceTypeLabel,
+      servicePackageId,
       propertyType,
       address,
       notes,
       price,
       isUrgent: !isVlastni && isUrgent === true,
       status: isVlastni ? "COMPLETED" : "PENDING",
+      completedAt: isVlastni ? new Date() : null,
       reportFile: reportFile || null,
       preferredDate: preferredDate ? new Date(preferredDate) : null,
       revisionCategoryId: revisionCategoryId || null,
@@ -171,43 +195,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     });
 
     if (!isVlastni) {
-      let paymentUrl: string | undefined;
-
-      if (price > 0) {
-        const base = getAppBaseUrl();
-        if (isFakePaymentGatewayEnabled()) {
-          paymentUrl = `${base}/platba-test?rp=${encodeURIComponent('/dashboard')}&m=checkout&purpose=order&orderId=${order.readableId}`;
-        } else {
-          try {
-            const stripe = getStripe();
-            const checkoutSession = await stripe.checkout.sessions.create({
-              mode: 'payment',
-              payment_method_types: ['card'],
-              line_items: [{
-                price_data: {
-                  currency: 'czk',
-                  product_data: {
-                    name: `Revize: ${serviceType}`,
-                    description: `Adresa: ${address} (ID: ${readableId})`,
-                  },
-                  unit_amount: Math.round(price * 100),
-                },
-                quantity: 1,
-              }],
-              success_url: `${base}/dashboard?order_payment=success`,
-              cancel_url: `${base}/dashboard?order_payment=cancel`,
-              client_reference_id: order.id,
-              metadata: { orderId: order.id, userId: session.user.id },
-            });
-            if (checkoutSession.url) {
-              paymentUrl = checkoutSession.url;
-            }
-          } catch (err) {
-            console.error("Stripe error for order:", err);
-          }
-        }
-      }
-
       const customer = await prisma.user.findUnique({
         where: { id: session.user.id },
         select: { email: true, emailNotifications: true },
@@ -221,17 +208,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           preferredDate: order.preferredDate?.toISOString() || null,
           isUrgent: order.isUrgent,
           cancelToken,
-          paymentUrl,
         });
         sendMail({ to: customer.email, ...emailData }).catch(console.error);
       }
-
-      if (paymentUrl) {
-        return NextResponse.json({ ...order, url: paymentUrl });
-      }
     }
 
-    return NextResponse.json(order);
+    return NextResponse.json(order, { status: 201 });
   } catch (error) {
     if (error instanceof PayloadTooLargeError) {
       return NextResponse.json({ message: 'Požadavek je příliš velký' }, { status: 413 });

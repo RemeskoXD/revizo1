@@ -1,7 +1,7 @@
 /** Příplatek za urgentní termín (Kč) – nad základní cenu typu revize. */
 export const URGENT_SURCHARGE_CZK = 2000;
 
-const BASE_BY_SERVICE_ID: Record<string, number> = {
+export const BASE_BY_SERVICE_ID: Record<string, number> = {
   elektro_byt: 2500,
   elektro_dum: 3500,
   elektro_spolecne: 4000,

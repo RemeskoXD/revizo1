@@ -2,15 +2,18 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
-import { FileText, Search, Download } from 'lucide-react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { FileText, Search, Download, XCircle, LifeBuoy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'motion/react';
+import { OrderCancelModal } from '@/components/orders/OrderCancelModal';
 
 export default function OrdersClient({ orders }: { orders: any[] }) {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [orderToCancel, setOrderToCancel] = useState<any | null>(null);
 
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
@@ -103,15 +106,22 @@ export default function OrdersClient({ orders }: { orders: any[] }) {
                             </td>
                             <td className="px-3 py-3 font-medium text-white sm:px-5 sm:py-4">
                                 <div className="flex items-center gap-2">
-                                    <div className="p-1.5 rounded bg-white/5 text-gray-400 group-hover:text-brand-yellow transition-colors">
+                                    <div className="p-1.5 rounded bg-white/5 text-gray-400 group-hover:text-brand-yellow transition-colors shrink-0">
                                         <FileText className="w-4 h-4" />
                                     </div>
-                                    {order.serviceType}
+                                    <div>
+                                      <div>{order.serviceType}</div>
+                                      {order.notes?.includes('[Sdružená objednávka') && (
+                                        <span className="inline-block text-[10px] bg-brand-yellow/15 text-brand-yellow px-1.5 py-0.5 rounded border border-brand-yellow/30 font-medium">
+                                          Sdružený balíček
+                                        </span>
+                                      )}
+                                    </div>
                                 </div>
                             </td>
                             <td className="max-w-[12rem] px-3 py-3 text-gray-400 sm:px-5 sm:py-4"><span className="line-clamp-2">{order.address}</span></td>
                             <td className="whitespace-nowrap px-3 py-3 text-gray-400 sm:px-5 sm:py-4">{new Date(order.createdAt).toLocaleDateString('cs-CZ')}</td>
-                            <td className="whitespace-nowrap px-3 py-3 text-brand-yellow sm:px-5 sm:py-4">{order.price ? `${order.price.toLocaleString('cs-CZ')} Kč` : '-'}</td>
+                            <td className="whitespace-nowrap px-3 py-3 text-brand-yellow sm:px-5 sm:py-4 font-mono font-medium">{order.price ? `${order.status === 'PENDING' ? 'od ' : ''}${order.price.toLocaleString('cs-CZ')} Kč` : '-'}</td>
                             <td className="px-3 py-3 sm:px-5 sm:py-4">
                                 <span className={cn(
                                     "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium",
@@ -129,12 +139,42 @@ export default function OrdersClient({ orders }: { orders: any[] }) {
                                 </span>
                             </td>
                             <td className="px-3 py-3 text-right sm:px-5 sm:py-4">
-                                <div className="flex items-center justify-end gap-2">
-                                    <Link href={`/dashboard/orders/${order.readableId}`} className="p-2 text-gray-400 hover:text-brand-yellow transition-colors rounded-lg hover:bg-white/5">
+                                <div className="flex items-center justify-end gap-1.5 sm:gap-2">
+                                    {order.status === 'PENDING' && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setOrderToCancel(order);
+                                        }}
+                                        className="inline-flex min-h-[36px] items-center gap-1 px-2.5 py-1 text-xs font-semibold text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-xl transition-all active:scale-95 shadow-sm"
+                                        title="Zrušit objednávku na 1 klik"
+                                      >
+                                        <XCircle className="w-3.5 h-3.5" />
+                                        <span className="hidden sm:inline">Zrušit</span>
+                                      </button>
+                                    )}
+
+                                    {order.status === 'IN_PROGRESS' && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setOrderToCancel(order);
+                                        }}
+                                        className="inline-flex min-h-[36px] items-center gap-1 px-2.5 py-1 text-xs font-semibold text-amber-300 hover:text-amber-200 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 rounded-xl transition-all active:scale-95 shadow-sm"
+                                        title="Požádat o storno u podpory"
+                                      >
+                                        <LifeBuoy className="w-3.5 h-3.5" />
+                                        <span className="hidden sm:inline">Storno</span>
+                                      </button>
+                                    )}
+
+                                    <Link href={`/dashboard/orders/${order.readableId}`} className="p-2 text-gray-400 hover:text-brand-yellow transition-colors rounded-lg hover:bg-white/5" title="Detail objednávky">
                                         <FileText className="w-4 h-4" />
                                     </Link>
                                     {order.reportFile && (
-                                      <a href={`/api/orders/${order.readableId}/download`} download onClick={(e) => e.stopPropagation()} className="p-2 text-gray-400 hover:text-brand-yellow transition-colors rounded-lg hover:bg-white/5">
+                                      <a href={`/api/orders/${order.readableId}/download`} download onClick={(e) => e.stopPropagation()} className="p-2 text-gray-400 hover:text-brand-yellow transition-colors rounded-lg hover:bg-white/5" title="Stáhnout zprávu">
                                           <Download className="w-4 h-4" />
                                       </a>
                                     )}
@@ -147,6 +187,17 @@ export default function OrdersClient({ orders }: { orders: any[] }) {
             </table>
         </div>
       </div>
+
+      {/* Reusable Apple-grade Order Cancellation Modal */}
+      <OrderCancelModal
+        isOpen={Boolean(orderToCancel)}
+        onClose={() => setOrderToCancel(null)}
+        order={orderToCancel}
+        onSuccess={() => {
+          setOrderToCancel(null);
+          router.refresh();
+        }}
+      />
     </div>
   );
 }

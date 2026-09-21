@@ -5,12 +5,13 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import {
   Check, ChevronRight, Home, Zap, FileText, Calendar, User, Phone,
-  MapPin, Info, ArrowLeft, Building, Loader2, CheckCircle2, Plus
+  MapPin, Info, ArrowLeft, Building, Loader2, CheckCircle2, Plus, UploadCloud, ShieldCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatPriceCzk } from '@/lib/order-pricing';
 import Link from 'next/link';
 import SubscriptionPricingBanner from '@/components/marketing/SubscriptionPricingBanner';
+import UploadOwnRevisionForm from '@/components/revisions/UploadOwnRevisionForm';
 import { motion, AnimatePresence } from 'motion/react';
 
 type BuildingOption = {
@@ -31,7 +32,6 @@ const DEFAULT_SERVICE_TYPES = [
   { id: 'vytahy', label: 'Výtahy', desc: 'Odborná zkouška a provozní prohlídka výtahů', price: 'od 5 000 Kč', priceValue: 5000, group: 'Technická' },
   { id: 'tlakove', label: 'Tlaková zařízení', desc: 'Revize tlakových nádob a zařízení', price: 'od 2 500 Kč', priceValue: 2500, group: 'Technická' },
   { id: 'komplexni', label: 'Komplexní revize objektu', desc: 'Kompletní revizní audit celé nemovitosti', price: 'Individuální', priceValue: 5000, group: 'Komplex' },
-  { id: 'vlastni_revize', label: 'Nahrát vlastní revizi', desc: 'Máte hotovou revizi? Nahrajte ji pro správu termínů', price: 'Zdarma', priceValue: 0, group: 'Ostatní' },
 ];
 
 const steps = [
@@ -45,6 +45,7 @@ const steps = [
 export default function SVJNewOrderClient({ buildings }: { buildings: BuildingOption[] }) {
   const { data: session } = useSession();
   const router = useRouter();
+  const [orderMode, setOrderMode] = useState<'TECHNICIAN' | 'UPLOAD'>('TECHNICIAN');
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -52,10 +53,10 @@ export default function SVJNewOrderClient({ buildings }: { buildings: BuildingOp
   const [revisionCategories, setRevisionCategories] = useState<any[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
 
-  const [serviceTypes, setServiceTypes] = useState<any[]>([]);
+  const [serviceTypes, setServiceTypes] = useState<any[]>(DEFAULT_SERVICE_TYPES);
   const [urgentSurchargeCzk, setUrgentSurchargeCzk] = useState(2000);
 
-  const [serviceType, setServiceType] = useState('');
+  const [serviceType, setServiceType] = useState(DEFAULT_SERVICE_TYPES[0].id);
   const [selectedBuilding, setSelectedBuilding] = useState(buildings[0]?.id || '');
   const [address, setAddress] = useState(buildings[0]?.address || buildings[0]?.name || '');
   const [floor, setFloor] = useState('');
@@ -75,17 +76,18 @@ export default function SVJNewOrderClient({ buildings }: { buildings: BuildingOp
     }).catch(() => {});
     
     fetch('/api/packages').then(r => r.json()).then(data => {
-      if (data.packages) {
+      if (data.packages && data.packages.length > 0) {
+        const dbPackages = data.packages.map((p: any) => ({
+          id: p.id,
+          label: p.name,
+          desc: p.description,
+          price: p.approximatePrice ? `od ${p.approximatePrice.toLocaleString('cs-CZ')} Kč` : 'Individuální',
+          priceValue: p.approximatePrice || 2500,
+          group: 'Revize'
+        }));
         setServiceTypes([
-          ...data.packages.map((p: any) => ({
-            id: p.id,
-            label: p.name,
-            desc: p.description,
-            price: p.approximatePrice ? `od ${p.approximatePrice.toLocaleString('cs-CZ')} Kč` : 'Individuální',
-            priceValue: p.approximatePrice || 0,
-            group: 'Revize'
-          })),
-          { id: 'vlastni_revize', label: 'Nahrát vlastní revizi', desc: 'Máte hotovou revizi? Nahrajte ji pro správu termínů', price: 'Zdarma', priceValue: 0, group: 'Ostatní' }
+          ...dbPackages,
+          ...DEFAULT_SERVICE_TYPES.filter(d => !dbPackages.some((bp: any) => bp.label.toLowerCase() === d.label.toLowerCase()))
         ]);
       }
     }).catch(() => {});
@@ -93,9 +95,21 @@ export default function SVJNewOrderClient({ buildings }: { buildings: BuildingOp
     fetch('/api/revisions').then(r => r.json()).then(setRevisionCategories).catch(() => {});
 
     if (typeof window !== 'undefined') {
-      const type = new URLSearchParams(window.location.search).get('serviceType');
-      if (type) {
+      const sp = new URLSearchParams(window.location.search);
+      const type = sp.get('serviceType');
+      const mode = sp.get('mode');
+      if (type === 'vlastni_revize' || mode === 'upload') {
+        setOrderMode('UPLOAD');
+      } else if (type) {
         setServiceType(type);
+      }
+      const bId = sp.get('buildingId');
+      if (bId) {
+        const found = buildings.find(b => b.id === bId);
+        if (found) {
+          setSelectedBuilding(found.id);
+          setAddress(found.address || found.name);
+        }
       }
     }
   }, []);
@@ -110,6 +124,10 @@ export default function SVJNewOrderClient({ buildings }: { buildings: BuildingOp
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 15 * 1024 * 1024) {
+        alert('Soubor je příliš velký (maximum je 15 MB). Zvolte prosím menší soubor.');
+        return;
+      }
       const { compressImage, fileToBase64 } = await import('@/lib/client-compress');
       const compressed = await compressImage(file, { maxSizeMB: 4, maxWidthOrHeight: 3000 });
       const b64 = await fileToBase64(compressed);
@@ -118,7 +136,7 @@ export default function SVJNewOrderClient({ buildings }: { buildings: BuildingOp
   };
 
   const selectedService = serviceTypes.find(s => s.id === serviceType);
-  const basePriceOnly = selectedService?.priceValue || 1500;
+  const basePriceOnly = selectedService?.priceValue ?? 2500;
   
   let estimatedPrice = basePriceOnly;
   if (serviceType !== 'vlastni_revize' && urgency === 'urgent') {
@@ -171,17 +189,12 @@ export default function SVJNewOrderClient({ buildings }: { buildings: BuildingOp
       });
 
       if (res.ok) {
-        const data = await res.json();
         setIsSuccess(true);
-        if (data.url) {
-          window.location.href = data.url;
-        } else {
-          setTimeout(() => {
-            router.push(`/svj/buildings/${selectedBuilding}`);
-          }, 2000);
-        }
+        setTimeout(() => {
+          router.push(`/svj/buildings/${selectedBuilding}`);
+        }, 1500);
       } else {
-        const errorData = await res.json();
+        const errorData = await res.json().catch(() => ({}));
         alert(errorData.message || 'Došlo k chybě při odesílání objednávky.');
       }
     } catch {
@@ -224,6 +237,50 @@ export default function SVJNewOrderClient({ buildings }: { buildings: BuildingOp
     );
   }
 
+  if (orderMode === 'UPLOAD') {
+    return (
+      <div className="mx-auto max-w-4xl px-3 pb-8 sm:px-4">
+        <div className="mb-6 flex items-start gap-3 sm:mb-8 sm:items-center sm:gap-4">
+          <Link href="/svj" className="shrink-0 rounded-lg p-2 text-gray-400 transition-colors hover:bg-white/5 hover:text-white">
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold text-white sm:text-2xl">Nahrát vlastní revizi do trezoru</h1>
+            <p className="text-sm text-gray-400 sm:text-base">Máte již hotovou revizi pro budovu SVJ? Zde ji bezpečně archivujte pro výbor i vlastníky a nastavte automatické hlídání lhůt.</p>
+          </div>
+        </div>
+
+        {/* Mode Switcher */}
+        <div className="mb-6 rounded-2xl bg-[#141414] p-1.5 border border-white/10 flex gap-1">
+          <button
+            type="button"
+            onClick={() => setOrderMode('TECHNICIAN')}
+            className="flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-2 text-gray-400 hover:text-white hover:bg-white/5 min-h-[44px]"
+          >
+            <Zap className="w-4 h-4 shrink-0 text-brand-yellow" />
+            <span>Objednat revizi u technika</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setOrderMode('UPLOAD')}
+            className="flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-2 bg-white text-black shadow-md min-h-[44px]"
+          >
+            <ShieldCheck className="w-4 h-4 shrink-0 text-black" />
+            <span>Nahrát vlastní revizi (Zdarma)</span>
+          </button>
+        </div>
+
+        <UploadOwnRevisionForm
+          properties={buildings.map(b => ({ id: b.id, name: b.name, address: b.address }))}
+          defaultPropertyId={selectedBuilding}
+          role="SVJ"
+          onSuccessRedirect={`/svj/buildings/${selectedBuilding || (buildings[0]?.id ?? '')}`}
+          onSwitchToOrder={() => setOrderMode('TECHNICIAN')}
+        />
+      </div>
+    );
+  }
+
   const selectedBuildingDetails = buildings.find(b => b.id === selectedBuilding);
 
   return (
@@ -240,6 +297,26 @@ export default function SVJNewOrderClient({ buildings }: { buildings: BuildingOp
 
       <div className="mb-6">
         <SubscriptionPricingBanner />
+      </div>
+
+      {/* Mode Switcher */}
+      <div className="mb-6 rounded-2xl bg-[#141414] p-1.5 border border-white/10 flex gap-1">
+        <button
+          type="button"
+          onClick={() => setOrderMode('TECHNICIAN')}
+          className="flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-2 bg-brand-yellow text-black shadow-md shadow-brand-yellow/10 min-h-[44px]"
+        >
+          <Zap className="w-4 h-4 shrink-0 text-black" />
+          <span>Objednat revizi u technika</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setOrderMode('UPLOAD')}
+          className="flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-2 text-gray-400 hover:text-white hover:bg-white/5 min-h-[44px]"
+        >
+          <ShieldCheck className="w-4 h-4 shrink-0 text-gray-400" />
+          <span>Nahrát vlastní revizi (Zdarma)</span>
+        </button>
       </div>
 
       {/* Progress Tracker */}

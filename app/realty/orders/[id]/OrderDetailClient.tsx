@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import { motion } from 'motion/react';
-import { ArrowLeft, Calendar, MapPin, Clock, FileText, Home, User, CheckCircle2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, Clock, FileText, Home, User, CheckCircle2, AlertCircle, ShieldCheck, Download, FileUp } from 'lucide-react';
 import Link from 'next/link';
+import { cn } from '@/lib/utils';
 
 type Order = any;
 
@@ -11,7 +12,19 @@ export default function OrderDetailClient({ order }: { order: Order }) {
   const [status, setStatus] = useState(order.status);
   const [isUpdating, setIsUpdating] = useState(false);
 
+  const isVlastniRevize =
+    order.price === 0 ||
+    (order.serviceType && (
+      order.serviceType.toLowerCase().includes('vlastní') ||
+      order.serviceType.toLowerCase().includes('vlastni')
+    ));
+
   const handleStatusChange = async (newStatus: string) => {
+    if (newStatus === status) return;
+    if (newStatus === 'CANCELLED' && !confirm('Opravdu si přejete tuto objednávku zrušit / stornovat?')) {
+      return;
+    }
+
     setIsUpdating(true);
     try {
       const res = await fetch(`/api/orders/${order.id}/status`, {
@@ -20,10 +33,15 @@ export default function OrderDetailClient({ order }: { order: Order }) {
         body: JSON.stringify({ status: newStatus }),
       });
 
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        setStatus(newStatus);
+        if (data.requiresSupport) {
+          alert(data.message || 'K zakázce je již přiřazen technik. Váš požadavek na storno byl předán zákaznické podpoře, která vás bude kontaktovat.');
+        } else {
+          setStatus(newStatus);
+        }
       } else {
-        alert('Chyba při změně stavu');
+        alert(data.message || 'Chyba při změně stavu');
       }
     } catch (error) {
       console.error(error);
@@ -39,23 +57,31 @@ export default function OrderDetailClient({ order }: { order: Order }) {
       <div className="bg-[#1A1A1A] border border-white/5 rounded-2xl p-6 sm:p-8">
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6">
           <div className="flex items-start gap-6">
-            <Link href={`/realty/properties/${order.propertyId}`} className="shrink-0 p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors border border-white/10 group mt-1">
+            <Link href={order.propertyId ? `/realty/properties/${order.propertyId}` : '/realty/properties'} className="shrink-0 p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors border border-white/10 group mt-1">
               <ArrowLeft className="w-6 h-6 text-gray-400 group-hover:text-white transition-colors" />
             </Link>
             <div>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 rounded-lg bg-brand-yellow/10 flex items-center justify-center border border-brand-yellow/20">
-                  <FileText className="w-5 h-5 text-brand-yellow" />
+              <div className="flex flex-wrap items-center gap-3 mb-2">
+                <div className={cn(
+                  "w-10 h-10 rounded-lg flex items-center justify-center border",
+                  isVlastniRevize
+                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                    : "bg-brand-yellow/10 text-brand-yellow border-brand-yellow/20"
+                )}>
+                  {isVlastniRevize ? <ShieldCheck className="w-5 h-5" /> : <FileText className="w-5 h-5" />}
                 </div>
-                <h1 className="text-3xl font-bold text-white tracking-tight">{order.serviceType}</h1>
-                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ml-3 ${
-                  status === 'COMPLETED' ? 'bg-green-500/10 text-green-500 border border-green-500/20' :
-                  status === 'IN_PROGRESS' ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20' :
-                  status === 'NEEDS_REVISION' ? 'bg-orange-500/10 text-orange-500 border border-orange-500/20' :
-                  status === 'CANCELLED' ? 'bg-red-500/10 text-red-500 border border-red-500/20' :
-                  'bg-brand-yellow/10 text-brand-yellow border border-brand-yellow/20'
+                <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">{order.serviceType}</h1>
+                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs sm:text-sm font-semibold ${
+                  isVlastniRevize
+                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                    : status === 'COMPLETED' ? 'bg-green-500/10 text-green-500 border border-green-500/20'
+                    : status === 'IN_PROGRESS' ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20'
+                    : status === 'NEEDS_REVISION' ? 'bg-orange-500/10 text-orange-500 border border-orange-500/20'
+                    : status === 'CANCELLED' ? 'bg-red-500/10 text-red-400 border border-red-500/20'
+                    : 'bg-brand-yellow/10 text-brand-yellow border border-brand-yellow/20'
                 }`}>
-                  {status === 'COMPLETED' ? 'Dokončeno' :
+                  {isVlastniRevize ? 'Uloženo v trezoru (Archivováno)' :
+                   status === 'COMPLETED' ? 'Dokončeno' :
                    status === 'IN_PROGRESS' ? 'Probíhá' :
                    status === 'NEEDS_REVISION' ? 'K přepracování' :
                    status === 'CANCELLED' ? 'Zrušeno' : 'Čeká na vyřízení'}
@@ -80,20 +106,59 @@ export default function OrderDetailClient({ order }: { order: Order }) {
             </div>
           </div>
           
-          <div className="flex flex-col gap-3 min-w-[200px]">
-            <p className="text-sm font-semibold text-gray-400 mb-1">Změnit stav:</p>
-            <select
-              value={status}
-              onChange={(e) => handleStatusChange(e.target.value)}
-              disabled={isUpdating}
-              className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand-yellow focus:ring-1 focus:ring-brand-yellow transition-all disabled:opacity-50"
-            >
-              <option value="PENDING">Čeká na vyřízení</option>
-              <option value="IN_PROGRESS">Probíhá</option>
-              <option value="NEEDS_REVISION">K přepracování</option>
-              <option value="COMPLETED">Dokončeno</option>
-              <option value="CANCELLED">Zrušeno</option>
-            </select>
+          <div className="flex flex-col gap-3 min-w-[220px]">
+            {isVlastniRevize ? (
+              <div className="space-y-1.5">
+                <div className="px-4 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-semibold flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4" /> Archivováno v trezoru
+                </div>
+                <p className="text-[11px] text-gray-400">
+                  Vlastní revizní zpráva. Systém hlídá platnost a včas vás upozorní na nutnost nové kontroly.
+                </p>
+              </div>
+            ) : order.price != null && order.price > 0 ? (
+              <div>
+                <p className="text-sm font-semibold text-gray-400 mb-1">Stav zakázky:</p>
+                {status === 'CANCELLED' ? (
+                  <div className="px-4 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-medium">
+                    Zakázka byla zrušena
+                  </div>
+                ) : status === 'COMPLETED' ? (
+                  <div className="px-4 py-2.5 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400 text-sm font-medium">
+                    Revize je dokončena
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <select
+                      value={status}
+                      onChange={(e) => handleStatusChange(e.target.value)}
+                      disabled={isUpdating}
+                      className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand-yellow focus:ring-1 focus:ring-brand-yellow transition-all disabled:opacity-50"
+                    >
+                      <option value="PENDING">Čeká na vyřízení (Aktivní)</option>
+                      <option value="CANCELLED">Zrušeno (Stornovat zakázku)</option>
+                    </select>
+                    <p className="text-[11px] text-gray-500">Zakázku zajišťuje technik platformy. V případě potřeby ji můžete stornovat.</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div>
+                <p className="text-sm font-semibold text-gray-400 mb-1">Změnit stav:</p>
+                <select
+                  value={status}
+                  onChange={(e) => handleStatusChange(e.target.value)}
+                  disabled={isUpdating}
+                  className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand-yellow focus:ring-1 focus:ring-brand-yellow transition-all disabled:opacity-50"
+                >
+                  <option value="PENDING">Čeká na vyřízení</option>
+                  <option value="IN_PROGRESS">Probíhá</option>
+                  <option value="NEEDS_REVISION">K přepracování</option>
+                  <option value="COMPLETED">Dokončeno</option>
+                  <option value="CANCELLED">Zrušeno</option>
+                </select>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -101,6 +166,33 @@ export default function OrderDetailClient({ order }: { order: Order }) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Main Content */}
         <div className="lg:col-span-2 space-y-8">
+          {/* Report Document Download */}
+          {order.reportFile && (
+            <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                    <FileText className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-bold text-white">Revizní protokol (Dokument)</h2>
+                    <p className="text-xs text-gray-400">Soubor je bezpečně uložen v šifrovaném trezoru.</p>
+                  </div>
+                </div>
+                <a
+                  href={order.reportFile}
+                  download={`revize-${order.readableId}.pdf`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 text-black font-semibold text-sm transition-all hover:bg-emerald-400 shadow-lg shadow-emerald-500/10 active:scale-95 min-h-[44px]"
+                >
+                  <Download className="w-4 h-4" />
+                  Stáhnout / Zobrazit protokol
+                </a>
+              </div>
+            </div>
+          )}
+
           {/* Notes Section */}
           <div className="bg-[#1A1A1A] border border-white/5 rounded-2xl p-6">
             <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
@@ -113,59 +205,21 @@ export default function OrderDetailClient({ order }: { order: Order }) {
               <p className="text-gray-500 italic">Žádné poznámky nebyly zadány.</p>
             )}
           </div>
-          
-          {/* Checklist placeholder (for future) */}
-          <div className="bg-[#1A1A1A] border border-white/5 rounded-2xl p-6">
-            <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5 text-gray-400" />
-              Kontrolní seznam
-            </h2>
-            <div className="p-8 border border-dashed border-white/10 rounded-xl flex flex-col items-center justify-center text-center">
-              <AlertCircle className="w-8 h-8 text-gray-500 mb-3" />
-              <p className="text-gray-400 text-sm">Kontrolní seznam bude brzy dostupný.</p>
-            </div>
-          </div>
         </div>
 
         {/* Sidebar */}
         <div className="space-y-6">
-          {/* Customer Info */}
-          <div className="bg-[#1A1A1A] border border-white/5 rounded-2xl p-6">
-            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Zákazník</h3>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
-                <User className="w-5 h-5 text-gray-400" />
-              </div>
-              <div>
-                <p className="text-white font-medium">{order.customer?.name || 'Neznámý'}</p>
-                <p className="text-sm text-gray-500">{order.customer?.email}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Property Info */}
-          <div className="bg-[#1A1A1A] border border-white/5 rounded-2xl p-6">
-            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Nemovitost</h3>
-            <Link href={`/realty/properties/${order.property.id}`} className="group block">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center border border-white/10 group-hover:bg-brand-yellow/10 group-hover:border-brand-yellow/20 transition-colors shrink-0">
-                  <Home className="w-5 h-5 text-gray-400 group-hover:text-brand-yellow transition-colors" />
-                </div>
-                <div>
-                  <p className="text-white font-medium group-hover:text-brand-yellow transition-colors line-clamp-1">{order.property.name}</p>
-                  <p className="text-sm text-gray-500 line-clamp-2 mt-0.5">{order.property.address}</p>
-                </div>
-              </div>
-            </Link>
-          </div>
-
           {/* Timing Info */}
           <div className="bg-[#1A1A1A] border border-white/5 rounded-2xl p-6">
-            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Termíny</h3>
+            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">
+              {isVlastniRevize ? 'Lhůty a platnost' : 'Termíny'}
+            </h3>
             <div className="space-y-4">
               <div>
-                <p className="text-xs text-gray-500 mb-1">Preferovaný termín</p>
-                <div className="flex items-center gap-2 text-white">
+                <p className="text-xs text-gray-500 mb-1">
+                  {isVlastniRevize ? 'Platnost revize do' : 'Preferovaný termín'}
+                </p>
+                <div className="flex items-center gap-2 text-white font-semibold">
                   <Calendar className="w-4 h-4 text-brand-yellow" />
                   {order.preferredDate ? new Date(order.preferredDate).toLocaleDateString('cs-CZ') : 'Nespecifikováno'}
                 </div>
@@ -179,6 +233,40 @@ export default function OrderDetailClient({ order }: { order: Order }) {
               </div>
             </div>
           </div>
+
+          {/* Customer Info */}
+          {order.customer && (
+            <div className="bg-[#1A1A1A] border border-white/5 rounded-2xl p-6">
+              <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Zákazník</h3>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
+                  <User className="w-5 h-5 text-gray-400" />
+                </div>
+                <div>
+                  <p className="text-white font-medium">{order.customer.name || 'Neznámý'}</p>
+                  <p className="text-sm text-gray-500">{order.customer.email}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Property Info */}
+          {order.property && (
+            <div className="bg-[#1A1A1A] border border-white/5 rounded-2xl p-6">
+              <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Nemovitost</h3>
+              <Link href={`/realty/properties/${order.property.id}`} className="group block">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center border border-white/10 group-hover:bg-brand-yellow/10 group-hover:border-brand-yellow/20 transition-colors shrink-0">
+                    <Home className="w-5 h-5 text-gray-400 group-hover:text-brand-yellow transition-colors" />
+                  </div>
+                  <div>
+                    <p className="text-white font-medium group-hover:text-brand-yellow transition-colors line-clamp-1">{order.property.name}</p>
+                    <p className="text-sm text-gray-500 line-clamp-2 mt-0.5">{order.property.address}</p>
+                  </div>
+                </div>
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     </div>
