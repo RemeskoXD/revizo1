@@ -16,6 +16,8 @@ import {
   Calendar,
   Building,
   ShieldCheck,
+  MapPin,
+  Loader2,
 } from 'lucide-react';
 import type { User } from '@prisma/client';
 import { motion } from 'motion/react';
@@ -73,22 +75,28 @@ export default function AdminUsersClient({
   revisionCategories,
   userRole,
   currentUserId,
+  initialSearch = '',
+  initialRoleFilter = 'all',
+  initialCompanyFilter = 'all',
 }: {
   initialUsers: UserWithCompany[];
   companies: { id: string; label: string }[];
   revisionCategories?: { id: string; name: string }[];
   userRole: string;
   currentUserId: string;
+  initialSearch?: string;
+  initialRoleFilter?: string;
+  initialCompanyFilter?: string;
 }) {
   const [users, setUsers] = useState<UserWithCompany[]>(initialUsers);
-  const [totalCount, setTotalCount] = useState(0);
+  const [totalCount, setTotalCount] = useState(initialUsers.length);
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const limit = 50;
 
-  const [search, setSearch] = useState('');
-  const [roleFilter, setRoleFilter] = useState<string>('all');
-  const [companyFilter, setCompanyFilter] = useState<string>('all');
+  const [search, setSearch] = useState(initialSearch);
+  const [roleFilter, setRoleFilter] = useState<string>(initialRoleFilter);
+  const [companyFilter, setCompanyFilter] = useState<string>(initialCompanyFilter);
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [editPriority, setEditPriority] = useState<number>(0);
   const [editRole, setEditRole] = useState<string>('');
@@ -456,23 +464,46 @@ export default function AdminUsersClient({
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div className="grid flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-xl border border-white/5 bg-[#111] p-3 sm:p-4 sm:col-span-2 lg:col-span-2">
-            <label className="mb-1.5 block text-xs font-medium text-gray-500">Hledat</label>
+            <label className="mb-1.5 block text-xs font-medium text-gray-500">Hledat uživatele</label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+              {isLoading ? (
+                <Loader2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-yellow animate-spin" />
+              ) : (
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+              )}
               <input
                 type="text"
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Jméno, e-mail, telefon…"
-                className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] py-2 pl-10 pr-4 text-sm text-white placeholder-gray-500 transition-colors focus:border-white/30 focus:outline-none"
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                placeholder="Jméno / název, e-mail, telefon, adresa, IČO…"
+                className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] py-2 pl-10 pr-10 text-sm text-white placeholder-gray-500 transition-colors focus:border-white/30 focus:outline-none"
               />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearch('');
+                    setPage(1);
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                  title="Vymazat vyhledávání"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
           </div>
           <div className="rounded-xl border border-white/5 bg-[#111] p-3 sm:p-4">
             <label className="mb-1.5 block text-xs font-medium text-gray-500">Role</label>
             <select
               value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
+              onChange={(e) => {
+                setRoleFilter(e.target.value);
+                setPage(1);
+              }}
               className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3 py-2 text-sm text-white focus:border-white/30 focus:outline-none"
             >
               <option value="all">Všechny role</option>
@@ -487,7 +518,10 @@ export default function AdminUsersClient({
             <label className="mb-1.5 block text-xs font-medium text-gray-500">Firma</label>
             <select
               value={companyFilter}
-              onChange={(e) => setCompanyFilter(e.target.value)}
+              onChange={(e) => {
+                setCompanyFilter(e.target.value);
+                setPage(1);
+              }}
               className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] px-3 py-2 text-sm text-white focus:border-white/30 focus:outline-none"
             >
               <option value="all">Všechny firmy</option>
@@ -508,6 +542,14 @@ export default function AdminUsersClient({
             Přidat uživatele
           </button>
         )}
+      </div>
+
+      <div className="flex items-center justify-between text-xs text-gray-400 px-1">
+        <span>
+          Celkem nalezeno: <strong className="text-white">{totalCount}</strong> uživatelů
+          {search && <span> pro výraz „<span className="text-brand-yellow">{search}</span>“</span>}
+        </span>
+        {isLoading && <span className="text-brand-yellow flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Načítám...</span>}
       </div>
 
       {/* Users Table */}
@@ -623,12 +665,23 @@ export default function AdminUsersClient({
                             <td className="px-3 py-3 text-gray-400 sm:px-5 sm:py-4">
                                 <div className="flex flex-col gap-1">
                                     <div className="flex items-center gap-2 text-xs">
-                                        <Mail className="w-3 h-3" /> {user.email}
-                                        {user.emailVerified && <span title="E-mail ověřen"><CheckCircle2 className="w-3 h-3 text-emerald-400" /></span>}
+                                        <Mail className="w-3 h-3 shrink-0" /> <span className="truncate max-w-[190px]" title={user.email || ''}>{user.email}</span>
+                                        {user.emailVerified && <span title="E-mail ověřen"><CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" /></span>}
                                     </div>
                                     <div className="flex items-center gap-2 text-xs">
-                                        <Phone className="w-3 h-3" /> {user.phone || 'Nenastaveno'}
+                                        <Phone className="w-3 h-3 shrink-0" /> <span>{user.phone || 'Nenastaveno'}</span>
                                     </div>
+                                    {user.address && (
+                                        <div className="flex items-center gap-2 text-xs text-gray-400" title={user.address}>
+                                            <MapPin className="w-3 h-3 shrink-0 text-gray-500" />
+                                            <span className="truncate max-w-[190px]">{user.address}</span>
+                                        </div>
+                                    )}
+                                    {user.ico && (
+                                        <div className="text-[11px] font-mono text-gray-400 pl-5">
+                                            IČO: {user.ico}
+                                        </div>
+                                    )}
                                 </div>
                             </td>
                             <td className="px-3 py-3 sm:px-5 sm:py-4 whitespace-nowrap">

@@ -24,13 +24,26 @@ export async function GET(req: Request) {
     const conditions: any[] = [];
 
     if (search) {
-      conditions.push({
-        OR: [
-          { name: { contains: search, mode: 'insensitive' } },
-          { email: { contains: search, mode: 'insensitive' } },
-          { phone: { contains: search, mode: 'insensitive' } },
-        ]
-      });
+      const q = search.trim();
+      const cleanDigits = q.replace(/\s+/g, '');
+      const orList: any[] = [
+        { name: { contains: q } },
+        { email: { contains: q } },
+        { phone: { contains: q } },
+        { address: { contains: q } },
+        { ico: { contains: q } },
+        { id: { contains: q } },
+        { bankAccount: { contains: q } },
+        { inviteCode: { contains: q } },
+        { company: { name: { contains: q } } },
+      ];
+
+      if (cleanDigits.length >= 3 && cleanDigits !== q) {
+        orList.push({ phone: { contains: cleanDigits } });
+        orList.push({ ico: { contains: cleanDigits } });
+      }
+
+      conditions.push({ OR: orList });
     }
 
     if (roleFilter !== 'all') {

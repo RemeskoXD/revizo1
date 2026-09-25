@@ -18,7 +18,8 @@ import {
   User,
   XCircle,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Search
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -52,6 +53,8 @@ function defaultValidUntilDate(): string {
 
 export default function PendingRegistrationsClient({ initialRows, categories }: { initialRows: PendingRow[], categories: { id: string; name: string; group: string }[] }) {
   const [rows, setRows] = useState(initialRows);
+  const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
   const [loadingId, setLoadingId] = useState<string | null>(null);
   
   // Modals / states
@@ -64,6 +67,21 @@ export default function PendingRegistrationsClient({ initialRows, categories }: 
 
   const approveRow = useMemo(() => rows.find((r) => r.id === approveForId), [rows, approveForId]);
   const rejectRow = useMemo(() => rows.find((r) => r.id === rejectForId), [rows, rejectForId]);
+
+  const filteredRows = useMemo(() => {
+    return rows.filter((row) => {
+      if (roleFilter !== 'all' && row.role !== roleFilter) return false;
+      if (!search.trim()) return true;
+      const q = search.trim().toLowerCase();
+      const name = (row.name || '').toLowerCase();
+      const email = (row.email || '').toLowerCase();
+      const phone = (row.phone || '').toLowerCase();
+      const address = (row.address || '').toLowerCase();
+      const ico = (row.ico || '').toLowerCase();
+      const role = (row.role || '').toLowerCase();
+      return name.includes(q) || email.includes(q) || phone.includes(q) || address.includes(q) || ico.includes(q) || role.includes(q);
+    });
+  }, [rows, search, roleFilter]);
 
   const openApprove = (userId: string) => {
     setValidUntil(defaultValidUntilDate());
@@ -137,6 +155,52 @@ export default function PendingRegistrationsClient({ initialRows, categories }: 
 
   return (
     <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Hledat uživatele, e-mail, telefon, adresu nebo IČO…"
+            className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] py-2 pl-10 pr-10 text-sm text-white placeholder-gray-500 focus:border-white/30 focus:outline-none"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+              title="Vymazat vyhledávání"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1 rounded-lg border border-white/10 bg-[#1A1A1A] p-1 text-xs">
+          {[
+            { id: 'all', label: `Vše (${rows.length})` },
+            { id: 'TECHNICIAN', label: 'Technici' },
+            { id: 'COMPANY_ADMIN', label: 'Firmy' },
+            { id: 'SVJ', label: 'SVJ' },
+            { id: 'REALTY', label: 'Makléři' },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setRoleFilter(tab.id)}
+              className={`rounded-md px-3 py-1.5 font-medium transition-colors ${
+                roleFilter === tab.id
+                  ? 'bg-brand-yellow text-black font-semibold'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="rounded-xl border border-white/5 bg-[#111] p-4 sm:p-6 shadow-xl overflow-hidden">
         <div className="table-scroll -mx-2 px-2 sm:mx-0 sm:px-0">
           <table className="w-full min-w-[720px] text-left text-sm">
@@ -149,14 +213,14 @@ export default function PendingRegistrationsClient({ initialRows, categories }: 
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {rows.length === 0 ? (
+              {filteredRows.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="py-12 text-center text-gray-500">
-                    Žádné čekající registrace k ověření.
+                    {search || roleFilter !== 'all' ? 'Žádné registrace neodpovídají zadanému filtru.' : 'Žádné čekající registrace k ověření.'}
                   </td>
                 </tr>
               ) : (
-                rows.map((row, index) => {
+                filteredRows.map((row, index) => {
                   const preset = ROLE_PRESET[row.role] || ROLE_PRESET.CUSTOMER;
                   const RoleIcon = preset.icon;
 

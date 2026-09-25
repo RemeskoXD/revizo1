@@ -1,12 +1,33 @@
 'use client';
 
-import { useState } from 'react';
-import { Save, Plus, Trash, Loader2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Save, Plus, Trash, Loader2, Search, X } from 'lucide-react';
 import { formatPriceCzk } from '@/lib/order-pricing';
 
 export default function AdminPricingItemsClient({ initialItems }: { initialItems: any[] }) {
   const [items, setItems] = useState<any[]>(initialItems || []);
+  const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
   const [saving, setSaving] = useState(false);
+
+  const categories = useMemo(() => {
+    const set = new Set<string>();
+    items.forEach(i => { if (i.category) set.add(i.category); });
+    return Array.from(set).sort();
+  }, [items]);
+
+  const filteredItems = useMemo(() => {
+    return items.filter(item => {
+      if (categoryFilter !== 'all' && item.category !== categoryFilter) return false;
+      if (!search.trim()) return true;
+      const q = search.trim().toLowerCase();
+      const code = (item.code || '').toLowerCase();
+      const cat = (item.category || '').toLowerCase();
+      const name = (item.name || '').toLowerCase();
+      const unit = (item.unit || '').toLowerCase();
+      return code.includes(q) || cat.includes(q) || name.includes(q) || unit.includes(q);
+    });
+  }, [items, search, categoryFilter]);
 
   const handleCreate = () => {
     setItems([
@@ -59,14 +80,62 @@ export default function AdminPricingItemsClient({ initialItems }: { initialItems
            <h1 className="text-2xl font-bold text-white">Podrobný ceník (pro fakturaci)</h1>
            <p className="text-sm text-gray-400">Položky ceníku ze kterého revizní technik tvoří podrobný rozpočet po realizaci revize.</p>
          </div>
-         <button
-          onClick={handleSave}
-          disabled={saving}
-          className="flex items-center gap-2 rounded-lg bg-brand-yellow px-4 py-2 font-semibold text-black hover:bg-brand-yellow-hover disabled:opacity-50"
-         >
-           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-           Uložit ceník
-         </button>
+         <div className="flex items-center gap-2">
+           <button
+             onClick={handleCreate}
+             type="button"
+             className="flex items-center gap-2 rounded-lg bg-white/10 px-4 py-2 font-medium text-white hover:bg-white/15 transition-colors"
+           >
+             <Plus className="w-4 h-4" />
+             Přidat položku
+           </button>
+           <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex items-center gap-2 rounded-lg bg-brand-yellow px-4 py-2 font-semibold text-black hover:bg-brand-yellow-hover disabled:opacity-50"
+           >
+             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+             Uložit ceník
+           </button>
+         </div>
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Hledat podle kódu, názvu, kategorie nebo jednotky…"
+            className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] py-2 pl-10 pr-10 text-sm text-white placeholder-gray-500 focus:border-white/30 focus:outline-none"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+              title="Vymazat vyhledávání"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        {categories.length > 0 && (
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="rounded-lg border border-white/10 bg-[#1A1A1A] px-3 py-2 text-sm text-white focus:border-white/30 focus:outline-none"
+          >
+            <option value="all">Všechny kategorie ({items.length})</option>
+            {categories.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       <div className="bg-[#1A1A1A] border border-white/10 rounded-xl overflow-hidden">
@@ -83,7 +152,14 @@ export default function AdminPricingItemsClient({ initialItems }: { initialItems
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5 text-gray-300">
-              {items.map((item) => (
+              {filteredItems.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                    Žádné položky neodpovídají hledání.
+                  </td>
+                </tr>
+              ) : (
+                filteredItems.map((item) => (
                 <tr key={item.id}>
                   <td className="px-4 py-2">
                     <input
@@ -135,7 +211,7 @@ export default function AdminPricingItemsClient({ initialItems }: { initialItems
                     </button>
                   </td>
                 </tr>
-              ))}
+              )))}
             </tbody>
           </table>
         </div>

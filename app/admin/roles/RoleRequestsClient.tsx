@@ -15,7 +15,8 @@ import {
   AlertCircle,
   CheckCircle2,
   XCircle,
-  Info 
+  Info,
+  Search,
 } from 'lucide-react';
 import { RoleRequest, User } from '@prisma/client';
 import { motion, AnimatePresence } from 'motion/react';
@@ -39,6 +40,8 @@ function defaultValidUntilDate(): string {
 
 export default function RoleRequestsClient({ initialRequests, categories }: { initialRequests: RequestWithUser[], categories: { id: string; name: string; group: string }[] }) {
   const [requests, setRequests] = useState(initialRequests);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [loadingId, setLoadingId] = useState<string | null>(null);
 
   // Modals / detailed inspection state
@@ -50,6 +53,22 @@ export default function RoleRequestsClient({ initialRequests, categories }: { in
 
   const approveRequest = useMemo(() => requests.find((r) => r.id === approveForId), [requests, approveForId]);
   const rejectRequest = useMemo(() => requests.find((r) => r.id === rejectForId), [requests, rejectForId]);
+
+  const filteredRequests = useMemo(() => {
+    return requests.filter((req) => {
+      if (statusFilter !== 'all' && req.status !== statusFilter) return false;
+      if (!search.trim()) return true;
+      const q = search.trim().toLowerCase();
+      const name = (req.user?.name || '').toLowerCase();
+      const email = (req.user?.email || '').toLowerCase();
+      const phone = (req.user?.phone || '').toLowerCase();
+      const address = (req.user?.address || '').toLowerCase();
+      const ico = (req.user?.ico || '').toLowerCase();
+      const currentRole = (req.user?.role || '').toLowerCase();
+      const reqRole = (req.requestedRole || '').toLowerCase();
+      return name.includes(q) || email.includes(q) || phone.includes(q) || address.includes(q) || ico.includes(q) || currentRole.includes(q) || reqRole.includes(q);
+    });
+  }, [requests, search, statusFilter]);
 
   const openApprove = (reqId: string) => {
     setValidUntil(defaultValidUntilDate());
@@ -122,6 +141,51 @@ export default function RoleRequestsClient({ initialRequests, categories }: { in
 
   return (
     <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Hledat uživatele, e-mail, telefon, roli nebo IČO…"
+            className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] py-2 pl-10 pr-10 text-sm text-white placeholder-gray-500 focus:border-white/30 focus:outline-none"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+              title="Vymazat vyhledávání"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1 rounded-lg border border-white/10 bg-[#1A1A1A] p-1 text-xs">
+          {[
+            { id: 'all', label: `Vše (${requests.length})` },
+            { id: 'PENDING', label: `Čekající (${requests.filter(r => r.status === 'PENDING').length})` },
+            { id: 'APPROVED', label: 'Schválené' },
+            { id: 'REJECTED', label: 'Zamítnuté' },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setStatusFilter(tab.id)}
+              className={`rounded-md px-3 py-1.5 font-medium transition-colors ${
+                statusFilter === tab.id
+                  ? 'bg-brand-yellow text-black font-semibold'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="rounded-xl border border-white/5 bg-[#111] p-4 sm:p-6 shadow-xl overflow-hidden">
         <div className="table-scroll -mx-2 px-2 sm:mx-0 sm:px-0">
           <table className="w-full min-w-[640px] text-left text-sm">
@@ -135,14 +199,14 @@ export default function RoleRequestsClient({ initialRequests, categories }: { in
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {requests.length === 0 ? (
+              {filteredRequests.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-12 text-center text-gray-500">
-                    Žádné žádosti o změnu role.
+                    {search || statusFilter !== 'all' ? 'Žádné žádosti neodpovídají zadanému filtru.' : 'Žádné žádosti o změnu role.'}
                   </td>
                 </tr>
               ) : (
-                requests.map((req, index) => (
+                filteredRequests.map((req, index) => (
                   <motion.tr 
                     key={req.id} 
                     initial={{ opacity: 0, y: 10 }}

@@ -1,23 +1,64 @@
 'use client';
 
-import { useState } from 'react';
-import { Star, ChevronDown, ChevronUp, User } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Star, ChevronDown, ChevronUp, User, Search, X } from 'lucide-react';
 import Link from 'next/link';
 
 export default function AdminRatingsClient({ technicians }: { technicians: any[] }) {
   const [expandedTechId, setExpandedTechId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
 
-  const techniciansWithStats = technicians.map(t => {
-    const reviews = t.technicianReviews || [];
-    const avgRating = reviews.length > 0 
-      ? reviews.reduce((sum: number, r: any) => sum + r.rating, 0) / reviews.length 
-      : 0;
-    return { ...t, avgRating, reviews };
-  }).sort((a, b) => b.avgRating - a.avgRating);
+  const techniciansWithStats = useMemo(() => {
+    return technicians.map(t => {
+      const reviews = t.technicianReviews || [];
+      const avgRating = reviews.length > 0 
+        ? reviews.reduce((sum: number, r: any) => sum + r.rating, 0) / reviews.length 
+        : 0;
+      return { ...t, avgRating, reviews };
+    }).sort((a, b) => b.avgRating - a.avgRating);
+  }, [technicians]);
+
+  const filteredTechnicians = useMemo(() => {
+    if (!search.trim()) return techniciansWithStats;
+    const q = search.trim().toLowerCase();
+    return techniciansWithStats.filter(tech => {
+      const name = (tech.name || '').toLowerCase();
+      const email = (tech.email || '').toLowerCase();
+      const phone = (tech.phone || '').toLowerCase();
+      const matchReview = tech.reviews.some((r: any) => 
+        (r.comment || '').toLowerCase().includes(q) ||
+        (r.customer?.name || '').toLowerCase().includes(q) ||
+        (r.customer?.email || '').toLowerCase().includes(q) ||
+        (r.order?.readableId || '').toLowerCase().includes(q)
+      );
+      return name.includes(q) || email.includes(q) || phone.includes(q) || matchReview;
+    });
+  }, [techniciansWithStats, search]);
 
   return (
     <div className="space-y-4">
-      {techniciansWithStats.map(tech => (
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Hledat technika, e-mail, hodnocení nebo zákazníka…"
+          className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] py-2 pl-10 pr-10 text-sm text-white placeholder-gray-500 focus:border-white/30 focus:outline-none"
+        />
+        {search && (
+          <button
+            type="button"
+            onClick={() => setSearch('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+            title="Vymazat vyhledávání"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+
+      {filteredTechnicians.map(tech => (
         <div key={tech.id} className="bg-[#111] border border-white/5 rounded-xl overflow-hidden">
           <div 
             className="p-4 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors"

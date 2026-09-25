@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
-import { FileText, Send, Paperclip, X } from 'lucide-react';
+import { FileText, Send, Paperclip, X, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 
@@ -366,6 +366,7 @@ export function AdminSupportClient({ tickets: initialTickets, currentUser }: { t
   const [tickets, setTickets] = useState(initialTickets);
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [filter, setFilter] = useState<'ALL' | 'CANCELLATIONS' | 'OPEN' | 'CLOSED'>('ALL');
+  const [search, setSearch] = useState('');
 
   if (selectedTicketId) {
     return <TicketDetailClient id={selectedTicketId} onBack={() => setSelectedTicketId(null)} currentUser={currentUser} />;
@@ -377,10 +378,18 @@ export function AdminSupportClient({ tickets: initialTickets, currentUser }: { t
 
   const filteredTickets = tickets.filter(t => {
     const isCancel = t.category === 'ORDER_CANCELLATION' || t.subject?.toLowerCase().includes('storno');
-    if (filter === 'CANCELLATIONS') return isCancel;
-    if (filter === 'OPEN') return t.status === 'OPEN';
-    if (filter === 'CLOSED') return t.status === 'CLOSED';
-    return true;
+    if (filter === 'CANCELLATIONS' && !isCancel) return false;
+    if (filter === 'OPEN' && t.status !== 'OPEN') return false;
+    if (filter === 'CLOSED' && t.status !== 'CLOSED') return false;
+
+    if (!search.trim()) return true;
+    const q = search.trim().toLowerCase();
+    const subject = (t.subject || '').toLowerCase();
+    const category = (t.category || '').toLowerCase();
+    const userName = (t.user?.name || '').toLowerCase();
+    const userEmail = (t.user?.email || '').toLowerCase();
+    const id = (t.id || '').toLowerCase();
+    return subject.includes(q) || category.includes(q) || userName.includes(q) || userEmail.includes(q) || id.includes(q);
   });
 
   return (
@@ -439,6 +448,27 @@ export function AdminSupportClient({ tickets: initialTickets, currentUser }: { t
             Uzavřené
           </button>
         </div>
+      </div>
+
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Hledat tiket podle předmětu, uživatele, e-mailu nebo kategorie…"
+          className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] py-2 pl-10 pr-10 text-sm text-white placeholder-gray-500 focus:border-white/30 focus:outline-none"
+        />
+        {search && (
+          <button
+            type="button"
+            onClick={() => setSearch('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+            title="Vymazat vyhledávání"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       <div className="bg-[#1A1A1A] border border-white/5 rounded-xl overflow-hidden">

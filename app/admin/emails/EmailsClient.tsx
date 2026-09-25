@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Mail, Search, ChevronLeft, ChevronRight, CheckCircle2, XCircle, AlertTriangle, Filter } from 'lucide-react';
+import { Mail, Search, ChevronLeft, ChevronRight, CheckCircle2, XCircle, AlertTriangle, Filter, X, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AnimatedItem } from '@/components/AnimatedItem';
 
@@ -38,16 +38,24 @@ export default function EmailsClient() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const fetchEmails = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (search) params.set('q', search);
+      if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
       if (typeFilter) params.set('type', typeFilter);
       if (statusFilter) params.set('status', statusFilter);
       params.set('page', String(page));
@@ -64,14 +72,14 @@ export default function EmailsClient() {
     } finally {
       setLoading(false);
     }
-  }, [search, typeFilter, statusFilter, page]);
+  }, [debouncedSearch, typeFilter, statusFilter, page]);
 
   useEffect(() => { fetchEmails(); }, [fetchEmails]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
+    setDebouncedSearch(search);
     setPage(1);
-    fetchEmails();
   };
 
   return (
@@ -89,14 +97,35 @@ export default function EmailsClient() {
       {/* Filters */}
       <div className="bg-[#1A1A1A] p-4 rounded-xl border border-white/5 flex flex-col md:flex-row gap-4">
         <form onSubmit={handleSearch} className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+          {loading ? (
+            <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-yellow animate-spin" />
+          ) : (
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+          )}
           <input
             type="text"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
             placeholder="Hledat podle e-mailu, předmětu, ID objednávky..."
-            className="w-full bg-[#111] border border-white/10 rounded-lg py-2 pl-10 pr-4 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-brand-yellow/50 transition-colors"
+            className="w-full bg-[#111] border border-white/10 rounded-lg py-2 pl-10 pr-10 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-brand-yellow/50 transition-colors"
           />
+          {search && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearch('');
+                setDebouncedSearch('');
+                setPage(1);
+              }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+              title="Vymazat vyhledávání"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </form>
         <select
           value={typeFilter}

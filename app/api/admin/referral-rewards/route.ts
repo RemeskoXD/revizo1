@@ -33,8 +33,10 @@ export async function GET(req: Request) {
   }
   if (q) {
     where.OR = [
-      { customer: { OR: [{ email: { contains: q } }, { name: { contains: q } }] } },
-      { realtor: { OR: [{ email: { contains: q } }, { name: { contains: q } }] } },
+      { customer: { OR: [{ email: { contains: q } }, { name: { contains: q } }, { phone: { contains: q } }, { address: { contains: q } }] } },
+      { realtor: { OR: [{ email: { contains: q } }, { name: { contains: q } }, { phone: { contains: q } }] } },
+      { notes: { contains: q } },
+      { id: { contains: q } },
     ];
   }
 

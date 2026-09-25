@@ -1,11 +1,22 @@
 'use client';
 
-import { useState } from 'react';
-import { Save, Plus, Trash, Loader2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Save, Plus, Trash, Loader2, Search, X } from 'lucide-react';
 
 export default function AdminPackagesClient({ initialPackages }: { initialPackages: any[] }) {
   const [packages, setPackages] = useState<any[]>(initialPackages || []);
+  const [search, setSearch] = useState('');
   const [saving, setSaving] = useState(false);
+
+  const filteredPackages = useMemo(() => {
+    if (!search.trim()) return packages;
+    const q = search.trim().toLowerCase();
+    return packages.filter(pkg => {
+      const name = (pkg.name || '').toLowerCase();
+      const desc = (pkg.description || '').toLowerCase();
+      return name.includes(q) || desc.includes(q);
+    });
+  }, [packages, search]);
 
   const handleCreate = () => {
     setPackages([
@@ -55,20 +66,56 @@ export default function AdminPackagesClient({ initialPackages }: { initialPackag
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
          <h1 className="text-2xl font-bold text-white">Nabídka balíčků (Tlačítka na hlavní stránce)</h1>
-         <button
-          onClick={handleSave}
-          disabled={saving}
-          className="flex items-center gap-2 rounded-lg bg-brand-yellow px-4 py-2 font-semibold text-black hover:bg-brand-yellow-hover disabled:opacity-50"
-         >
-           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-           Uložit balíčky
-         </button>
+         <div className="flex items-center gap-2">
+           <button
+             onClick={handleCreate}
+             type="button"
+             className="flex items-center gap-2 rounded-lg bg-white/10 px-4 py-2 font-medium text-white hover:bg-white/15 transition-colors"
+           >
+             <Plus className="w-4 h-4" />
+             Přidat balíček
+           </button>
+           <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex items-center gap-2 rounded-lg bg-brand-yellow px-4 py-2 font-semibold text-black hover:bg-brand-yellow-hover disabled:opacity-50"
+           >
+             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+             Uložit balíčky
+           </button>
+         </div>
+      </div>
+
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Hledat balíček podle názvu nebo popisu…"
+          className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] py-2 pl-10 pr-10 text-sm text-white placeholder-gray-500 focus:border-white/30 focus:outline-none"
+        />
+        {search && (
+          <button
+            type="button"
+            onClick={() => setSearch('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+            title="Vymazat vyhledávání"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       <div className="space-y-4">
-        {packages.map((pkg, idx) => (
+        {filteredPackages.length === 0 ? (
+          <div className="bg-[#1A1A1A] border border-white/10 p-8 rounded-xl text-center text-gray-500">
+            {search ? 'Žádné balíčky neodpovídají zadanému hledání.' : 'Zatím žádné balíčky.'}
+          </div>
+        ) : (
+          filteredPackages.map((pkg, idx) => (
           <div key={pkg.id} className="bg-[#1A1A1A] border border-white/10 p-4 rounded-xl space-y-4 relative">
              <button onClick={() => handleDelete(pkg.id)} className="absolute top-4 right-4 text-gray-500 hover:text-red-500">
                <Trash className="w-5 h-5" />
@@ -133,7 +180,7 @@ export default function AdminPackagesClient({ initialPackages }: { initialPackag
                 </label>
              </div>
           </div>
-        ))}
+        )))}
       </div>
 
       <button

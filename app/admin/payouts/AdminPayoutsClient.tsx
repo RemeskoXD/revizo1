@@ -1,13 +1,31 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { toast } from 'react-hot-toast';
+import { Search, X } from 'lucide-react';
 
 export default function AdminPayoutsClient({ requests: initialRequests }: { requests: any[] }) {
   const [requests, setRequests] = useState(initialRequests);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [busy, setBusy] = useState<string | null>(null);
   const [amountsPaid, setAmountsPaid] = useState<Record<string, string>>({});
+
+  const filteredRequests = useMemo(() => {
+    return requests.filter(req => {
+      if (statusFilter !== 'all' && req.status !== statusFilter) return false;
+      if (!search.trim()) return true;
+      const q = search.trim().toLowerCase();
+      const techName = (req.technician?.name || '').toLowerCase();
+      const techEmail = (req.technician?.email || '').toLowerCase();
+      const orderId = (req.order?.readableId || '').toLowerCase();
+      const custName = (req.order?.customer?.name || '').toLowerCase();
+      const iban = (req.iban || '').toLowerCase();
+      const notes = (req.notes || '').toLowerCase();
+      return techName.includes(q) || techEmail.includes(q) || orderId.includes(q) || custName.includes(q) || iban.includes(q) || notes.includes(q);
+    });
+  }, [requests, search, statusFilter]);
 
   const handleUpdateStatus = async (id: string, status: string) => {
     setBusy(id);
@@ -46,9 +64,54 @@ export default function AdminPayoutsClient({ requests: initialRequests }: { requ
 
   return (
     <div className="space-y-6 max-w-6xl">
-      <div>
-        <h1 className="text-2xl font-bold text-white">Výplaty (Faktury od techniků)</h1>
-        <p className="text-gray-400 text-sm">Zde schvalujete a potvrzujete výplaty technikům.</p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Výplaty (Faktury od techniků)</h1>
+          <p className="text-gray-400 text-sm">Zde schvalujete a potvrzujete výplaty technikům.</p>
+        </div>
+
+        <div className="flex items-center gap-1 rounded-lg border border-white/10 bg-[#1A1A1A] p-1 text-xs">
+          {[
+            { id: 'all', label: `Vše (${requests.length})` },
+            { id: 'PENDING', label: `Čekající (${requests.filter(r => r.status === 'PENDING').length})` },
+            { id: 'PAID', label: 'Vyplaceno' },
+            { id: 'REJECTED', label: 'Zamítnuto' },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setStatusFilter(tab.id)}
+              className={`rounded-md px-3 py-1.5 font-medium transition-colors ${
+                statusFilter === tab.id
+                  ? 'bg-brand-yellow text-black font-semibold'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Hledat technika, e-mail, zakázku (#1001), IBAN nebo poznámku…"
+          className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] py-2 pl-10 pr-10 text-sm text-white placeholder-gray-500 focus:border-white/30 focus:outline-none"
+        />
+        {search && (
+          <button
+            type="button"
+            onClick={() => setSearch('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+            title="Vymazat vyhledávání"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       <div className="bg-[#1A1A1A] border border-white/5 rounded-xl overflow-hidden">
@@ -65,7 +128,14 @@ export default function AdminPayoutsClient({ requests: initialRequests }: { requ
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5">
-            {requests.map(req => {
+            {filteredRequests.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-4 py-12 text-center text-gray-500">
+                  {search || statusFilter !== 'all' ? 'Žádné výplaty neodpovídají zadanému filtru.' : 'Žádné žádosti o výplatu.'}
+                </td>
+              </tr>
+            ) : (
+              filteredRequests.map(req => {
               const daysLeft = req.dueDate 
                 ? Math.ceil((new Date(req.dueDate).getTime() - new Date().getTime()) / (1000 * 3600 * 24))
                 : calculateDaysLeft(req.createdAt);
@@ -172,14 +242,7 @@ export default function AdminPayoutsClient({ requests: initialRequests }: { requ
                   </td>
                 </tr>
               );
-            })}
-            {requests.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
-                  Zatím žádné nahrané faktury
-                </td>
-              </tr>
-            )}
+            }))}
           </tbody>
         </table>
       </div>

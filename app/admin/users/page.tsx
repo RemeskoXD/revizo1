@@ -4,12 +4,21 @@ import { prisma } from '@/lib/prisma';
 import { redirect } from 'next/navigation';
 import AdminUsersClient from './AdminUsersClient';
 
-export default async function AdminUsersPage() {
+export default async function AdminUsersPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ search?: string; q?: string; role?: string; company?: string }>;
+}) {
   const session = await getServerSession(authOptions);
 
   if (!session || !['ADMIN', 'SUPPORT'].includes(session.user.role)) {
     redirect('/login');
   }
+
+  const sp = searchParams ? await searchParams : {};
+  const initialSearch = sp.search || sp.q || '';
+  const initialRole = sp.role || 'all';
+  const initialCompany = sp.company || 'all';
 
   const [users, companyAdmins, revisionCategories] = await Promise.all([
     prisma.user.findMany({
@@ -57,6 +66,9 @@ export default async function AdminUsersPage() {
         revisionCategories={serializedCategories}
         userRole={session.user.role}
         currentUserId={session.user.id}
+        initialSearch={initialSearch}
+        initialRoleFilter={initialRole}
+        initialCompanyFilter={initialCompany}
       />
     </div>
   );

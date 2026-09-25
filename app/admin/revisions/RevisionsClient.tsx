@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { 
   ShieldCheck, Clock, Edit3, Save, X, Database, 
-  Zap, Flame, Wind, ArrowUpCircle, Gauge
+  Zap, Flame, Wind, ArrowUpCircle, Gauge, Search
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
@@ -73,6 +73,7 @@ function rolesLabel(csv: string | null | undefined): string {
 
 export default function RevisionsClient({ categories, isAdmin }: { categories: RevisionCategory[]; isAdmin: boolean }) {
   const router = useRouter();
+  const [search, setSearch] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editInterval, setEditInterval] = useState(0);
   const [editDescription, setEditDescription] = useState('');
@@ -80,11 +81,25 @@ export default function RevisionsClient({ categories, isAdmin }: { categories: R
   const [isLoading, setIsLoading] = useState(false);
   const [isSeeding, setIsSeeding] = useState(false);
 
-  const grouped = categories.reduce((acc, cat) => {
-    if (!acc[cat.group]) acc[cat.group] = [];
-    acc[cat.group].push(cat);
-    return acc;
-  }, {} as Record<string, RevisionCategory[]>);
+  const filteredCategories = useMemo(() => {
+    if (!search.trim()) return categories;
+    const q = search.trim().toLowerCase();
+    return categories.filter(cat => {
+      const name = (cat.name || '').toLowerCase();
+      const group = (cat.group || '').toLowerCase();
+      const desc = (cat.description || '').toLowerCase();
+      const legal = (cat.legalBasis || '').toLowerCase();
+      return name.includes(q) || group.includes(q) || desc.includes(q) || legal.includes(q);
+    });
+  }, [categories, search]);
+
+  const grouped = useMemo(() => {
+    return filteredCategories.reduce((acc, cat) => {
+      if (!acc[cat.group]) acc[cat.group] = [];
+      acc[cat.group].push(cat);
+      return acc;
+    }, {} as Record<string, RevisionCategory[]>);
+  }, [filteredCategories]);
 
   const startEdit = (cat: RevisionCategory) => {
     setEditingId(cat.id);
@@ -167,6 +182,27 @@ export default function RevisionsClient({ categories, isAdmin }: { categories: R
           >
             <Database className="w-4 h-4" />
             {isSeeding ? 'Načítání...' : 'Doplnit chybějící kategorie'}
+          </button>
+        )}
+      </div>
+
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Hledat revizní kategorii, skupinu, popis nebo zákonný předpis…"
+          className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] py-2 pl-10 pr-10 text-sm text-white placeholder-gray-500 focus:border-white/30 focus:outline-none"
+        />
+        {search && (
+          <button
+            type="button"
+            onClick={() => setSearch('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+            title="Vymazat vyhledávání"
+          >
+            <X className="w-4 h-4" />
           </button>
         )}
       </div>

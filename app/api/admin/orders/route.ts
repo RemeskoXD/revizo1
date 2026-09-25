@@ -24,22 +24,42 @@ export async function GET(req: Request) {
     const conditions: any[] = [];
 
     if (search) {
-      conditions.push({
-        OR: [
-          { readableId: { contains: search, mode: 'insensitive' } },
-          { orderAddress: { contains: search, mode: 'insensitive' } },
-          { customer: { name: { contains: search, mode: 'insensitive' } } },
-          { customer: { email: { contains: search, mode: 'insensitive' } } },
-          { customer: { phone: { contains: search, mode: 'insensitive' } } },
-        ]
-      });
+      const q = search.trim();
+      const readableQ = q.startsWith('#') ? q.slice(1).trim() : q;
+      const cleanDigits = q.replace(/\s+/g, '');
+      const orList: any[] = [
+        { readableId: { contains: readableQ } },
+        { id: { contains: q } },
+        { address: { contains: q } },
+        { confirmedAddress: { contains: q } },
+        { serviceType: { contains: q } },
+        { propertyType: { contains: q } },
+        { notes: { contains: q } },
+        { customer: { name: { contains: q } } },
+        { customer: { email: { contains: q } } },
+        { customer: { phone: { contains: q } } },
+        { customer: { address: { contains: q } } },
+        { customer: { ico: { contains: q } } },
+        { technician: { name: { contains: q } } },
+        { technician: { email: { contains: q } } },
+        { technician: { phone: { contains: q } } },
+        { company: { name: { contains: q } } },
+      ];
+
+      if (cleanDigits.length >= 3 && cleanDigits !== q) {
+        orList.push({ customer: { phone: { contains: cleanDigits } } });
+        orList.push({ customer: { ico: { contains: cleanDigits } } });
+        orList.push({ technician: { phone: { contains: cleanDigits } } });
+      }
+
+      conditions.push({ OR: orList });
     }
 
     if (statusFilter !== 'all') {
       conditions.push({ status: statusFilter });
     }
     if (typeFilter !== 'all') {
-      conditions.push({ type: typeFilter });
+      conditions.push({ serviceType: typeFilter });
     }
     if (companyFilter !== 'all') {
       conditions.push({ companyId: companyFilter });

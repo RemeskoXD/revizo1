@@ -185,14 +185,28 @@ export default function AdminReferralsClient({ canEdit }: { canEdit: boolean }) 
 
       <div className="flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+          {loading ? (
+            <Loader2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-yellow animate-spin" />
+          ) : (
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+          )}
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Hledat e-mail / jméno makléře nebo zákazníka…"
-            className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] py-2 pl-10 pr-4 text-sm text-white placeholder-gray-500 focus:border-white/30 focus:outline-none"
+            placeholder="Hledat e-mail, jméno, telefon nebo adresu…"
+            className="w-full rounded-lg border border-white/10 bg-[#1A1A1A] py-2 pl-10 pr-10 text-sm text-white placeholder-gray-500 focus:border-white/30 focus:outline-none"
           />
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+              title="Vymazat vyhledávání"
+            >
+              <XIcon className="w-4 h-4" />
+            </button>
+          )}
         </div>
         <div className="flex gap-1 rounded-lg border border-white/10 bg-[#1A1A1A] p-1">
           {STATUS_FILTERS.map((f) => (

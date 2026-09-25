@@ -4,12 +4,20 @@ import { prisma } from '@/lib/prisma';
 import { redirect } from 'next/navigation';
 import AdminOrdersClient from './AdminOrdersClient';
 
-export default async function AdminOrdersPage() {
+export default async function AdminOrdersPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ search?: string; q?: string; status?: string }>;
+}) {
   const session = await getServerSession(authOptions);
 
   if (!session || !['ADMIN', 'SUPPORT', 'CONTRACTOR'].includes(session.user.role)) {
     redirect('/login');
   }
+
+  const sp = searchParams ? await searchParams : {};
+  const initialSearch = sp.search || sp.q || '';
+  const initialStatus = sp.status || 'all';
 
   const orders = await prisma.order.findMany({
     orderBy: { createdAt: 'desc' },
@@ -44,7 +52,14 @@ export default async function AdminOrdersPage() {
         </div>
       </div>
 
-      <AdminOrdersClient initialOrders={orders} technicians={technicians} companies={companies} userRole={session.user.role} />
+      <AdminOrdersClient 
+        initialOrders={orders} 
+        technicians={technicians} 
+        companies={companies} 
+        userRole={session.user.role} 
+        initialSearch={initialSearch}
+        initialStatusFilter={initialStatus}
+      />
     </div>
   );
 }
