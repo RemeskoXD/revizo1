@@ -8,6 +8,7 @@ import { User } from '@prisma/client';
 import { useRouter, usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
 import { isRevisionAuthExpired, isRevisionAuthRole } from '@/lib/revision-auth-core';
+import toast from 'react-hot-toast';
 
 const DISABLED_TABS = new Set(['security', 'notifications']);
 
@@ -47,13 +48,13 @@ export default function SettingsClient({
     if (q.get('tab') === 'billing') setActiveTab('billing');
     const st = q.get('stripe');
     if (st === 'success') {
-      alert(
-        'Platba proběhla. Platnost licence se doplní z webhooku během několika vteřin – obnovte stránku, pokud se datum nezmění.'
+      toast.success(
+        'Platba proběhla. Platnost licence se doplní z webhooku během několika vteřin.'
       );
       router.replace(`${pathname}?tab=billing`);
       router.refresh();
     } else if (st === 'cancel') {
-      alert('Platba byla zrušena.');
+      toast('Platba byla zrušena.', { icon: 'ℹ️' });
       router.replace(`${pathname}?tab=billing`);
     }
   }, [router, pathname]);
@@ -71,7 +72,7 @@ export default function SettingsClient({
         window.location.href = data.url as string;
         return;
       }
-      alert((data as { message?: string }).message || 'Nepodařilo se otevřít platbu.');
+      toast.error((data as { message?: string }).message || 'Nepodařilo se otevřít platbu.');
     } finally {
       setStripeLoading(null);
     }
@@ -90,7 +91,7 @@ export default function SettingsClient({
         window.location.href = data.url as string;
         return;
       }
-      alert((data as { message?: string }).message || 'Portál se nepodařilo otevřít.');
+      toast.error((data as { message?: string }).message || 'Portál se nepodařilo otevřít.');
     } finally {
       setStripeLoading(null);
     }
@@ -108,14 +109,14 @@ export default function SettingsClient({
       });
       
       if (res.ok) {
-        alert('Změny byly úspěšně uloženy.');
+        toast.success('Změny byly úspěšně uloženy.');
         router.refresh();
       } else {
-        alert('Došlo k chybě při ukládání změn.');
+        toast.error('Došlo k chybě při ukládání změn.');
       }
     } catch (error) {
       console.error(error);
-      alert('Došlo k chybě při ukládání změn.');
+      toast.error('Došlo k chybě při ukládání změn.');
     } finally {
       setIsLoading(false);
     }
@@ -157,7 +158,7 @@ export default function SettingsClient({
         setShowDeleteModal(false);
         setDeletePassword('');
         setDeleteNote('');
-        alert(data.message || 'Žádost byla odeslána ke schválení.');
+        toast.success(data.message || 'Žádost byla odeslána ke schválení.');
         router.refresh();
       } else {
         setDeleteError(data.message || 'Žádost se nepodařilo odeslat.');
@@ -492,11 +493,11 @@ export default function SettingsClient({
                         <button
                           type="button"
                           onClick={async () => {
-                            const amount = prompt('Kolik Kč si přejete dobít? (minimum 100 Kč)', '500');
+                            const amount = window.prompt ? window.prompt('Kolik Kč si přejete dobít? (minimum 100 Kč)', '500') : null;
                             if (!amount) return;
                             const parsed = parseInt(amount, 10);
                             if (isNaN(parsed) || parsed < 100) {
-                              alert('Zadejte platnou částku, minimálně 100 Kč.');
+                              toast.error('Zadejte platnou částku, minimálně 100 Kč.');
                               return;
                             }
                             setStripeLoading('checkout');
@@ -510,10 +511,10 @@ export default function SettingsClient({
                               if (res.ok && data.url) {
                                 window.location.href = data.url;
                               } else {
-                                alert(data.message || 'Chyba při inicializaci platby.');
+                                toast.error(data.message || 'Chyba při inicializaci platby.');
                               }
                             } catch {
-                              alert('Došlo k chybě.');
+                              toast.error('Došlo k neočekávané chybě.');
                             } finally {
                               setStripeLoading(null);
                             }

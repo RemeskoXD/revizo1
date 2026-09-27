@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import toast from 'react-hot-toast';
 
 type Checkpoint = { name: string; result: 'ok' | 'fail' | 'na'; note: string };
 type Measurement = { name: string; value: string; unit: string; limit: string; ok: boolean };
@@ -119,18 +120,29 @@ export default function ReportFormClient({ order }: { order: any }) {
       if (res.ok) {
         const data = await res.json();
         setPreviewHtml(data.html);
+        toast.success('Náhled revizní zprávy vygenerován.');
+      } else {
+        toast.error('Nepodařilo se vygenerovat náhled.');
       }
-    } catch { alert('Chyba při generování náhledu.'); }
+    } catch { 
+      toast.error('Chyba při generování náhledu.'); 
+    }
     finally { setIsGenerating(false); }
   };
 
   const handlePrint = () => {
     if (!previewHtml) return;
-    const w = window.open('', '_blank');
-    if (w) {
-      w.document.write(previewHtml);
-      w.document.close();
-      setTimeout(() => w.print(), 500);
+    try {
+      const w = window.open('', '_blank');
+      if (w) {
+        w.document.write(previewHtml);
+        w.document.close();
+        setTimeout(() => w.print(), 500);
+      } else {
+        toast.error('Otevření okna tisku bylo blokováno prohlížečem.');
+      }
+    } catch {
+      toast.error('Nepodařilo se otevřít okno pro tisk.');
     }
   };
 
@@ -142,7 +154,10 @@ export default function ReportFormClient({ order }: { order: any }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(buildPayload()),
       });
-      if (!res.ok) { alert('Chyba.'); return; }
+      if (!res.ok) { 
+        toast.error('Chyba při generování zprávy.'); 
+        return; 
+      }
       const { html } = await res.json();
 
       const htmlBase64 = `data:text/html;base64,${btoa(unescape(encodeURIComponent(html)))}`;
@@ -159,13 +174,16 @@ export default function ReportFormClient({ order }: { order: any }) {
       });
 
       if (completeRes.ok) {
+        toast.success('Revizní zpráva byla úspěšně uložena.');
         router.push(`/technician/job/${order.readableId}`);
         router.refresh();
       } else {
         const err = await completeRes.json();
-        alert(err.message || 'Chyba při ukládání zprávy.');
+        toast.error(err.message || 'Chyba při ukládání zprávy.');
       }
-    } catch { alert('Chyba při komunikaci se serverem.'); }
+    } catch { 
+      toast.error('Chyba při komunikaci se serverem.'); 
+    }
     finally { setIsSubmitting(false); }
   };
 

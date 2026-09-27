@@ -9,6 +9,7 @@ import {
 import Link from 'next/link';
 import { AnimatedItem } from '@/components/AnimatedItem';
 import { cn } from '@/lib/utils';
+import toast from 'react-hot-toast';
 
 type OrderItem = {
   id: string;
@@ -81,11 +82,12 @@ export default function BuildingDetailClient({
         }, ...orders]);
         setIsAddModalOpen(false);
         setNewOrder({ serviceType: 'Elektroinstalace - společné prostory', propertyType: 'Bytový dům', notes: '', preferredDate: '' });
+        toast.success('Nová revize byla úspěšně vytvořena.');
       } else {
-        alert('Chyba při vytváření revize');
+        toast.error('Chyba při vytváření revize.');
       }
     } catch {
-      alert('Chyba při vytváření revize');
+      toast.error('Došlo k neočekávané chybě.');
     } finally {
       setIsSubmitting(false);
     }

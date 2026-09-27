@@ -8,6 +8,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { motion } from 'motion/react';
+import { toast } from 'react-hot-toast';
 
 const GROUP_ICONS: Record<string, any> = {
   'Elektrická zařízení': Zap,
@@ -74,6 +75,7 @@ function rolesLabel(csv: string | null | undefined): string {
 export default function RevisionsClient({ categories, isAdmin }: { categories: RevisionCategory[]; isAdmin: boolean }) {
   const router = useRouter();
   const [search, setSearch] = useState('');
+  const [selectedGroup, setSelectedGroup] = useState<string>('all');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editInterval, setEditInterval] = useState(0);
   const [editDescription, setEditDescription] = useState('');
@@ -81,17 +83,24 @@ export default function RevisionsClient({ categories, isAdmin }: { categories: R
   const [isLoading, setIsLoading] = useState(false);
   const [isSeeding, setIsSeeding] = useState(false);
 
+  const availableGroups = useMemo(() => {
+    const set = new Set<string>();
+    categories.forEach(c => { if (c.group) set.add(c.group); });
+    return Array.from(set);
+  }, [categories]);
+
   const filteredCategories = useMemo(() => {
-    if (!search.trim()) return categories;
-    const q = search.trim().toLowerCase();
     return categories.filter(cat => {
+      if (selectedGroup !== 'all' && cat.group !== selectedGroup) return false;
+      if (!search.trim()) return true;
+      const q = search.trim().toLowerCase();
       const name = (cat.name || '').toLowerCase();
       const group = (cat.group || '').toLowerCase();
       const desc = (cat.description || '').toLowerCase();
       const legal = (cat.legalBasis || '').toLowerCase();
       return name.includes(q) || group.includes(q) || desc.includes(q) || legal.includes(q);
     });
-  }, [categories, search]);
+  }, [categories, search, selectedGroup]);
 
   const grouped = useMemo(() => {
     return filteredCategories.reduce((acc, cat) => {
@@ -126,13 +135,14 @@ export default function RevisionsClient({ categories, isAdmin }: { categories: R
       });
       if (res.ok) {
         setEditingId(null);
+        toast.success('Kategorie revize byla aktualizována.');
         router.refresh();
       } else {
-        const data = await res.json();
-        alert(data.message || 'Chyba při ukládání');
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.message || 'Chyba při ukládání');
       }
     } catch {
-      alert('Chyba při ukládání');
+      toast.error('Chyba při ukládání');
     } finally {
       setIsLoading(false);
     }
@@ -143,15 +153,15 @@ export default function RevisionsClient({ categories, isAdmin }: { categories: R
     setIsSeeding(true);
     try {
       const res = await fetch('/api/admin/revisions/seed', { method: 'POST' });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        alert(data.message);
+        toast.success(data.message || 'Kategorie byly úspěšně naplněny.');
         router.refresh();
       } else {
-        alert(data.message || 'Chyba');
+        toast.error(data.message || 'Chyba při seedování');
       }
     } catch {
-      alert('Chyba při seedování');
+      toast.error('Chyba při seedování');
     } finally {
       setIsSeeding(false);
     }
@@ -207,6 +217,42 @@ export default function RevisionsClient({ categories, isAdmin }: { categories: R
         )}
       </div>
 
+      {/* Group Filter Tabs (iOS style) */}
+      <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto pb-1">
+        <button
+          type="button"
+          onClick={() => setSelectedGroup('all')}
+          className={cn(
+            "min-h-[38px] rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all",
+            selectedGroup === 'all'
+              ? "bg-brand-yellow text-black font-bold shadow-md shadow-brand-yellow/10"
+              : "bg-[#181818] border border-white/10 text-gray-400 hover:text-white hover:bg-white/5"
+          )}
+        >
+          Všechny skupiny ({categories.length})
+        </button>
+        {availableGroups.map((grp) => {
+          const count = categories.filter((c) => c.group === grp).length;
+          const isActive = selectedGroup === grp;
+          return (
+            <button
+              key={grp}
+              type="button"
+              onClick={() => setSelectedGroup(grp)}
+              className={cn(
+                "min-h-[38px] rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all flex items-center gap-1.5",
+                isActive
+                  ? "bg-white/15 text-white ring-1 ring-white/25 shadow-sm"
+                  : "bg-[#181818] border border-white/10 text-gray-400 hover:text-white hover:bg-white/5"
+              )}
+            >
+              <span>{grp}</span>
+              <span className="text-[10px] text-gray-400 font-normal">({count})</span>
+            </button>
+          );
+        })}
+      </div>
+
       <div className="bg-[#1A1A1A] border border-white/5 rounded-xl p-6">
         <div className="flex items-center gap-3 mb-6">
           <div className="p-2 bg-brand-yellow/10 rounded-lg">
@@ -250,7 +296,130 @@ export default function RevisionsClient({ categories, isAdmin }: { categories: R
                   <span className="text-xs text-gray-500 bg-white/5 px-2 py-1 rounded-full">{cats.length} kategorií</span>
                 </div>
 
-                <div className="bg-[#1A1A1A] border border-white/5 rounded-xl overflow-hidden">
+                {/* Mobile Cards View (Phones & Small Tablets) */}
+                <div className="space-y-3 lg:hidden">
+                  {cats.map((cat) => (
+                    <div
+                      key={cat.id}
+                      className="overflow-hidden rounded-2xl border border-white/10 bg-[#161616] p-4 shadow-sm space-y-3"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-white text-base leading-snug">{cat.name}</p>
+                          {editingId === cat.id ? (
+                            <textarea
+                              value={editDescription}
+                              onChange={(e) => setEditDescription(e.target.value)}
+                              rows={2}
+                              placeholder="Popis revize…"
+                              className="mt-2 w-full rounded-xl bg-[#111] border border-white/10 p-2.5 text-xs text-gray-200 focus:border-brand-yellow outline-none resize-none"
+                            />
+                          ) : (
+                            cat.description && (
+                              <p className="text-xs text-gray-400 mt-1 line-clamp-2">{cat.description}</p>
+                            )
+                          )}
+                        </div>
+
+                        {isAdmin && (
+                          <div className="shrink-0">
+                            {editingId === cat.id ? (
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => saveEdit(cat.id)}
+                                  disabled={isLoading}
+                                  className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors"
+                                >
+                                  <Save className="w-4 h-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={cancelEdit}
+                                  className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl bg-white/5 text-gray-400 hover:text-white"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => startEdit(cat)}
+                                className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl bg-white/5 text-gray-400 hover:text-brand-yellow hover:bg-white/10 active:scale-95 transition-all"
+                              >
+                                <Edit3 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/5 text-xs">
+                        <div className="rounded-xl bg-black/40 p-2.5 border border-white/5">
+                          <span className="text-[10px] text-gray-500 block mb-0.5">Zákonná lhůta</span>
+                          {editingId === cat.id ? (
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <input
+                                type="number"
+                                min={1}
+                                value={editInterval}
+                                onChange={(e) => setEditInterval(parseInt(e.target.value) || 1)}
+                                className="w-16 rounded-lg bg-[#111] border border-white/10 px-2 py-1 text-white text-center font-bold font-mono focus:border-brand-yellow outline-none text-xs"
+                              />
+                              <span className="text-gray-400 text-xs">měs.</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5 font-semibold text-white">
+                              <Clock className={cn("w-3.5 h-3.5", textColor)} />
+                              <span>{formatInterval(cat.intervalMonths)}</span>
+                              <span className="text-[10px] text-gray-500 font-normal font-mono">({cat.intervalMonths} m)</span>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="rounded-xl bg-black/40 p-2.5 border border-white/5">
+                          <span className="text-[10px] text-gray-500 block mb-0.5">Objednávky v systému</span>
+                          <span className="text-xs font-bold text-gray-300 font-mono">
+                            {cat._count.orders} zakázek
+                          </span>
+                        </div>
+                      </div>
+
+                      {editingId === cat.id ? (
+                        <div className="rounded-xl bg-black/40 p-3 border border-white/5 space-y-2">
+                          <span className="text-[10px] text-gray-500 font-semibold block">Cílové role uživatelů:</span>
+                          <div className="grid grid-cols-2 gap-2">
+                            {TARGET_ROLE_CHOICES.map((opt) => (
+                              <label key={opt.value} className="min-h-[36px] flex items-center gap-2 text-xs text-gray-300">
+                                <input
+                                  type="checkbox"
+                                  checked={editTargetRoles.includes(opt.value)}
+                                  onChange={(e) => {
+                                    setEditTargetRoles((prev) =>
+                                      e.target.checked
+                                        ? [...prev, opt.value]
+                                        : prev.filter((r) => r !== opt.value),
+                                    );
+                                  }}
+                                  className="h-4 w-4 accent-brand-yellow rounded"
+                                />
+                                <span className="truncate">{opt.label}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between text-[11px] text-gray-500 pt-1">
+                          <span className="truncate max-w-[200px]">{rolesLabel(cat.targetRoles)}</span>
+                          <span className="font-mono text-gray-400">{cat.legalBasis || '–'}</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Desktop Table View */}
+                <div className="hidden lg:block bg-[#1A1A1A] border border-white/5 rounded-xl overflow-hidden">
                   <table className="w-full text-left text-sm">
                     <thead className="bg-white/5 text-gray-400 uppercase text-xs font-semibold">
                       <tr>

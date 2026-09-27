@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Send, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import toast from 'react-hot-toast';
 
 const NEAR_BOTTOM_PX = 80;
 
@@ -91,11 +92,11 @@ export function ChatSection({ orderId, currentUserId }: { orderId: string, curre
       } else {
         // Revert on failure
         setMessages(prev => prev.filter(msg => msg.id !== tempMessage.id));
-        alert('Chyba při odesílání zprávy.');
+        toast.error('Chyba při odesílání zprávy.');
       }
-    } catch (error) {
+    } catch {
       setMessages(prev => prev.filter(msg => msg.id !== tempMessage.id));
-      alert('Chyba při odesílání zprávy.');
+      toast.error('Chyba při odesílání zprávy.');
     }
   };
 
@@ -104,8 +105,8 @@ export function ChatSection({ orderId, currentUserId }: { orderId: string, curre
   }
 
   return (
-    <div className="flex h-full min-h-[240px] flex-col overflow-hidden rounded-xl border border-white/5 bg-[#1A1A1A] sm:min-h-[320px]">
-      <div className="p-4 border-b border-white/5 bg-[#111]">
+    <div className="flex h-full min-h-[240px] flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#1A1A1A] sm:min-h-[320px]">
+      <div className="p-4 border-b border-white/10 bg-[#141414]">
         <h3 className="text-sm font-semibold text-white">Komunikace k zakázce</h3>
       </div>
       
@@ -124,7 +125,7 @@ export function ChatSection({ orderId, currentUserId }: { orderId: string, curre
                 </div>
                 <div className={cn(
                   "max-w-[80%] rounded-2xl px-4 py-2",
-                  isMe ? "bg-brand-yellow text-black rounded-tr-none" : "bg-[#222] text-white rounded-tl-none"
+                  isMe ? "bg-brand-yellow text-black rounded-tr-none font-medium" : "bg-[#242424] text-white rounded-tl-none border border-white/5"
                 )}>
                   {!isMe && <div className="text-xs text-gray-400 mb-1">{msg.sender?.name || 'Uživatel'}</div>}
                   <div className="text-sm break-words">{msg.content}</div>
@@ -138,20 +139,20 @@ export function ChatSection({ orderId, currentUserId }: { orderId: string, curre
         )}
       </div>
 
-      <form onSubmit={sendMessage} className="p-3 border-t border-white/5 bg-[#111] flex gap-2">
+      <form onSubmit={sendMessage} className="p-3 border-t border-white/10 bg-[#141414] flex gap-2">
         <input
           type="text"
           value={newMessage}
           onChange={(e) => setNewMessage(e.target.value)}
           placeholder="Napište zprávu..."
-          className="flex-1 bg-[#222] border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-brand-yellow/50"
+          className="flex-1 bg-[#222] border border-white/10 rounded-xl px-4 py-2.5 min-h-[44px] text-sm text-white focus:outline-none focus:border-brand-yellow/60 transition"
         />
         <button
           type="submit"
           disabled={!newMessage.trim()}
-          className="p-2 bg-brand-yellow text-black rounded-lg hover:bg-brand-yellow-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="min-h-[44px] min-w-[44px] px-3.5 bg-brand-yellow text-black rounded-xl hover:bg-brand-yellow-hover disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center active:scale-95"
         >
-          <Send className="w-5 h-5" />
+          <Send className="w-4 h-4" />
         </button>
       </form>
     </div>

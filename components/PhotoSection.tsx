@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Camera, Image as ImageIcon, X, Plus, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import toast from 'react-hot-toast';
 
 interface PhotoSectionProps {
   orderId: string;
@@ -50,11 +50,12 @@ export function PhotoSection({ orderId, isTechnician }: PhotoSectionProps) {
       if (res.ok) {
         const photo = await res.json();
         setPhotos(prev => [photo, ...prev]);
+        toast.success('Fotografie byla úspěšně nahrána');
       } else {
-        alert('Chyba při nahrávání fotky.');
+        toast.error('Chyba při nahrávání fotky.');
       }
     } catch { 
-      alert('Chyba při zpracování fotky.'); 
+      toast.error('Chyba při zpracování fotky.'); 
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = '';
@@ -73,47 +74,63 @@ export function PhotoSection({ orderId, isTechnician }: PhotoSectionProps) {
   };
 
   return (
-    <div className="bg-[#1A1A1A] border border-white/5 rounded-xl p-4">
-      <div className="flex items-center justify-between mb-3">
+    <div className="bg-[#1A1A1A] border border-white/10 rounded-2xl p-4 sm:p-5 shadow-sm">
+      <div className="flex items-center justify-between mb-3.5">
         <h4 className="text-sm font-semibold text-white flex items-center gap-2">
           <Camera className="w-4 h-4 text-brand-yellow" /> Fotodokumentace
         </h4>
-        <span className="text-xs text-gray-500">{photos.length} fotek</span>
+        <span className="text-xs text-neutral-400 bg-white/5 px-2 py-0.5 rounded-full">{photos.length} fotek</span>
       </div>
 
       {isTechnician && (
-        <div className="mb-3">
+        <div className="mb-3.5">
           <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={handleUpload} className="hidden" />
           <button
             onClick={() => fileRef.current?.click()}
             disabled={uploading}
-            className="w-full flex items-center justify-center gap-2 p-3 border-2 border-dashed border-white/10 rounded-lg text-gray-400 hover:text-brand-yellow hover:border-brand-yellow/30 transition-colors disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-2 min-h-[44px] py-2.5 px-4 border-2 border-dashed border-white/15 rounded-xl text-neutral-300 hover:text-brand-yellow hover:border-brand-yellow/40 transition disabled:opacity-50 active:scale-[0.99] text-sm font-medium"
           >
-            {uploading ? <><Loader2 className="w-4 h-4 animate-spin" /> Nahrávání...</> : <><Plus className="w-4 h-4" /> Přidat fotku</>}
+            {uploading ? (
+              <><Loader2 className="w-4 h-4 animate-spin text-brand-yellow" /> Nahrávání fotografie...</>
+            ) : (
+              <><Plus className="w-4 h-4 text-brand-yellow" /> Přidat fotku z místa (fotoaparát)</>
+            )}
           </button>
         </div>
       )}
 
       {photos.length === 0 ? (
-        <p className="text-xs text-gray-600 text-center py-3">Žádné fotky.</p>
+        <p className="text-xs text-neutral-500 text-center py-4">Zatím nebyla pořízena žádná fotodokumentace.</p>
       ) : (
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-3 gap-2.5">
           {photos.map((photo) => (
             <button
               key={photo.id}
               onClick={() => viewPhoto(photo.id)}
-              className="aspect-square bg-[#111] rounded-lg border border-white/5 flex items-center justify-center hover:border-brand-yellow/30 transition-colors overflow-hidden"
+              className="aspect-square bg-neutral-900 rounded-xl border border-white/10 flex items-center justify-center hover:border-brand-yellow/50 transition-all overflow-hidden active:scale-95 min-h-[44px]"
             >
-              <ImageIcon className="w-6 h-6 text-gray-600" />
+              <ImageIcon className="w-6 h-6 text-neutral-400" />
             </button>
           ))}
         </div>
       )}
 
       {viewingPhoto && viewingData && (
-        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4" onClick={() => { setViewingPhoto(null); setViewingData(null); }}>
-          <button className="absolute top-4 right-4 p-2 text-white hover:bg-white/10 rounded-full"><X className="w-6 h-6" /></button>
-          <img src={viewingData} alt="Photo" className="max-w-full max-h-[90vh] object-contain rounded-lg" />
+        <div 
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200" 
+          onClick={() => { setViewingPhoto(null); setViewingData(null); }}
+        >
+          <button 
+            className="absolute top-4 right-4 min-w-[44px] min-h-[44px] flex items-center justify-center text-white bg-white/10 hover:bg-white/20 rounded-full transition"
+            aria-label="Zavřít náhled"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <img 
+            src={viewingData} 
+            alt="Fotodokumentace" 
+            className="max-w-full max-h-[90vh] object-contain rounded-2xl shadow-2xl border border-white/10" 
+          />
         </div>
       )}
     </div>

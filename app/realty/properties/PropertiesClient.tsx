@@ -5,6 +5,7 @@ import { motion } from 'motion/react';
 import { Home, Plus, Link as LinkIcon, CheckCircle2, Copy, FileText, ArrowRight, MapPin, Calendar, Clock } from 'lucide-react';
 import { AnimatedItem } from '@/components/AnimatedItem';
 import Link from 'next/link';
+import toast from 'react-hot-toast';
 
 type Order = any; // Simplify for now
 type Property = {
@@ -39,12 +40,13 @@ export default function PropertiesClient({ initialProperties }: { initialPropert
         setProperties([created, ...properties]);
         setIsAddModalOpen(false);
         setNewProperty({ name: '', address: '', description: '' });
+        toast.success('Nemovitost byla úspěšně přidána.');
       } else {
-        alert('Chyba při vytváření nemovitosti');
+        toast.error('Chyba při vytváření nemovitosti.');
       }
     } catch (error) {
       console.error(error);
-      alert('Chyba při vytváření nemovitosti');
+      toast.error('Došlo k chybě při vytváření nemovitosti.');
     } finally {
       setIsSubmitting(false);
     }
@@ -56,17 +58,20 @@ export default function PropertiesClient({ initialProperties }: { initialPropert
       if (res.ok) {
         const updated = await res.json();
         setProperties(properties.map(p => p.id === propertyId ? { ...p, transferToken: updated.transferToken, transferStatus: updated.transferStatus } : p));
+        toast.success('Odkaz pro předání byl vygenerován.');
+      } else {
+        toast.error('Chyba při generování odkazu.');
       }
     } catch (error) {
       console.error(error);
-      alert('Chyba při generování odkazu');
+      toast.error('Chyba při generování odkazu.');
     }
   };
 
   const copyToClipboard = (token: string) => {
     const url = `${window.location.origin}/claim-property?token=${token}`;
     navigator.clipboard.writeText(url);
-    alert('Odkaz zkopírován do schránky!');
+    toast.success('Odkaz byl zkopírován do schránky!');
   };
 
   return (

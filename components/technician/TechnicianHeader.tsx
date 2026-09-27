@@ -27,7 +27,7 @@ export function TechnicianHeader({ onMenuClick }: TechnicianHeaderProps) {
           <button
             type="button"
             onClick={onMenuClick}
-            className="touch-manipulation shrink-0 rounded-lg p-2 text-gray-400 hover:bg-white/5 hover:text-white lg:hidden"
+            className="touch-manipulation shrink-0 rounded-xl min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:bg-white/5 hover:text-white active:scale-95 transition lg:hidden"
             aria-label="Otevřít menu"
           >
             <Menu className="h-6 w-6" />

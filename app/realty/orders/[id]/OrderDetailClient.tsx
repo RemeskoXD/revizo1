@@ -5,6 +5,7 @@ import { motion } from 'motion/react';
 import { ArrowLeft, Calendar, MapPin, Clock, FileText, Home, User, CheckCircle2, AlertCircle, ShieldCheck, Download, FileUp } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import toast from 'react-hot-toast';
 
 type Order = any;
 
@@ -36,16 +37,17 @@ export default function OrderDetailClient({ order }: { order: Order }) {
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
         if (data.requiresSupport) {
-          alert(data.message || 'K zakázce je již přiřazen technik. Váš požadavek na storno byl předán zákaznické podpoře, která vás bude kontaktovat.');
+          toast(data.message || 'K zakázce je již přiřazen technik. Požadavek na storno byl předán podpoře.', { icon: 'ℹ️' });
         } else {
           setStatus(newStatus);
+          toast.success('Stav zakázky byl aktualizován.');
         }
       } else {
-        alert(data.message || 'Chyba při změně stavu');
+        toast.error(data.message || 'Chyba při změně stavu.');
       }
     } catch (error) {
       console.error(error);
-      alert('Chyba při změně stavu');
+      toast.error('Došlo k chybě při změně stavu.');
     } finally {
       setIsUpdating(false);
     }

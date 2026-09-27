@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { motion } from 'motion/react';
 import { Home, CheckCircle2, ArrowRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import toast from 'react-hot-toast';
 
 export default function ClaimClient({ property, token }: { property: any, token: string }) {
   const [isClaiming, setIsClaiming] = useState(false);
@@ -21,12 +22,13 @@ export default function ClaimClient({ property, token }: { property: any, token:
 
       if (res.ok) {
         setSuccess(true);
+        toast.success('Nemovitost byla úspěšně nárokována.');
       } else {
-        alert('Chyba při nárokování nemovitosti');
+        toast.error('Chyba při nárokování nemovitosti.');
       }
     } catch (error) {
       console.error(error);
-      alert('Chyba při nárokování nemovitosti');
+      toast.error('Došlo k neočekávané chybě.');
     } finally {
       setIsClaiming(false);
     }

@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { motion } from 'motion/react';
 import { ChatSection } from '@/components/ChatSection';
+import toast from 'react-hot-toast';
 
 export default function CompanyOrderDetailClient({ order, currentUser, technicians }: { order: any, currentUser: any, technicians: any[] }) {
   const [status, setStatus] = useState(
@@ -26,14 +27,14 @@ export default function CompanyOrderDetailClient({ order, currentUser, technicia
         method: 'POST',
       });
       if (res.ok) {
-        alert('Zakázka byla úspěšně přijata.');
+        toast.success('Zakázka byla úspěšně přijata.');
         router.refresh();
       } else {
-        alert('Došlo k chybě při přijímání zakázky.');
+        toast.error('Došlo k chybě při přijímání zakázky.');
       }
     } catch (error) {
       console.error(error);
-      alert('Došlo k chybě při přijímání zakázky.');
+      toast.error('Došlo k chybě při přijímání zakázky.');
     } finally {
       setIsClaiming(false);
     }
@@ -50,14 +51,14 @@ export default function CompanyOrderDetailClient({ order, currentUser, technicia
         body: JSON.stringify({ technicianId: selectedTech }),
       });
       if (res.ok) {
-        alert('Zakázka byla úspěšně přiřazena technikovi.');
+        toast.success('Zakázka byla úspěšně přiřazena technikovi.');
         router.refresh();
       } else {
-        alert('Došlo k chybě při přiřazování zakázky.');
+        toast.error('Došlo k chybě při přiřazování zakázky.');
       }
     } catch (error) {
       console.error(error);
-      alert('Došlo k chybě při přiřazování zakázky.');
+      toast.error('Došlo k chybě při přiřazování zakázky.');
     } finally {
       setIsAssigning(false);
     }

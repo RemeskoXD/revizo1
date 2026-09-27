@@ -18,12 +18,15 @@ import {
   ShieldCheck,
   MapPin,
   Loader2,
+  ChevronRight,
+  Edit3,
 } from 'lucide-react';
 import type { User } from '@prisma/client';
 import { motion } from 'motion/react';
 import { getRoleDisplayName } from '@/lib/role-labels';
 import { cn } from '@/lib/utils';
 import { isRevisionAuthExpired, isRevisionAuthRole } from '@/lib/revision-auth-core';
+import { AdminUserDetailDrawer, AdminUserRecord } from '@/components/admin/AdminUserDetailDrawer';
 
 type UserWithCompany = User & {
   company: { id: string; name: string | null; email: string | null } | null;
@@ -139,6 +142,23 @@ export default function AdminUsersClient({
     objectPackagePaid: false,
     objectLimitOverride: '',
   });
+
+  const [selectedUserForDrawer, setSelectedUserForDrawer] = useState<UserWithCompany | null>(null);
+  const [isUserDrawerOpen, setIsUserDrawerOpen] = useState(false);
+
+  const handleOpenUserDrawer = (u: UserWithCompany) => {
+    setSelectedUserForDrawer(u);
+    setIsUserDrawerOpen(true);
+  };
+
+  const handleUpdateUserInDrawer = (updatedUser: AdminUserRecord) => {
+    setUsers((prev) =>
+      prev.map((u) => (u.id === updatedUser.id ? ({ ...u, ...updatedUser } as UserWithCompany) : u))
+    );
+    if (selectedUserForDrawer?.id === updatedUser.id) {
+      setSelectedUserForDrawer((prev) => (prev ? ({ ...prev, ...updatedUser } as UserWithCompany) : null));
+    }
+  };
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'CUSTOMER' });
@@ -552,8 +572,59 @@ export default function AdminUsersClient({
         {isLoading && <span className="text-brand-yellow flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Načítám...</span>}
       </div>
 
-      {/* Users Table */}
-      <div className="overflow-hidden rounded-xl border border-white/5 bg-[#111]">
+      {/* Mobile Card List (Phones & Small Tablets) */}
+      <div className="block space-y-3 lg:hidden">
+        {filteredUsers.length === 0 ? (
+          <div className="rounded-2xl border border-white/5 bg-[#141414] p-8 text-center text-sm text-gray-500">
+            Žádní uživatelé neodpovídají zadanému filtru.
+          </div>
+        ) : (
+          filteredUsers.map((user) => (
+            <div
+              key={user.id}
+              onClick={() => handleOpenUserDrawer(user)}
+              className="group cursor-pointer overflow-hidden rounded-2xl border border-white/10 bg-[#161616] p-4 transition-all active:scale-[0.99] hover:border-white/25 hover:bg-[#1a1a1a]"
+            >
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 font-bold text-white">
+                    {(user.name || user.email || '?').charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate font-bold text-white text-sm">{user.name || 'Neznámý'}</p>
+                    <p className="truncate text-xs text-gray-400">{user.email}</p>
+                  </div>
+                </div>
+                <span className="shrink-0 rounded-full bg-white/10 px-2.5 py-0.5 text-[11px] font-semibold text-gray-300">
+                  {getRoleDisplayName(user.role)}
+                </span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 text-xs text-gray-400 my-2">
+                {user.phone && <span>📞 {user.phone}</span>}
+                {user.address && <span className="truncate max-w-[200px]">📍 {user.address}</span>}
+                {user.company && <span className="text-blue-400">🏢 {user.company.name}</span>}
+              </div>
+
+              <div className="flex items-center justify-between border-t border-white/5 pt-2.5 text-xs">
+                <div>
+                  {user.bannedAt ? (
+                    <span className="font-bold text-red-400">ZABLOKOVÁN</span>
+                  ) : (
+                    <span className="text-emerald-400 font-medium">Aktivní</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 text-brand-yellow font-medium">
+                  Detail / Upravit <ChevronRight className="h-4 w-4" />
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Desktop Users Table */}
+      <div className="hidden overflow-hidden rounded-xl border border-white/5 bg-[#111] lg:block">
         <div className="table-scroll -mx-3 px-3 sm:mx-0 sm:px-0">
             <table className="w-full min-w-[1220px] text-left text-sm">
                 <thead className="bg-white/5 text-xs font-semibold uppercase text-gray-400">
@@ -594,7 +665,8 @@ export default function AdminUsersClient({
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ duration: 0.2, delay: index * 0.05 }}
-                          className="hover:bg-white/[0.02] transition-colors"
+                          onClick={() => handleOpenUserDrawer(user)}
+                          className="cursor-pointer hover:bg-white/[0.04] transition-colors"
                         >
                             <td className="px-3 py-3 sm:px-5 sm:py-4">
                                 <div className="flex items-center gap-3">
@@ -795,15 +867,18 @@ export default function AdminUsersClient({
                                         <ShieldCheck className="w-4 h-4" />
                                       </button>
                                     )}
+                                    <button 
+                                      type="button"
+                                      onClick={() => handleOpenUserDrawer(user)} 
+                                      className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-semibold text-gray-300 hover:bg-white/10 hover:text-white transition-all"
+                                    >
+                                      <Edit3 className="w-3.5 h-3.5" />
+                                      Upravit
+                                    </button>
                                     {userRole === 'ADMIN' && (
-                                      <>
-                                        <button onClick={() => { setEditingUser(user.id); setEditPriority(user.priority); setEditRole(user.role); }} className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
-                                            <Edit2 className="w-4 h-4" />
-                                        </button>
-                                        <button onClick={() => handleDeleteUser(user.id)} className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors">
-                                            <span className="text-xs font-medium">Smazat</span>
-                                        </button>
-                                      </>
+                                      <button onClick={() => handleDeleteUser(user.id)} className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors">
+                                          <span className="text-xs font-medium">Smazat</span>
+                                      </button>
                                     )}
                                   </div>
                                 )}
@@ -1257,6 +1332,27 @@ export default function AdminUsersClient({
           </motion.div>
         </div>
       )}
+
+      {/* User Detail & Edit Slide-over Drawer */}
+      <AdminUserDetailDrawer
+        isOpen={isUserDrawerOpen}
+        user={selectedUserForDrawer as unknown as AdminUserRecord}
+        companies={companies}
+        revisionCategories={revisionCategories || []}
+        userRole={userRole}
+        currentUserId={currentUserId}
+        onClose={() => {
+          setIsUserDrawerOpen(false);
+          setSelectedUserForDrawer(null);
+        }}
+        onUpdate={handleUpdateUserInDrawer}
+        onDelete={(deletedId) => {
+          setUsers((prev) => prev.filter((u) => u.id !== deletedId));
+          setTotalCount((c) => Math.max(0, c - 1));
+          setIsUserDrawerOpen(false);
+          setSelectedUserForDrawer(null);
+        }}
+      />
     </div>
   );
 }

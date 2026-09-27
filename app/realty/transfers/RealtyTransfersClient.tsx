@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Send, FileText, CheckCircle2, Clock, XCircle, User } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'motion/react';
+import toast from 'react-hot-toast';
 
 export default function RealtyTransfersClient({ transfers, availableDocuments }: { transfers: any[], availableDocuments: any[] }) {
   const [receiverEmail, setReceiverEmail] = useState('');
@@ -24,17 +25,17 @@ export default function RealtyTransfersClient({ transfers, availableDocuments }:
       });
 
       if (res.ok) {
-        alert('Žádost o převod byla úspěšně odeslána.');
+        toast.success('Žádost o převod byla úspěšně odeslána.');
         setReceiverEmail('');
         setDocumentId('');
         router.refresh();
       } else {
         const data = await res.json();
-        alert(data.message || 'Došlo k chybě při odesílání žádosti.');
+        toast.error(data.message || 'Došlo k chybě při odesílání žádosti.');
       }
     } catch (error) {
       console.error(error);
-      alert('Došlo k chybě při odesílání žádosti.');
+      toast.error('Došlo k chybě při odesílání žádosti.');
     } finally {
       setIsSubmitting(false);
     }

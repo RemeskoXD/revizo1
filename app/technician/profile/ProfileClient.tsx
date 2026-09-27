@@ -5,6 +5,7 @@ import { User, Mail, Phone, Building, Save, ShieldCheck, AlertTriangle } from 'l
 import { isRevisionAuthExpired } from '@/lib/revision-auth-core';
 import { motion } from 'motion/react';
 import { useRouter } from 'next/navigation';
+import toast from 'react-hot-toast';
 
 export default function ProfileClient({ user }: { user: any }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -33,13 +34,14 @@ export default function ProfileClient({ user }: { user: any }) {
       
       if (res.ok) {
         setIsEditing(false);
+        toast.success('Profil byl úspěšně aktualizován.');
         router.refresh();
       } else {
-        alert('Došlo k chybě při ukládání profilu.');
+        toast.error('Došlo k chybě při ukládání profilu.');
       }
     } catch (error) {
       console.error(error);
-      alert('Došlo k chybě při ukládání profilu.');
+      toast.error('Došlo k chybě při ukládání profilu.');
     } finally {
       setIsSaving(false);
     }
@@ -257,13 +259,13 @@ export default function ProfileClient({ user }: { user: any }) {
                 });
                 const data = await res.json();
                 if (res.ok) {
-                  alert('Žádost o připojení byla úspěšně odeslána. Nyní musíte počkat na schválení firmou.');
+                  toast.success('Žádost o připojení byla úspěšně odeslána.');
                   (e.target as any).reset();
                 } else {
-                  alert(data.error || 'Došlo k chybě při odesílání žádosti.');
+                  toast.error(data.error || 'Došlo k chybě při odesílání žádosti.');
                 }
               } catch (error) {
-                alert('Došlo k chybě při odesílání žádosti.');
+                toast.error('Došlo k chybě při odesílání žádosti.');
               }
             }} className="flex gap-4">
               <input
@@ -297,9 +299,9 @@ export default function ProfileClient({ user }: { user: any }) {
               <button
                 onClick={() => {
                   navigator.clipboard.writeText(`${window.location.origin}/register?ref=${user.inviteCode}`);
-                  alert('Odkaz zkopírován do schránky');
+                  toast.success('Doporučovací odkaz zkopírován do schránky');
                 }}
-                className="px-4 py-2 bg-white/10 text-white text-sm font-medium rounded-lg hover:bg-white/20 transition-colors"
+                className="px-4 py-2 min-h-[44px] bg-white/10 text-white text-sm font-medium rounded-xl hover:bg-white/20 transition-all flex items-center justify-center active:scale-95"
               >
                 Zkopírovat odkaz
               </button>
@@ -309,12 +311,13 @@ export default function ProfileClient({ user }: { user: any }) {
               onClick={async () => {
                 const res = await fetch('/api/technician/generate-referral', { method: 'POST' });
                 if (res.ok) {
+                  toast.success('Doporučovací kód byl vytvořen!');
                   router.refresh();
                 } else {
-                  alert('Chyba při generování kódu.');
+                  toast.error('Chyba při generování kódu.');
                 }
               }}
-              className="px-6 py-2 bg-brand-yellow text-black text-sm font-bold rounded-lg hover:bg-brand-yellow-hover transition-colors"
+              className="px-6 py-2.5 min-h-[44px] bg-brand-yellow text-black text-sm font-bold rounded-xl hover:bg-brand-yellow-hover transition-all active:scale-95 flex items-center justify-center"
             >
               Vygenerovat doporučovací kód
             </button>

@@ -6,6 +6,7 @@ import { Building, Plus, MapPin, Calendar, FileText, ShieldCheck, AlertTriangle,
 import { AnimatedItem } from '@/components/AnimatedItem';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import toast from 'react-hot-toast';
 
 const HEALTH_CONFIG = {
   green: { label: 'V pořádku', bg: 'bg-green-500', border: 'border-green-500/20', text: 'text-green-500', icon: ShieldCheck },
@@ -56,11 +57,12 @@ export default function BuildingsClient({ initialBuildings }: { initialBuildings
         }, ...buildings]);
         setIsAddModalOpen(false);
         setNewBuilding({ name: '', address: '', description: '' });
+        toast.success('Budova byla úspěšně vytvořena.');
       } else {
-        alert('Chyba při vytváření budovy');
+        toast.error('Chyba při vytváření budovy.');
       }
     } catch {
-      alert('Chyba při vytváření budovy');
+      toast.error('Došlo k chybě při vytváření budovy.');
     } finally {
       setIsSubmitting(false);
     }

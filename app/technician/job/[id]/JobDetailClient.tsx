@@ -16,6 +16,7 @@ import { ChecklistSection } from '@/components/ChecklistSection';
 import { PhotoSection } from '@/components/PhotoSection';
 import { OrderPricingManager } from '@/components/dashboard/OrderPricingManager';
 import { QRCodeSVG } from 'qrcode.react';
+import toast from 'react-hot-toast';
 
 // Jednoduchý konvertor českého čísla účtu na IBAN
 function czAccountToIban(account: string): string | null {
@@ -57,10 +58,10 @@ export default function JobDetailClient({ order, currentUser, addressHistory = [
       const res = await fetch(`/api/orders/${order.readableId}/send-payment-link`, {
         method: 'POST'
       });
-      if (res.ok) alert('E-mail s výzvou k platbě odeslán.');
-      else alert('Nepodařilo se odeslat e-mail.');
-    } catch (error) {
-      alert('Došlo k chybě při odesílání.');
+      if (res.ok) toast.success('E-mail s výzvou k platbě byl úspěšně odeslán.');
+      else toast.error('Nepodařilo se odeslat e-mail.');
+    } catch {
+      toast.error('Došlo k chybě při odesílání.');
     } finally {
       setIsSendingLink(false);
     }
@@ -92,7 +93,7 @@ export default function JobDetailClient({ order, currentUser, addressHistory = [
   const [isListening, setIsListening] = useState(false);
   const startDictation = (setter: (val: string) => void, current: string) => {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      alert('Diktování není v tomto prohlížeči podporováno. Použijte Chrome.');
+      toast.error('Hlasové diktování není v tomto prohlížeči podporováno. Použijte Safari nebo Chrome.');
       return;
     }
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -122,18 +123,31 @@ export default function JobDetailClient({ order, currentUser, addressHistory = [
     setIsClaiming(true);
     try {
       const res = await fetch(`/api/orders/${order.readableId}/claim`, { method: 'POST' });
-      if (res.ok) { router.refresh(); } 
-      else { alert('Chyba při přijímání zakázky.'); }
-    } catch { alert('Chyba při přijímání zakázky.'); }
+      if (res.ok) { 
+        toast.success('Zakázka úspěšně přijata.');
+        router.refresh(); 
+      } else { 
+        toast.error('Chyba při přijímání zakázky.'); 
+      }
+    } catch { 
+      toast.error('Chyba při přijímání zakázky.'); 
+    }
     finally { setIsClaiming(false); }
   };
 
   const handleStartWork = async () => {
     try {
       const res = await fetch(`/api/orders/${order.readableId}/start`, { method: 'POST' });
-      if (res.ok) { setStatus('IN_PROGRESS'); router.refresh(); } 
-      else { alert('Chyba.'); }
-    } catch { alert('Chyba.'); }
+      if (res.ok) { 
+        toast.success('Práce na revizi zahájena.');
+        setStatus('IN_PROGRESS'); 
+        router.refresh(); 
+      } else { 
+        toast.error('Nepodařilo se zahájit revizi.'); 
+      }
+    } catch { 
+      toast.error('Nepodařilo se zahájit revizi.'); 
+    }
   };
 
   const handleSaveSchedule = async () => {
@@ -150,12 +164,15 @@ export default function JobDetailClient({ order, currentUser, addressHistory = [
         }),
       });
       if (res.ok) {
+        toast.success('Termín návštěvy byl uložen.');
         setEditingSchedule(false);
         router.refresh();
       } else {
-        alert('Chyba při ukládání termínu.');
+        toast.error('Chyba při ukládání termínu.');
       }
-    } catch { alert('Chyba při ukládání termínu.'); }
+    } catch { 
+      toast.error('Chyba při ukládání termínu.'); 
+    }
     finally { setIsSavingSchedule(false); }
   };
 
@@ -179,15 +196,22 @@ export default function JobDetailClient({ order, currentUser, addressHistory = [
   };
 
   const handleComplete = async () => {
-    if (unsavedPricing) { alert('Máte neuložené položky v rozpočtu. Uložte je prosím nejdříve.'); return; }
-    if (!file && !order.reportFile) { alert('Nahrajte revizní zprávu (PDF) nebo ji vytvořte online.'); return; }
+    if (unsavedPricing) { 
+      toast.error('Máte neuložené položky v rozpočtu. Uložte je prosím nejdříve.'); 
+      return; 
+    }
+    if (!file && !order.reportFile) { 
+      toast.error('Nahrajte revizní zprávu (PDF) nebo ji vytvořte online.'); 
+      return; 
+    }
     if (!defectsFixed || !safeForUse) {
-      alert('Musíte potvrdit, že zjištěné závady byly odstraněny na místě a že zařízení je schopné bezpečného provozu.');
+      toast.error('Musíte potvrdit, že zjištěné závady byly odstraněny a zařízení je schopné provozu.');
       return;
     }
     const finalAmount = priceInput ? parseFloat(priceInput) : (order.price || 0);
     if (invoiceFile && finalAmount <= 0) {
-      alert('K faktuře musíte zadat platnou konečnou cenu (větší než 0).'); return;
+      toast.error('K faktuře musíte zadat platnou konečnou cenu (větší než 0).'); 
+      return;
     }
 
     setIsUploading(true);
@@ -221,6 +245,7 @@ export default function JobDetailClient({ order, currentUser, addressHistory = [
         }),
       });
       if (res.ok) {
+        toast.success('Revize byla úspěšně dokončena a zpráva uložena!');
         setStatus('COMPLETED');
         router.refresh();
       } else {
@@ -230,10 +255,12 @@ export default function JobDetailClient({ order, currentUser, addressHistory = [
             window.location.href = '/dashboard/settings?tab=billing';
           }
         } else {
-          alert(data.message || 'Chyba při dokončování.');
+          toast.error(data.message || 'Chyba při dokončování.');
         }
       }
-    } catch { alert('Chyba při komunikaci se serverem.'); }
+    } catch { 
+      toast.error('Chyba při komunikaci se serverem.'); 
+    }
     finally { setIsUploading(false); }
   };
 
@@ -544,10 +571,11 @@ export default function JobDetailClient({ order, currentUser, addressHistory = [
                       const f = e.target.files?.[0];
                       if (f) {
                         if (f.size > 5 * 1024 * 1024) {
-                          alert('Soubor je příliš velký. Maximální velikost je 5 MB.');
+                          toast.error('Soubor je příliš velký. Maximální velikost je 5 MB.');
                           return;
                         }
                         setFile(f);
+                        toast.success('Revizní zpráva připravena k nahrání');
                       }
                     }} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed" disabled={isUploading} />
                   )}
@@ -580,10 +608,11 @@ export default function JobDetailClient({ order, currentUser, addressHistory = [
                     const f = e.target.files?.[0];
                     if (f) {
                       if (f.size > 5 * 1024 * 1024) {
-                        alert('Soubor je příliš velký. Maximální velikost je 5 MB.');
+                        toast.error('Soubor je příliš velký. Maximální velikost je 5 MB.');
                         return;
                       }
                       setInvoiceFile(f);
+                      toast.success('Faktura připravena k nahrání');
                     }
                   }} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed" disabled={isUploading} />
                   {invoiceFile ? (

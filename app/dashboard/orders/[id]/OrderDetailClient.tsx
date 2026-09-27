@@ -28,6 +28,7 @@ import { Order } from '@prisma/client';
 import { ChatSection } from '@/components/ChatSection';
 import { ReviewSection } from '@/components/ReviewSection';
 import { PhotoSection } from '@/components/PhotoSection';
+import toast from 'react-hot-toast';
 import { getTipsForService } from '@/lib/preparationTips';
 
 import { OrderPricingManager } from '@/components/dashboard/OrderPricingManager';
@@ -58,14 +59,14 @@ export default function OrderDetailClient({ order, currentUser, technicians = []
         body: JSON.stringify({ technicianId: selectedTechId }),
       });
       if (res.ok) {
-        alert('Technik byl úspěšně přiřazen.');
+        toast.success('Technik byl úspěšně přiřazen.');
         router.refresh();
       } else {
-        alert('Došlo k chybě při přiřazování technika.');
+        toast.error('Došlo k chybě při přiřazování technika.');
       }
     } catch (error) {
       console.error(error);
-      alert('Došlo k chybě při přiřazování technika.');
+      toast.error('Došlo k chybě při přiřazování technika.');
     } finally {
       setIsAssigning(false);
     }
@@ -112,13 +113,14 @@ export default function OrderDetailClient({ order, currentUser, technicians = []
                       body: JSON.stringify({ status: newStatus }),
                     });
                     if (res.ok) {
+                      toast.success('Stav zakázky byl aktualizován');
                       router.refresh();
                     } else {
-                      alert('Chyba při změně stavu');
+                      toast.error('Chyba při změně stavu');
                     }
                   } catch (error) {
                     console.error(error);
-                    alert('Chyba při změně stavu');
+                    toast.error('Chyba při změně stavu');
                   }
                 }}
                 className="bg-[#1A1A1A] border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:border-brand-yellow outline-none"
@@ -348,13 +350,18 @@ export default function OrderDetailClient({ order, currentUser, technicians = []
               {['ADMIN', 'SUPPORT'].includes(currentUser.role) && order.status === 'COMPLETED' && !(order as any).isVerifiedAdmin && (
                 <button
                   onClick={async () => {
-                    if (confirm('Opravdu chcete označit revizi za ověřenou?')) {
+                    const confirmed = window.confirm ? window.confirm('Opravdu chcete označit revizi za ověřenou?') : true;
+                    if (confirmed) {
                       const res = await fetch(`/api/admin/orders/${order.id}/verify`, { method: 'POST' });
-                      if (res.ok) window.location.reload();
-                      else alert('Chyba při ověřování');
+                      if (res.ok) {
+                        toast.success('Revize ověřena a provize uvolněna.');
+                        setTimeout(() => window.location.reload(), 500);
+                      } else {
+                        toast.error('Chyba při ověřování revize.');
+                      }
                     }
                   }}
-                  className="px-4 py-1.5 bg-green-500 text-white text-sm font-semibold rounded-lg hover:bg-green-600 transition-colors"
+                  className="px-4 py-2 min-h-[44px] bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-xl transition-all shadow-sm active:scale-95 flex items-center justify-center"
                 >
                   Ověřit revizi a uvolnit provizi
                 </button>

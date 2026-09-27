@@ -13,6 +13,7 @@ import Link from 'next/link';
 import SubscriptionPricingBanner from '@/components/marketing/SubscriptionPricingBanner';
 import UploadOwnRevisionForm from '@/components/revisions/UploadOwnRevisionForm';
 import { motion, AnimatePresence } from 'motion/react';
+import toast from 'react-hot-toast';
 
 type BuildingOption = {
   id: string;
@@ -125,7 +126,7 @@ export default function SVJNewOrderClient({ buildings }: { buildings: BuildingOp
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 15 * 1024 * 1024) {
-        alert('Soubor je příliš velký (maximum je 15 MB). Zvolte prosím menší soubor.');
+        toast.error('Soubor je příliš velký (maximum je 15 MB). Zvolte prosím menší soubor.');
         return;
       }
       const { compressImage, fileToBase64 } = await import('@/lib/client-compress');
@@ -158,7 +159,7 @@ export default function SVJNewOrderClient({ buildings }: { buildings: BuildingOp
 
   const onSubmit = async () => {
     if (!selectedBuilding) {
-      alert('Chyba: Nebyla vybrána žádná budova.');
+      toast.error('Chyba: Nebyla vybrána žádná budova.');
       return;
     }
     setIsSubmitting(true);
@@ -190,15 +191,16 @@ export default function SVJNewOrderClient({ buildings }: { buildings: BuildingOp
 
       if (res.ok) {
         setIsSuccess(true);
+        toast.success('Poptávka revize byla úspěšně odeslána!');
         setTimeout(() => {
           router.push(`/svj/buildings/${selectedBuilding}`);
         }, 1500);
       } else {
         const errorData = await res.json().catch(() => ({}));
-        alert(errorData.message || 'Došlo k chybě při odesílání objednávky.');
+        toast.error(errorData.message || 'Došlo k chybě při odesílání objednávky.');
       }
     } catch {
-      alert('Došlo k chybě při odesílání objednávky.');
+      toast.error('Došlo k chybě při odesílání objednávky.');
     } finally {
       setIsSubmitting(false);
     }

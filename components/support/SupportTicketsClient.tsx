@@ -471,7 +471,52 @@ export function AdminSupportClient({ tickets: initialTickets, currentUser }: { t
         )}
       </div>
 
-      <div className="bg-[#1A1A1A] border border-white/5 rounded-xl overflow-hidden">
+      {/* Mobile Tickets Cards (Phones & Small Tablets) */}
+      <div className="space-y-3 sm:hidden">
+        {filteredTickets.length === 0 ? (
+          <div className="rounded-2xl border border-white/5 bg-[#141414] p-8 text-center text-sm text-gray-500">
+            Nebyly nalezeny žádné odpovídající tikety.
+          </div>
+        ) : (
+          filteredTickets.map(ticket => {
+            const isCancellation = ticket.category === 'ORDER_CANCELLATION' || ticket.subject?.toLowerCase().includes('storno');
+            return (
+              <div
+                key={ticket.id}
+                onClick={() => setSelectedTicketId(ticket.id)}
+                className={cn(
+                  "cursor-pointer overflow-hidden rounded-2xl border p-4 transition-all active:scale-[0.99]",
+                  isCancellation
+                    ? "border-red-500/25 bg-red-500/10 hover:bg-red-500/15"
+                    : "border-white/10 bg-[#161616] hover:bg-[#1a1a1a]"
+                )}
+              >
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <span className="font-semibold text-white text-sm leading-snug line-clamp-2">
+                    {ticket.subject}
+                  </span>
+                  <span className={cn(
+                    "shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full border",
+                    ticket.status === 'OPEN' 
+                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" 
+                      : "bg-gray-500/10 text-gray-400 border-white/10"
+                  )}>
+                    {ticket.status === 'OPEN' ? 'OTEVŘENÝ' : 'UZAVŘENÝ'}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between text-xs text-gray-400 pt-2 border-t border-white/5">
+                  <span className="truncate">{ticket.user?.name || ticket.user?.email || 'Neznámý'}</span>
+                  <span className="text-gray-500">{new Date(ticket.createdAt).toLocaleDateString('cs-CZ')}</span>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Desktop & Tablet Table */}
+      <div className="hidden sm:block bg-[#1A1A1A] border border-white/5 rounded-xl overflow-hidden">
         <table className="w-full text-left text-sm text-gray-300">
           <thead className="bg-[#111] text-gray-400 text-xs uppercase border-b border-white/5">
             <tr>

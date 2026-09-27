@@ -4,6 +4,7 @@ import { DollarSign, TrendingUp, FileText, Calendar, Plus, Trash2 } from 'lucide
 import { cn } from '@/lib/utils';
 import { motion } from 'motion/react';
 import { useState, useRef } from 'react';
+import toast from 'react-hot-toast';
 
 export default function EarningsClient({ monthlyData, totalEarnings, totalCount, commissionRate, payoutRequests = [], technician }: any) {
   const [expandedMonth, setExpandedMonth] = useState<number>(0);
@@ -34,9 +35,10 @@ export default function EarningsClient({ monthlyData, totalEarnings, totalCount,
       const compressed = await compressImage(file);
       const b64 = await fileToBase64(compressed);
       setInvoiceData(b64);
+      toast.success('Soubor faktury úspěšně načten');
     } catch (err) {
       console.error(err);
-      alert('Při zpracování souboru došlo k chybě.');
+      toast.error('Při zpracování souboru došlo k chybě.');
     }
   };
   
@@ -91,7 +93,7 @@ export default function EarningsClient({ monthlyData, totalEarnings, totalCount,
     if (invoiceMode === 'generate') {
       const generated = await generatePDF();
       if (!generated) {
-        alert('Chyba při generování faktury.');
+        toast.error('Chyba při generování faktury.');
         setBusy(false);
         return;
       }
@@ -99,7 +101,7 @@ export default function EarningsClient({ monthlyData, totalEarnings, totalCount,
     }
 
     if (!finalInvoiceData) {
-      alert('Prosím nahrajte fakturu nebo ji vygenerujte.');
+      toast.error('Prosím nahrajte fakturu nebo ji vygenerujte.');
       setBusy(false);
       return;
     }
@@ -111,13 +113,14 @@ export default function EarningsClient({ monthlyData, totalEarnings, totalCount,
         body: JSON.stringify({ amount: Number(amount), iban, notes, invoiceData: finalInvoiceData, orderId, dueDate }),
       });
       if (res.ok) {
-        window.location.reload();
+        toast.success('Žádost o výplatu byla úspěšně odeslána.');
+        setTimeout(() => window.location.reload(), 700);
       } else {
-        alert('Chyba při nahrávání faktury');
+        toast.error('Chyba při nahrávání faktury a odesílání žádosti.');
       }
     } catch (err) {
       console.error(err);
-      alert('Chyba serveru');
+      toast.error('Chyba při komunikaci se serverem.');
     } finally {
       setBusy(false);
     }

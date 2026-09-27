@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CreditCard, Loader2, X } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 type Mode = 'checkout' | 'portal';
 type Purpose = 'onboarding' | 'settings' | 'order' | 'addon';
@@ -58,9 +59,10 @@ export default function FakePaymentUI({
         });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          alert((data as { message?: string }).message || 'Nepodařilo se dokončit platbu doplňku.');
+          toast.error((data as { message?: string }).message || 'Nepodařilo se dokončit platbu doplňku.');
           return;
         }
+        toast.success('Platba doplňku byla úspěšně dokončena.');
         router.replace(successUrl);
         router.refresh();
       } finally {
@@ -75,9 +77,10 @@ export default function FakePaymentUI({
       const res = await fetch('/api/billing/complete-fake-onboarding', { method: 'POST' });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        alert((data as { message?: string }).message || 'Nepodařilo se dokončit platbu.');
+        toast.error((data as { message?: string }).message || 'Nepodařilo se dokončit platbu.');
         return;
       }
+      toast.success('Platba byla úspěšně zaznamenána.');
       router.replace(successUrl);
       router.refresh();
     } finally {

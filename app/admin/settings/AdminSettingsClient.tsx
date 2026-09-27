@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Save, Settings, Shield, Mail, User, Link as LinkIcon, Check, X, Copy, Users, Clock, AlertCircle, Database, Download } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'react-hot-toast';
 
 export default function AdminSettingsClient({ user, teamMembers, systemConfig = {} }: { user: any, teamMembers: any[], systemConfig?: Record<string, string> }) {
   const [formData, setFormData] = useState({
@@ -30,9 +31,9 @@ export default function AdminSettingsClient({ user, teamMembers, systemConfig = 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(configValues),
       });
-      if (res.ok) alert('Nastavení platformy uloženo.');
-      else alert('Chyba při ukládání.');
-    } catch { alert('Chyba.'); }
+      if (res.ok) toast.success('Nastavení platformy uloženo.');
+      else toast.error('Chyba při ukládání nastavení.');
+    } catch { toast.error('Chyba při spojení se serverem.'); }
     finally { setIsSavingConfig(false); }
   };
   const [isGenerating, setIsGenerating] = useState(false);
@@ -70,13 +71,14 @@ export default function AdminSettingsClient({ user, teamMembers, systemConfig = 
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
         setBackupPassword('');
+        toast.success('Záloha byla úspěšně stažena.');
       } else {
         const err = await res.json();
-        alert(err.error || 'Chyba při stahování zálohy.');
+        toast.error(err.error || 'Chyba při stahování zálohy.');
       }
     } catch (error) {
       console.error(error);
-      alert('Došlo k chybě při stahování.');
+      toast.error('Došlo k chybě při stahování.');
     } finally {
       setIsDownloadingBackup(false);
     }
@@ -98,14 +100,14 @@ export default function AdminSettingsClient({ user, teamMembers, systemConfig = 
       });
       
       if (res.ok) {
-        alert('Nastavení bylo úspěšně uloženo.');
+        toast.success('Profil byl úspěšně uložen.');
         router.refresh();
       } else {
-        alert('Došlo k chybě při ukládání nastavení.');
+        toast.error('Došlo k chybě při ukládání nastavení.');
       }
     } catch (error) {
       console.error(error);
-      alert('Došlo k chybě při ukládání nastavení.');
+      toast.error('Došlo k chybě při ukládání nastavení.');
     } finally {
       setIsSaving(false);
     }
@@ -121,12 +123,13 @@ export default function AdminSettingsClient({ user, teamMembers, systemConfig = 
         const data = await res.json();
         const link = `${window.location.origin}/registertest?invite=${data.inviteCode}`;
         setInviteLink(link);
+        toast.success('Zvací odkaz byl vygenerován.');
       } else {
-        alert('Nepodařilo se vygenerovat odkaz.');
+        toast.error('Nepodařilo se vygenerovat odkaz.');
       }
     } catch (error) {
       console.error(error);
-      alert('Došlo k chybě.');
+      toast.error('Došlo k chybě.');
     } finally {
       setIsGenerating(false);
     }
@@ -136,6 +139,7 @@ export default function AdminSettingsClient({ user, teamMembers, systemConfig = 
     if (inviteLink) {
       navigator.clipboard.writeText(inviteLink);
       setCopied(true);
+      toast.success('Zvací odkaz zkopírován do schránky');
       setTimeout(() => setCopied(false), 2000);
     }
   };
@@ -159,16 +163,16 @@ export default function AdminSettingsClient({ user, teamMembers, systemConfig = 
       });
 
       if (res.ok) {
-        alert('Člen týmu byl úspěšně schválen.');
+        toast.success('Člen týmu byl úspěšně schválen.');
         setShowPasswordModal(false);
         router.refresh();
       } else {
         const data = await res.json();
-        alert(data.error || 'Nesprávné heslo nebo chyba při schvalování.');
+        toast.error(data.error || 'Nesprávné heslo nebo chyba při schvalování.');
       }
     } catch (error) {
       console.error(error);
-      alert('Došlo k chybě.');
+      toast.error('Došlo k chybě.');
     } finally {
       setIsApproving(false);
     }
@@ -179,14 +183,14 @@ export default function AdminSettingsClient({ user, teamMembers, systemConfig = 
     try {
       const res = await fetch(`/api/admin/users/${memberId}`, { method: 'DELETE' });
       if (res.ok) {
-        alert('Člen týmu byl deaktivován.');
+        toast.success('Člen týmu byl deaktivován.');
         router.refresh();
       } else {
         const data = await res.json();
-        alert(data.message || 'Chyba při odstraňování.');
+        toast.error(data.message || 'Chyba při odstraňování.');
       }
     } catch {
-      alert('Došlo k chybě.');
+      toast.error('Došlo k chybě.');
     }
   };
 

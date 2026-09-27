@@ -45,17 +45,37 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
     const { id } = await params;
     const body = await req.json();
-    const { technicianId, companyId, status, isVerifiedAdmin } = body;
+    const { 
+      technicianId, 
+      companyId, 
+      status, 
+      isVerifiedAdmin,
+      price,
+      address,
+      notes,
+      scheduledDate,
+      isPaid
+    } = body;
 
     const dataToUpdate: any = {};
-    if (technicianId !== undefined) dataToUpdate.technicianId = technicianId;
-    if (companyId !== undefined) dataToUpdate.companyId = companyId;
+    if (technicianId !== undefined) dataToUpdate.technicianId = technicianId || null;
+    if (companyId !== undefined) dataToUpdate.companyId = companyId || null;
     if (status !== undefined) dataToUpdate.status = status;
-    if (isVerifiedAdmin !== undefined) dataToUpdate.isVerifiedAdmin = isVerifiedAdmin;
+    if (isVerifiedAdmin !== undefined) dataToUpdate.isVerifiedAdmin = Boolean(isVerifiedAdmin);
+    if (price !== undefined) dataToUpdate.price = price === null || price === '' ? null : Number(price);
+    if (address !== undefined) dataToUpdate.address = address;
+    if (notes !== undefined) dataToUpdate.notes = notes;
+    if (scheduledDate !== undefined) dataToUpdate.scheduledDate = scheduledDate ? new Date(scheduledDate) : null;
+    if (isPaid !== undefined) dataToUpdate.isPaid = Boolean(isPaid);
 
     const updatedOrder = await prisma.order.update({
       where: { id },
       data: dataToUpdate,
+      include: {
+        customer: { select: { id: true, name: true, email: true, phone: true } },
+        technician: { select: { id: true, name: true, email: true, phone: true } },
+        company: { select: { id: true, name: true, email: true } },
+      }
     });
 
     if (status === 'CANCELLED') {

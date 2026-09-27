@@ -5,6 +5,7 @@ import { Radio, MapPin, DollarSign, Calendar, Briefcase, Search, Navigation, Clo
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { motion } from 'motion/react';
+import toast from 'react-hot-toast';
 
 export default function RadarClient({ orders, technicians }: { orders: any[], technicians: any[] }) {
   const router = useRouter();
@@ -31,11 +32,14 @@ export default function RadarClient({ orders, technicians }: { orders: any[], te
             body: JSON.stringify({ technicianId: techId }),
           });
         }
+        toast.success('Poptávka byla úspěšně převzata!');
         router.refresh();
       } else {
-        alert('Chyba při přijímání zakázky.');
+        toast.error('Chyba při přijímání zakázky.');
       }
-    } catch { alert('Chyba.'); }
+    } catch { 
+      toast.error('Nepodařilo se přijmout zakázku.'); 
+    }
     finally { setClaimingId(null); }
   };
 

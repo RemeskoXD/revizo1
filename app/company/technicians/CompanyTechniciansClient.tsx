@@ -6,6 +6,7 @@ import { User, Order, CompanyJoinRequest } from '@prisma/client';
 import { motion } from 'motion/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import toast from 'react-hot-toast';
 
 type TechnicianWithOrders = User & { assignedOrders: Order[] };
 type JoinRequestWithTech = CompanyJoinRequest & { technician: { id: string, name: string | null, email: string | null, phone: string | null } };
@@ -34,15 +35,15 @@ export default function CompanyTechniciansClient({ technicians, joinRequests, co
       });
 
       if (res.ok) {
-        alert('Technik byl úspěšně odebrán.');
+        toast.success('Technik byl úspěšně odebrán.');
         router.refresh();
       } else {
         const data = await res.json();
-        alert(data.error || 'Došlo k chybě při odebírání technika.');
+        toast.error(data.error || 'Došlo k chybě při odebírání technika.');
       }
     } catch (error) {
       console.error(error);
-      alert('Došlo k chybě při odebírání technika.');
+      toast.error('Došlo k chybě při odebírání technika.');
     } finally {
       setIsRemoving(null);
     }
@@ -56,15 +57,15 @@ export default function CompanyTechniciansClient({ technicians, joinRequests, co
       });
 
       if (res.ok) {
-        alert(`Žádost byla úspěšně ${action === 'approve' ? 'schválena' : 'zamítnuta'}.`);
+        toast.success(`Žádost byla úspěšně ${action === 'approve' ? 'schválena' : 'zamítnuta'}.`);
         router.refresh();
       } else {
         const data = await res.json();
-        alert(data.error || 'Došlo k chybě při zpracování žádosti.');
+        toast.error(data.error || 'Došlo k chybě při zpracování žádosti.');
       }
     } catch (error) {
       console.error(error);
-      alert('Došlo k chybě při zpracování žádosti.');
+      toast.error('Došlo k chybě při zpracování žádosti.');
     } finally {
       setIsProcessingRequest(null);
     }

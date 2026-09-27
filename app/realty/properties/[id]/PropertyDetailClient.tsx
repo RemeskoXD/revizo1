@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { motion } from 'motion/react';
 import { ArrowLeft, Plus, FileText, Calendar, MapPin, Clock, Home, ChevronRight, FileUp } from 'lucide-react';
 import Link from 'next/link';
+import toast from 'react-hot-toast';
 
 type Order = {
   id: string;
@@ -48,14 +49,14 @@ export default function PropertyDetailClient({ property }: { property: Property 
       }
     } catch (error) {
       console.error(error);
-      alert('Chyba při generování odkazu');
+      toast.error('Chyba při generování odkazu.');
     }
   };
 
   const copyToClipboard = (token: string) => {
     const url = `${window.location.origin}/claim-property?token=${token}`;
     navigator.clipboard.writeText(url);
-    alert('Odkaz zkopírován do schránky!');
+    toast.success('Odkaz byl zkopírován do schránky!');
   };
 
   const handleCreateOrder = async (e: React.FormEvent) => {
@@ -76,12 +77,13 @@ export default function PropertyDetailClient({ property }: { property: Property 
         setOrders([created, ...orders]);
         setIsAddModalOpen(false);
         setNewOrder({ serviceType: 'Revize oken', propertyType: 'Byt', notes: '', preferredDate: '' });
+        toast.success('Revize byla úspěšně objednána.');
       } else {
-        alert('Chyba při vytváření revize');
+        toast.error('Chyba při vytváření revize.');
       }
     } catch (error) {
       console.error(error);
-      alert('Chyba při vytváření revize');
+      toast.error('Došlo k chybě při vytváření revize.');
     } finally {
       setIsSubmitting(false);
     }

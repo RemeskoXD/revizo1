@@ -15,7 +15,8 @@ export default async function AdminDashboard() {
     totalUsers, totalOrders, completedOrders, cancelledOrders,
     pendingOrders, inProgressOrders, recentOrders,
     monthlyCompletedOrders, unassignedCount, pendingRoleRequests,
-    totalByTechData, cancelledByTechData
+    totalByTechData, cancelledByTechData,
+    pendingRegistrationsCount, openTicketsCount
   ] = await Promise.all([
     prisma.user.count(),
     prisma.order.count(),
@@ -48,7 +49,9 @@ export default async function AdminDashboard() {
       by: ['technicianId'],
       where: { technicianId: { not: null }, status: 'CANCELLED' },
       _count: { id: true },
-    })
+    }),
+    prisma.user.count({ where: { accountStatus: 'PENDING_APPROVAL', isDeleted: false } }),
+    prisma.supportTicket.count({ where: { status: 'OPEN' } }),
   ]);
 
   const monthlyRevenue = monthlyCompletedOrders.reduce((sum, o) => sum + (o.price || 0), 0);
@@ -98,6 +101,8 @@ export default async function AdminDashboard() {
       pendingRoleRequests={pendingRoleRequests}
       recentOrders={recentOrders}
       redFlagTechnicians={redFlagTechnicians}
+      pendingRegistrationsCount={pendingRegistrationsCount}
+      openTicketsCount={openTicketsCount}
       userRole={session.user.role}
     />
   );

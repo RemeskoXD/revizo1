@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
+import toast from 'react-hot-toast';
 
 function calculateDaysLeft(createdAt: Date) {
   const ONE_DAY = 1000 * 3600 * 24;
@@ -28,13 +29,14 @@ export default function TechInvoicesClient({ requests }: { requests: any[] }) {
         }),
       });
       if (res.ok) {
+        toast.success('Stav faktury technika byl úspěšně změněn.');
         router.refresh();
       } else {
-        alert('Chyba při úpravě stavu');
+        toast.error('Chyba při úpravě stavu faktury.');
       }
     } catch (e) {
       console.error(e);
-      alert('Chyba');
+      toast.error('Došlo k neočekávané chybě.');
     } finally {
       setBusy(null);
     }

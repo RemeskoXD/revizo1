@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { motion } from 'motion/react';
 import { Home, CheckCircle2, ArrowRight, User, MapPin } from 'lucide-react';
 import { AnimatedItem } from '@/components/AnimatedItem';
+import toast from 'react-hot-toast';
 
 type Property = {
   id: string;
@@ -26,13 +27,13 @@ export default function TransfersClient({ initialProperties }: { initialProperti
 
       if (res.ok) {
         setProperties(properties.filter(p => p.id !== propertyId));
-        alert('Převod byl úspěšně dokončen. Nemovitost nyní patří novému majiteli.');
+        toast.success('Převod byl úspěšně dokončen. Nemovitost nyní patří novému majiteli.');
       } else {
-        alert('Chyba při potvrzování převodu');
+        toast.error('Chyba při potvrzování převodu.');
       }
     } catch (error) {
       console.error(error);
-      alert('Chyba při potvrzování převodu');
+      toast.error('Došlo k chybě při potvrzování převodu.');
     } finally {
       setIsConfirming(null);
     }

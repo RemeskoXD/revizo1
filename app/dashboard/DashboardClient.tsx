@@ -52,7 +52,10 @@ export default function DashboardClient({
 
   const handleShareAll = async () => {
     const completedIds = watchdogItems.filter((w: WatchdogItem) => w.hasReport).map((w: WatchdogItem) => w.id);
-    if (completedIds.length === 0) { alert('Žádné revize ke sdílení.'); return; }
+    if (completedIds.length === 0) { 
+      toast.error('Žádné revize se zprávou ke sdílení.'); 
+      return; 
+    }
     
     setIsSharing(true);
     try {
@@ -65,9 +68,13 @@ export default function DashboardClient({
       if (res.ok) {
         const fullUrl = `${window.location.origin}${data.url}`;
         await navigator.clipboard.writeText(fullUrl);
-        alert(`Odkaz zkopírován do schránky!\n\n${fullUrl}\n\nPlatný 30 dní.`);
+        toast.success('Odkaz pro sdílení byl zkopírován do schránky (platnost 30 dní).');
+      } else {
+        toast.error('Nepodařilo se vytvořit odkaz pro sdílení.');
       }
-    } catch { alert('Chyba při vytváření odkazu.'); }
+    } catch { 
+      toast.error('Chyba při vytváření odkazu.'); 
+    }
     finally { setIsSharing(false); }
   };
 
@@ -78,8 +85,11 @@ export default function DashboardClient({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ taskId, status: 'RESOLVED' }),
       });
+      toast.success('Úkol byl označen jako vyřešený.');
       router.refresh();
-    } catch { alert('Chyba.'); }
+    } catch { 
+      toast.error('Nepodařilo se aktualizovat stav úkolu.'); 
+    }
   };
 
   return (

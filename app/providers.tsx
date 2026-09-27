@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { isPublicPathname } from "@/lib/public-routes";
 import { Clock, LogOut, CheckCircle2, AlertCircle } from "lucide-react";
 import { RevizoneRoleChrome } from "@/components/RevizoneRoleChrome";
+import { Toaster } from "react-hot-toast";
 
 const ROLE_NAMES: Record<string, string> = {
   COMPANY_ADMIN: "Firma / Manažer",
@@ -144,6 +145,34 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <SessionAuthGuards />
       <PendingApprovalGuard>
         <RevizoneRoleChrome />
+        <Toaster
+          position="top-center"
+          toastOptions={{
+            duration: 3500,
+            style: {
+              background: '#1c1c1e',
+              color: '#ffffff',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              borderRadius: '16px',
+              padding: '12px 18px',
+              fontSize: '13px',
+              fontWeight: 500,
+              boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+            },
+            success: {
+              iconTheme: {
+                primary: '#10b981',
+                secondary: '#1c1c1e',
+              },
+            },
+            error: {
+              iconTheme: {
+                primary: '#ef4444',
+                secondary: '#1c1c1e',
+              },
+            },
+          }}
+        />
         {children}
       </PendingApprovalGuard>
     </SessionProvider>

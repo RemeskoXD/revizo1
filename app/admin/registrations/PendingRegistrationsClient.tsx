@@ -22,6 +22,7 @@ import {
   Search
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { toast } from 'react-hot-toast';
 
 export type PendingRow = {
   id: string;
@@ -108,12 +109,13 @@ export default function PendingRegistrationsClient({ initialRows, categories }: 
         setRows((r) => r.filter((x) => x.id !== approveForId));
         setApproveForId(null);
         setSelectedRow(null); // Close detail modal if open
+        toast.success('Registrace byla úspěšně schválena.');
       } else {
         const d = await res.json().catch(() => ({}));
-        alert(d.message || 'Nepodařilo se schválit registraci.');
+        toast.error(d.message || 'Nepodařilo se schválit registraci.');
       }
     } catch {
-      alert('Došlo k neočekávané chybě.');
+      toast.error('Došlo k neočekávané chybě.');
     } finally {
       setLoadingId(null);
     }
@@ -127,7 +129,7 @@ export default function PendingRegistrationsClient({ initialRows, categories }: 
   const confirmReject = async () => {
     if (!rejectForId) return;
     if (!rejectionReason.trim()) {
-      alert('Prosím uveďte důvod zamítnutí pro informování klienta.');
+      toast.error('Prosím uveďte důvod zamítnutí pro informování klienta.');
       return;
     }
 
@@ -142,12 +144,13 @@ export default function PendingRegistrationsClient({ initialRows, categories }: 
         setRows((r) => r.filter((x) => x.id !== rejectForId));
         setRejectForId(null);
         setSelectedRow(null); // Close detail modal if open
+        toast.success('Registrace byla zamítnuta.');
       } else {
         const d = await res.json().catch(() => ({}));
-        alert(d.message || 'Nepodařilo se zamítnout registraci.');
+        toast.error(d.message || 'Nepodařilo se zamítnout registraci.');
       }
     } catch {
-      alert('Došlo k chybě při zamítání.');
+      toast.error('Došlo k chybě při zamítání.');
     } finally {
       setLoadingId(null);
     }
@@ -201,7 +204,72 @@ export default function PendingRegistrationsClient({ initialRows, categories }: 
         </div>
       </div>
 
-      <div className="rounded-xl border border-white/5 bg-[#111] p-4 sm:p-6 shadow-xl overflow-hidden">
+      {/* Mobile Card List (Phones & Small Tablets) */}
+      <div className="space-y-3 lg:hidden">
+        {filteredRows.length === 0 ? (
+          <div className="rounded-2xl border border-white/5 bg-[#141414] p-8 text-center text-sm text-gray-500">
+            {search || roleFilter !== 'all' ? 'Žádné registrace neodpovídají zadanému filtru.' : 'Žádné čekající registrace k ověření.'}
+          </div>
+        ) : (
+          filteredRows.map((row) => {
+            const preset = ROLE_PRESET[row.role] || ROLE_PRESET.CUSTOMER;
+            const RoleIcon = preset.icon;
+
+            return (
+              <div
+                key={row.id}
+                className="overflow-hidden rounded-2xl border border-white/10 bg-[#161616] p-4 shadow-sm"
+              >
+                <div className="flex items-start justify-between gap-3 mb-2.5">
+                  <div className="min-w-0">
+                    <p className="truncate text-base font-bold text-white">{row.name || 'Neznámý'}</p>
+                    <p className="truncate text-xs font-mono text-gray-400">{row.email}</p>
+                  </div>
+                  <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full border shrink-0 ${preset.color}`}>
+                    <RoleIcon className="w-3 h-3" />
+                    {preset.label}
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400 mb-3.5">
+                  {row.phone && <span>📞 {row.phone}</span>}
+                  {row.ico && <span>IČO: {row.ico}</span>}
+                  <span className="text-gray-500">🕒 {new Date(row.createdAt).toLocaleDateString('cs-CZ')}</span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 border-t border-white/5 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRow(row)}
+                    className="flex min-h-[44px] items-center justify-center gap-1 rounded-xl border border-white/10 bg-white/5 px-2 py-2 text-xs font-semibold text-gray-300 hover:bg-white/10 active:scale-[0.98] transition-all"
+                  >
+                    <Eye className="w-3.5 h-3.5" /> Profil
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openApprove(row.id)}
+                    disabled={loadingId === row.id}
+                    className="flex min-h-[44px] items-center justify-center gap-1 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-2 py-2 text-xs font-bold text-emerald-400 hover:bg-emerald-500/20 active:scale-[0.98] transition-all disabled:opacity-50"
+                  >
+                    <Check className="w-3.5 h-3.5" /> Schválit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openReject(row.id)}
+                    disabled={loadingId === row.id}
+                    className="flex min-h-[44px] items-center justify-center gap-1 rounded-xl border border-red-500/20 bg-red-500/10 px-2 py-2 text-xs font-semibold text-red-400 hover:bg-red-500/20 active:scale-[0.98] transition-all disabled:opacity-50"
+                  >
+                    <X className="w-3.5 h-3.5" /> Zamítnout
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Desktop Table */}
+      <div className="hidden lg:block rounded-xl border border-white/5 bg-[#111] p-4 sm:p-6 shadow-xl overflow-hidden">
         <div className="table-scroll -mx-2 px-2 sm:mx-0 sm:px-0">
           <table className="w-full min-w-[720px] text-left text-sm">
             <thead className="text-gray-500 border-b border-white/5 text-xs font-semibold uppercase tracking-wider">
